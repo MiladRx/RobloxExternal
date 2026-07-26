@@ -1,0 +1,60 @@
+#pragma once
+
+#include "imgui.h"
+#include "app/Settings.h"
+#include <cmath>
+
+namespace fonts {
+    extern ImFont* imgui;
+    extern ImFont* tahoma_bold;
+    extern ImFont* proggy_clean;
+    extern ImFont* visitor;
+    extern ImFont* verdana;
+
+    extern ImFont* tahoma;
+    extern ImFont* esp;
+    extern ImFont* esp_bold;
+
+    void load(ImGuiIO& io);
+
+    inline ImFont* by_index(int index) {
+        switch (index) {
+        case 1: if (tahoma_bold)  return tahoma_bold;  break;
+        case 2: if (proggy_clean) return proggy_clean; break;
+        case 3: if (visitor)      return visitor;      break;
+        case 4: if (verdana)      return verdana;      break;
+        default: break;
+        }
+
+        if (imgui)
+            return imgui;
+        if (tahoma_bold)
+            return tahoma_bold;
+        return ImGui::GetFont();
+    }
+
+    inline ImFont* selected() {
+        return by_index(Cheat::g_Settings.esp.font);
+    }
+
+    inline ImFont* ui() {
+        return by_index(Cheat::g_Settings.gui.font);
+    }
+
+    inline ImFont* ui_bold() {
+        return ui();
+    }
+
+    inline float ui_size(ImFont* font = nullptr) {
+        ImFont* f = font ? font : ui();
+        if (f && f->LegacySize > 0.0f)
+            return f->LegacySize;
+        return 13.0f;
+    }
+
+    inline float snap_px(float size) {
+        if (size < 8.0f)
+            size = 8.0f;
+        return std::floor(size + 0.5f);
+    }
+}

@@ -1,0 +1,45 @@
+# Visual Studio
+.vs/
+*.vcxproj.user
+*.suo
+*.sdf
+*.opensdf
+
+# Build
+/x64/
+/Win32/
+/jewsploit/
+
+*.obj
+*.o
+*.exe
+*.pdb
+*.ilk
+*.idb
+*.iobj
+*.ipdb
+*.exp
+*.tlog
+*.log
+*.lastbuildstate
+*.recipe
+*.CppClean.log
+
+# Scratch
+**/_hitsounds_tmp/
+**/_offsets_candidates/
+*.rar
+
+# Deps / IDE
+node_modules/
+.idea/
+.vscode/
+.cursor/
+
+# Local tool scratch (tracked: tools/ida only)
+tools/*
+!tools/ida/
+!tools/ida/**
+
+# FreeType libs
+!third_party/freetype/lib/**
