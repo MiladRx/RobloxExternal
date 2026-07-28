@@ -415,7 +415,7 @@ namespace {
 			bool busy =
 				m.jump || m.noclip || m.inf_jump || m.fps_unlock || m.fov ||
 				m.freecam_key != 0 || Cheat::Features::ThirdPerson::NeedsTick() ||
-				w.no_shadow || w.fog ||
+				w.no_shadow || w.fog || w.time_changer ||
 				Cheat::g_Settings.hitbox.enabled;
 
 			static bool s_was = false;
