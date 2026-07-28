@@ -7,6 +7,8 @@
 #include "core/memory/Memory.h"
 #include "core/console/Console.h"
 #include "features/visuals/Crosshair.h"
+#include "features/visuals/boxfill/BoxFill.h"
+#include "features/visuals/MeshDxShader.h"
 #include <dwmapi.h>
 #include <windowsx.h>
 
@@ -103,6 +105,7 @@ namespace Cheat {
         CreateRenderTarget();
         m_Width = w;
         m_Height = h;
+        Visuals::MeshDxShader::Resize((unsigned)w, (unsigned)h);
     }
 
     // клеим оверлей к клиентской области
@@ -234,6 +237,9 @@ namespace Cheat {
         Cheat::Core::g_SwapChain = m_SwapChain;
         Cheat::Core::g_RenderTargetView = m_RenderTargetView;
 
+        Cheat::Visuals::BoxFill::Init(m_Device);
+        Visuals::MeshDxShader::Init(m_Device, m_DeviceContext);
+
         if (!GUI::Menu::Initialize(m_Hwnd, m_Device, m_DeviceContext))
         {
             Console::Log(Console::Color::Red, "overlay fail menu");
@@ -307,7 +313,8 @@ namespace Cheat {
                 }
             }
 
-            m_SwapChain->Present(1, 0);
+            // 0 = без vsync оверлея: меньше задержка относительно камеры игры
+            m_SwapChain->Present(0, 0);
         }
 
         Visuals::Crosshair::Shutdown();
@@ -395,6 +402,8 @@ namespace Cheat {
     void Renderer::Shutdown()
     {
         GUI::Menu::Shutdown();
+        Cheat::Visuals::BoxFill::Shutdown();
+        Visuals::MeshDxShader::Shutdown();
 
         CleanupDevice();
         Cheat::Core::g_Device = nullptr;

@@ -86,7 +86,7 @@ void refresh_cache()
 		g_cache.lighting = 0;
 	}
 
-	if (!g_Memory.IsValid(g_cache.lighting))
+	if (!g_Memory.IsValid(g_cache.lighting) || Cheat::g_Settings.world.time_changer)
 		g_cache.lighting = find_svc("Lighting");
 
 	std::uint64_t chara = local_chara();

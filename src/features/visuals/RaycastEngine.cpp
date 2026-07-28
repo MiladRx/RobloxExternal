@@ -14,6 +14,7 @@
 #include <chrono>
 #include <cmath>
 #include <climits>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -762,6 +763,15 @@ bool IsEnabled() {
     return g_Settings.misc.raycast_engine;
 }
 
+bool WantsCache()
+{
+    if (g_Settings.misc.raycast_engine)
+        return true;
+    return g_Settings.esp.chams &&
+           g_Settings.esp.chams_mode == 5 &&
+           g_Settings.esp.mesh_chams_occlusion;
+}
+
 void Reset() {
     cache_storage().store(std::make_shared<occluder_cache>(), std::memory_order_release);
     std::lock_guard<std::mutex> lock(builder_mutex());
@@ -770,9 +780,69 @@ void Reset() {
 
 // подкачиваем окклюдеры потихоньку
 void Tick() {
-    if (!IsEnabled())
+    if (!WantsCache())
         return;
     (void)get_occluder_cache();
+}
+
+void VisitOccluders(
+    const Vector3& camera,
+    float max_dist,
+    std::size_t max_count,
+    const std::function<void(const Vector3& pos, const Matrix4x4& rot, const Vector3& size)>& fn)
+{
+    if (!fn || max_count == 0 || max_dist <= 0.f)
+        return;
+
+    auto cache = get_occluder_cache();
+    if (!cache || cache->parts.empty())
+        return;
+
+    const float max_dsq = max_dist * max_dist;
+    struct Cand {
+        float dsq;
+        std::uint32_t idx;
+    };
+    std::vector<Cand> cands;
+    cands.reserve((std::min)(max_count * 2, cache->parts.size()));
+
+    for (std::uint32_t i = 0; i < (std::uint32_t)cache->parts.size(); ++i)
+    {
+        const auto& p = cache->parts[i];
+        const float dx = p.position.x - camera.x;
+        const float dy = p.position.y - camera.y;
+        const float dz = p.position.z - camera.z;
+        const float dsq = dx * dx + dy * dy + dz * dz;
+        if (dsq > max_dsq)
+            continue;
+        cands.push_back({ dsq, i });
+    }
+
+    if (cands.empty())
+        return;
+
+    if (cands.size() > max_count)
+    {
+        std::nth_element(cands.begin(), cands.begin() + (std::ptrdiff_t)max_count, cands.end(),
+                         [](const Cand& a, const Cand& b) { return a.dsq < b.dsq; });
+        cands.resize(max_count);
+    }
+
+    for (const Cand& c : cands)
+    {
+        const auto& p = cache->parts[c.idx];
+        Matrix4x4 rot(
+            p.rotation._11, p.rotation._12, p.rotation._13, 0.f,
+            p.rotation._21, p.rotation._22, p.rotation._23, 0.f,
+            p.rotation._31, p.rotation._32, p.rotation._33, 0.f,
+            0.f, 0.f, 0.f, 1.f);
+        Vector3 size{
+            p.half_size.x * 2.f,
+            p.half_size.y * 2.f,
+            p.half_size.z * 2.f
+        };
+        fn(p.position, rot, size);
+    }
 }
 
 // видно ли игрока, сверху ещё сглаживание чтоб не дёргалось

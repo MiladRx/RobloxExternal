@@ -130,17 +130,13 @@ void Cheat::Features::ThirdPerson::Tick()
 		g_on = true;
 	}
 
-	// только CameraOffset, остальное не трогаем
+	// CameraOffset: +Z назад, +Y вверх. один слайдер крутит оба
 	float dist = Cheat::g_Settings.misc.third_person_distance;
 	if (dist < 0.5f) dist = 0.5f;
 	if (dist > 120.f) dist = 120.f;
 
-	float lift = dist * 0.12f;
-	if (lift < 0.35f) lift = 0.35f;
-	if (lift > 2.5f) lift = 2.5f;
-
 	poke_offset(hum, Vector3(
 		g_old_off.x,
-		g_old_off.y + lift,
-		g_old_off.z - dist));
+		g_old_off.y + dist,
+		g_old_off.z + dist));
 }

@@ -85,6 +85,12 @@
     <Filter Include="src\features\visuals">
       <UniqueIdentifier>{0BDE04CE-12B7-4684-AA8E-2C9611774BBE}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\features\games">
+      <UniqueIdentifier>{B3E91F0A-6C44-4D2E-9A11-8F0C5D7E2B14}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\features\visuals\boxfill">
+      <UniqueIdentifier>{A81E3C4D-9F22-4B10-8D55-71C0E2B8A901}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\features\world">
       <UniqueIdentifier>{D9A87CFB-D994-4862-A230-E3E9DC5D28C6}</UniqueIdentifier>
     </Filter>
@@ -189,14 +195,32 @@
     <ClInclude Include="src\features\visuals\EngineChams.h">
       <Filter>src\features\visuals</Filter>
     </ClInclude>
+    <ClInclude Include="src\features\visuals\MeshParser.h">
+      <Filter>src\features\visuals</Filter>
+    </ClInclude>
+    <ClInclude Include="src\features\visuals\MeshCache.h">
+      <Filter>src\features\visuals</Filter>
+    </ClInclude>
+    <ClInclude Include="src\features\visuals\MeshChams.h">
+      <Filter>src\features\visuals</Filter>
+    </ClInclude>
+    <ClInclude Include="src\features\visuals\MeshDxShader.h">
+      <Filter>src\features\visuals</Filter>
+    </ClInclude>
     <ClInclude Include="src\features\visuals\KillEffects.h">
       <Filter>src\features\visuals</Filter>
     </ClInclude>
     <ClInclude Include="src\features\visuals\ESPPreview.h">
       <Filter>src\features\visuals</Filter>
     </ClInclude>
+    <ClInclude Include="src\features\visuals\boxfill\BoxFill.h">
+      <Filter>src\features\visuals\boxfill</Filter>
+    </ClInclude>
     <ClInclude Include="src\features\visuals\HavocWorldEsp.h">
       <Filter>src\features\visuals</Filter>
+    </ClInclude>
+    <ClInclude Include="src\features\games\PhantomForces.h">
+      <Filter>src\features\games</Filter>
     </ClInclude>
     <ClInclude Include="src\features\visuals\ModelLoader.h">
       <Filter>src\features\visuals</Filter>
@@ -398,8 +422,14 @@
     <ClCompile Include="src\features\visuals\ESP.cpp">
       <Filter>src\features\visuals</Filter>
     </ClCompile>
+    <ClCompile Include="src\features\visuals\boxfill\BoxFill.cpp">
+      <Filter>src\features\visuals\boxfill</Filter>
+    </ClCompile>
     <ClCompile Include="src\features\visuals\HavocWorldEsp.cpp">
       <Filter>src\features\visuals</Filter>
+    </ClCompile>
+    <ClCompile Include="src\features\games\PhantomForces.cpp">
+      <Filter>src\features\games</Filter>
     </ClCompile>
     <ClCompile Include="src\features\visuals\Crosshair.cpp">
       <Filter>src\features\visuals</Filter>
@@ -408,6 +438,18 @@
       <Filter>src\features\visuals</Filter>
     </ClCompile>
     <ClCompile Include="src\features\visuals\EngineChams.cpp">
+      <Filter>src\features\visuals</Filter>
+    </ClCompile>
+    <ClCompile Include="src\features\visuals\MeshParser.cpp">
+      <Filter>src\features\visuals</Filter>
+    </ClCompile>
+    <ClCompile Include="src\features\visuals\MeshCache.cpp">
+      <Filter>src\features\visuals</Filter>
+    </ClCompile>
+    <ClCompile Include="src\features\visuals\MeshChams.cpp">
+      <Filter>src\features\visuals</Filter>
+    </ClCompile>
+    <ClCompile Include="src\features\visuals\MeshDxShader.cpp">
       <Filter>src\features\visuals</Filter>
     </ClCompile>
     <ClCompile Include="src\features\visuals\KillEffects.cpp">

@@ -5,6 +5,7 @@
 #include "MagicBullet.h"
 #include "ViewportSilent.h"
 #include "MouseSilent.h"
+#include "PhantomSilent.h"
 #include "app/Settings.h"
 #include "core/globals/Globals.h"
 #include "core/memory/Memory.h"
@@ -14,6 +15,7 @@
 #include "core/player/PlayerHandler.h"
 #include "features/visuals/RaycastEngine.h"
 #include "features/visuals/HavocWorldEsp.h"
+#include "features/games/PhantomForces.h"
 #include "renderer/Renderer.h"
 #include "imgui.h"
 #include <Windows.h>
@@ -56,32 +58,45 @@ namespace Cheat {
 
                 if (part == Settings::AIM_LOWER_TORSO)
                 {
-                    return c.lowerTorso.get();
+                    // R6: один Torso
+                    if (c.lowerTorso)
+                        return c.lowerTorso.get();
+                    return c.upperTorso.get();
                 }
 
                 if (part == Settings::AIM_HRP)
                 {
-                    return c.humanoidRootPart.get();
+                    if (c.humanoidRootPart)
+                        return c.humanoidRootPart.get();
+                    return c.upperTorso.get();
                 }
 
                 if (part == Settings::AIM_LEFT_HAND)
                 {
-                    return c.leftHand.get();
+                    if (c.leftHand)
+                        return c.leftHand.get();
+                    return c.leftUpperArm.get(); // R6 Left Arm
                 }
 
                 if (part == Settings::AIM_RIGHT_HAND)
                 {
-                    return c.rightHand.get();
+                    if (c.rightHand)
+                        return c.rightHand.get();
+                    return c.rightUpperArm.get();
                 }
 
                 if (part == Settings::AIM_LEFT_FOOT)
                 {
-                    return c.leftFoot.get();
+                    if (c.leftFoot)
+                        return c.leftFoot.get();
+                    return c.leftUpperLeg.get(); // R6 Left Leg
                 }
 
                 if (part == Settings::AIM_RIGHT_FOOT)
                 {
-                    return c.rightFoot.get();
+                    if (c.rightFoot)
+                        return c.rightFoot.get();
+                    return c.rightUpperLeg.get();
                 }
 
                 return nullptr;
@@ -254,6 +269,7 @@ namespace Cheat {
             {
                 ViewportSilent::SetActive(false);
                 MouseSilent::SetActive(false);
+                PhantomSilent::SetActive(false);
             }
 
             void lock_cursor_to_game()
@@ -523,7 +539,10 @@ namespace Cheat {
                             s.local_player + Offsets::Player::ModelInstance);
                         if (g_Settings.misc.teamcheck)
                         {
-                            s.local_team_folder = PlayerHandler::ResolveTeamFolder(s.local_char);
+                            if (Games::PhantomForces::IsActivePlace())
+                                s.local_team_folder = PlayerHandler::LocalTeamFolder();
+                            else
+                                s.local_team_folder = PlayerHandler::ResolveTeamFolder(s.local_char);
                         }
                     }
                 }
@@ -1145,6 +1164,16 @@ namespace Cheat {
                 MagicBullet::SetActive(false);
                 // wallbang на том же RaycastSilent-хуке, без второго Install
                 RaycastSilent::SetActive(true, world, true);
+            }
+
+            else if (g_Settings.aim.silent_method == Settings::SILENT_PHANTOM)
+            {
+                release_cursor_clip();
+                ViewportSilent::SetActive(false);
+                MouseSilent::SetActive(false);
+                RaycastSilent::SetActive(false);
+                MagicBullet::SetActive(false);
+                PhantomSilent::SetActive(true, world);
             }
 
             else

@@ -288,11 +288,28 @@ bool Save(const std::string& name)
     PutBool(out, "esp.enabled", s.esp.enabled);
     PutBool(out, "esp.draw_local", s.esp.draw_local);
     PutBool(out, "esp.box", s.esp.box);
+    PutBool(out, "esp.box_fill", s.esp.box_fill);
+    PutInt(out, "esp.box_fill_mode", s.esp.box_fill_mode);
+    PutInt(out, "esp.box_fill_image", s.esp.box_fill_image);
+    PutFloat(out, "esp.box_fill_image_alpha", s.esp.box_fill_image_alpha);
+    PutBool(out, "esp.box_fill_remove_bg", s.esp.box_fill_remove_bg);
+    PutF4(out, "esp.box_fill_color", s.esp.box_fill_color);
     PutBool(out, "esp.name", s.esp.name);
     PutBool(out, "esp.skeleton", s.esp.skeleton);
+    PutInt(out, "esp.skeleton_type", s.esp.skeleton_type);
     PutBool(out, "esp.chams", s.esp.chams);
     PutInt(out, "esp.chams_mode", s.esp.chams_mode);
     PutInt(out, "esp.chams_shader", s.esp.chams_shader);
+    PutInt(out, "esp.mesh_chams_style", s.esp.mesh_chams_style);
+    PutInt(out, "esp.mesh_chams_dx_mode", s.esp.mesh_chams_dx_mode);
+    PutBool(out, "esp.mesh_chams_occlusion", s.esp.mesh_chams_occlusion);
+    PutInt(out, "esp.mesh_chams_occluded_dx_mode", s.esp.mesh_chams_occluded_dx_mode);
+    PutF4(out, "esp.mesh_chams_occluded_color", s.esp.mesh_chams_occluded_color);
+    PutF4(out, "esp.mesh_chams_occluded_outline_color", s.esp.mesh_chams_occluded_outline_color);
+    PutBool(out, "esp.mesh_chams_outline", s.esp.mesh_chams_outline);
+    PutInt(out, "esp.mesh_chams_outline_style", s.esp.mesh_chams_outline_style);
+    PutFloat(out, "esp.mesh_chams_outline_fade", s.esp.mesh_chams_outline_fade);
+    PutF4(out, "esp.mesh_chams_outline_color", s.esp.mesh_chams_outline_color);
     PutInt(out, "esp.engine_chams_style", s.esp.engine_chams_style);
     PutInt(out, "esp.engine_ghost_color_idx", s.esp.engine_ghost_color_idx);
     PutBool(out, "esp.healthbar", s.esp.healthbar);
@@ -313,6 +330,14 @@ bool Save(const std::string& name)
     PutInt(out, "esp.font", s.esp.font);
     PutFloat(out, "esp.font_size", s.esp.font_size);
     PutInt(out, "esp.box_mode", s.esp.box_mode);
+    PutInt(out, "esp.bounding_type", s.esp.bounding_type);
+    for (int i = 0; i < Settings::ESP_OUTLINE_COUNT; ++i) {
+        char key[48];
+        std::snprintf(key, sizeof(key), "esp.esp_outline_%d", i);
+        PutBool(out, key, s.esp.esp_outline[i]);
+    }
+    PutFloat(out, "esp.skeleton_thickness", s.esp.skeleton_thickness);
+    PutFloat(out, "esp.box_thickness", s.esp.box_thickness);
     PutInt(out, "esp.name_mode", s.esp.name_mode);
     PutInt(out, "esp.distance_unit", s.esp.distance_unit);
     PutBool(out, "esp.distance_check", s.esp.distance_check);
@@ -392,6 +417,8 @@ bool Save(const std::string& name)
     PutFloat(out, "world.fog_start", s.world.fog_start);
     PutFloat(out, "world.fog_end", s.world.fog_end);
     PutF4(out, "world.fog_color", s.world.fog_color);
+    PutBool(out, "world.time_changer", s.world.time_changer);
+    PutFloat(out, "world.clock_time", s.world.clock_time);
 
     PutBool(out, "crosshair.enabled", s.crosshair.enabled);
     PutFloat(out, "crosshair.length", s.crosshair.length);
@@ -434,6 +461,7 @@ bool Save(const std::string& name)
     PutBool(out, "misc.raycast_engine", s.misc.raycast_engine);
     PutBool(out, "misc.explorer", s.misc.explorer);
     PutBool(out, "misc.mcp", s.misc.mcp);
+    PutBool(out, "misc.pf_support", s.misc.pf_support);
     PutBool(out, "lua.executor", s.lua.executor);
 
     PutInt(out, "gui.theme", s.gui.theme);
@@ -500,26 +528,43 @@ bool Load(const std::string& name)
     GetBool(kv, "esp.enabled", s.esp.enabled);
     GetBool(kv, "esp.draw_local", s.esp.draw_local);
     GetBool(kv, "esp.box", s.esp.box);
+    GetBool(kv, "esp.box_fill", s.esp.box_fill);
+    GetInt(kv, "esp.box_fill_mode", s.esp.box_fill_mode);
+    GetInt(kv, "esp.box_fill_image", s.esp.box_fill_image);
+    GetFloat(kv, "esp.box_fill_image_alpha", s.esp.box_fill_image_alpha);
+    GetBool(kv, "esp.box_fill_remove_bg", s.esp.box_fill_remove_bg);
+    GetF4(kv, "esp.box_fill_color", s.esp.box_fill_color);
     GetBool(kv, "esp.name", s.esp.name);
     GetBool(kv, "esp.skeleton", s.esp.skeleton);
+    GetInt(kv, "esp.skeleton_type", s.esp.skeleton_type);
     GetBool(kv, "esp.chams", s.esp.chams);
     GetInt(kv, "esp.chams_mode", s.esp.chams_mode);
     GetInt(kv, "esp.chams_shader", s.esp.chams_shader);
+    GetInt(kv, "esp.mesh_chams_style", s.esp.mesh_chams_style);
+    GetInt(kv, "esp.mesh_chams_dx_mode", s.esp.mesh_chams_dx_mode);
+    GetBool(kv, "esp.mesh_chams_occlusion", s.esp.mesh_chams_occlusion);
+    GetInt(kv, "esp.mesh_chams_occluded_dx_mode", s.esp.mesh_chams_occluded_dx_mode);
+    GetF4(kv, "esp.mesh_chams_occluded_color", s.esp.mesh_chams_occluded_color);
+    GetF4(kv, "esp.mesh_chams_occluded_outline_color", s.esp.mesh_chams_occluded_outline_color);
+    GetBool(kv, "esp.mesh_chams_outline", s.esp.mesh_chams_outline);
+    GetInt(kv, "esp.mesh_chams_outline_style", s.esp.mesh_chams_outline_style);
+    GetFloat(kv, "esp.mesh_chams_outline_fade", s.esp.mesh_chams_outline_fade);
+    GetF4(kv, "esp.mesh_chams_outline_color", s.esp.mesh_chams_outline_color);
     GetInt(kv, "esp.engine_chams_style", s.esp.engine_chams_style);
     GetInt(kv, "esp.engine_ghost_color_idx", s.esp.engine_ghost_color_idx);
     if (s.esp.engine_ghost_color_idx < 0 || s.esp.engine_ghost_color_idx > 6)
     {
         s.esp.engine_ghost_color_idx = 6;
     }
-    // 0 default, 1 ghost, 2 wireframe
+    // 0 default, 1 ghost, 2 wireframe, 3 mesh, 4 charwire
     if (s.esp.engine_chams_style < 0)
     {
         s.esp.engine_chams_style = 0;
     }
 
-    if (s.esp.engine_chams_style > 2)
+    if (s.esp.engine_chams_style > 4)
     {
-        s.esp.engine_chams_style = 2;
+        s.esp.engine_chams_style = 4;
     }
     GetBool(kv, "esp.healthbar", s.esp.healthbar);
     GetBool(kv, "esp.health_text", s.esp.health_text);
@@ -539,6 +584,15 @@ bool Load(const std::string& name)
     GetInt(kv, "esp.font", s.esp.font);
     GetFloat(kv, "esp.font_size", s.esp.font_size);
     GetInt(kv, "esp.box_mode", s.esp.box_mode);
+    GetInt(kv, "esp.bounding_type", s.esp.bounding_type);
+    for (int i = 0; i < Settings::ESP_OUTLINE_COUNT; ++i) {
+        char key[48];
+        std::snprintf(key, sizeof(key), "esp.esp_outline_%d", i);
+        GetBool(kv, key, s.esp.esp_outline[i]);
+    }
+    GetFloat(kv, "esp.skeleton_thickness", s.esp.skeleton_thickness);
+    if (s.esp.skeleton_thickness < 1.f) s.esp.skeleton_thickness = 1.f;
+    GetFloat(kv, "esp.box_thickness", s.esp.box_thickness);
     GetInt(kv, "esp.name_mode", s.esp.name_mode);
     GetInt(kv, "esp.distance_unit", s.esp.distance_unit);
     GetBool(kv, "esp.distance_check", s.esp.distance_check);
@@ -618,6 +672,10 @@ bool Load(const std::string& name)
     GetFloat(kv, "world.fog_start", s.world.fog_start);
     GetFloat(kv, "world.fog_end", s.world.fog_end);
     GetF4(kv, "world.fog_color", s.world.fog_color);
+    GetBool(kv, "world.time_changer", s.world.time_changer);
+    GetFloat(kv, "world.clock_time", s.world.clock_time);
+    if (s.world.clock_time < 0.f) s.world.clock_time = 0.f;
+    if (s.world.clock_time > 24.f) s.world.clock_time = 24.f;
 
     GetBool(kv, "crosshair.enabled", s.crosshair.enabled);
     GetFloat(kv, "crosshair.length", s.crosshair.length);
@@ -679,6 +737,7 @@ bool Load(const std::string& name)
     GetBool(kv, "misc.raycast_engine", s.misc.raycast_engine);
     GetBool(kv, "misc.explorer", s.misc.explorer);
     GetBool(kv, "misc.mcp", s.misc.mcp);
+    GetBool(kv, "misc.pf_support", s.misc.pf_support);
     GetBool(kv, "lua.executor", s.lua.executor);
 
     GetInt(kv, "gui.theme", s.gui.theme);
