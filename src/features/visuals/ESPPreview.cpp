@@ -5,6 +5,7 @@
 #include "EspLayout.h"
 #include "PreviewRenderer.h"
 #include "ShaderChams.h"
+#include "features/visuals/boxfill/BoxFill.h"
 #include "preview_model/preview_model_obj.h"
 #include "preview_model/preview_model_texture.h"
 #include "app/Graphics.h"
@@ -431,27 +432,36 @@ void SnapEspBox(float min_x, float min_y, float max_x, float max_y,
     if (y2 <= y1) y2 = y1 + 1.0f;
 }
 
-void DrawPlainBox(ImDrawList* dl, ImVec2 tl, ImVec2 br, ImU32 color)
+void DrawPlainBox(ImDrawList* dl, ImVec2 tl, ImVec2 br, ImU32 color, float thick, bool outline)
 {
     float x1, y1, x2, y2;
     SnapEspBox(tl.x, tl.y, br.x, br.y, x1, y1, x2, y2);
-    dl->AddRect(ImVec2(x1 - 1, y1 - 1), ImVec2(x2 + 1, y2 + 1), IM_COL32(0, 0, 0, 255));
-    dl->AddRect(ImVec2(x1 + 1, y1 + 1), ImVec2(x2 - 1, y2 - 1), IM_COL32(0, 0, 0, 255));
-    dl->AddRect(ImVec2(x1, y1), ImVec2(x2, y2), color);
+    if (thick < 0.5f) thick = 0.5f;
+    if (outline) {
+        if (thick <= 1.01f) {
+            dl->AddRect(ImVec2(x1 - 1, y1 - 1), ImVec2(x2 + 1, y2 + 1), IM_COL32(0, 0, 0, 255));
+            dl->AddRect(ImVec2(x1 + 1, y1 + 1), ImVec2(x2 - 1, y2 - 1), IM_COL32(0, 0, 0, 255));
+        } else {
+            dl->AddRect(ImVec2(x1, y1), ImVec2(x2, y2), IM_COL32(0, 0, 0, 255), 0.0f, 0, thick + 2.0f);
+        }
+    }
+    dl->AddRect(ImVec2(x1, y1), ImVec2(x2, y2), color, 0.0f, 0, thick);
 }
 
-void DrawCornerBox(ImDrawList* dl, ImVec2 tl, ImVec2 br, ImU32 color)
+void DrawCornerBox(ImDrawList* dl, ImVec2 tl, ImVec2 br, ImU32 color, float thick, bool outline)
 {
     float x1, y1, x2, y2;
     SnapEspBox(tl.x, tl.y, br.x, br.y, x1, y1, x2, y2);
+    if (thick < 0.5f) thick = 0.5f;
     float lw = Floor((x2 - x1) * 0.25f);
     float lh = Floor((y2 - y1) * 0.25f);
     if (lw < 2.f) lw = 2.f;
     if (lh < 2.f) lh = 2.f;
     ImU32 black = IM_COL32(0, 0, 0, 255);
     auto seg = [&](float ax, float ay, float bx, float by) {
-        dl->AddLine(ImVec2(ax, ay), ImVec2(bx, by), black, 3.0f);
-        dl->AddLine(ImVec2(ax, ay), ImVec2(bx, by), color, 1.0f);
+        if (outline)
+            dl->AddLine(ImVec2(ax, ay), ImVec2(bx, by), black, thick + 2.0f);
+        dl->AddLine(ImVec2(ax, ay), ImVec2(bx, by), color, thick);
     };
     seg(x1, y1, x1 + lw, y1); seg(x1, y1, x1, y1 + lh);
     seg(x2 - lw, y1, x2, y1); seg(x2, y1, x2, y1 + lh);
@@ -459,10 +469,12 @@ void DrawCornerBox(ImDrawList* dl, ImVec2 tl, ImVec2 br, ImU32 color)
     seg(x2 - lw, y2, x2, y2); seg(x2, y2 - lh, x2, y2);
 }
 
-void DrawSkeletonLine(ImDrawList* dl, ImVec2 a, ImVec2 b, ImU32 color)
+void DrawSkeletonLine(ImDrawList* dl, ImVec2 a, ImVec2 b, ImU32 color, float thick, bool outline)
 {
-    dl->AddLine(a, b, IM_COL32(0, 0, 0, 255), 3.0f);
-    dl->AddLine(a, b, color, 1.0f);
+    if (thick < 1.0f) thick = 1.0f;
+    if (outline)
+        dl->AddLine(a, b, IM_COL32(0, 0, 0, 255), thick + 2.0f);
+    dl->AddLine(a, b, color, thick);
 }
 
 ImU32 TierDotColor(int tier, int alpha)
@@ -791,7 +803,10 @@ void ESPPreview::Render()
                         parts.push_back(pc);
                     }
                     // engine mode в оверлее нет, рисуем как neon шейдер
-                    const int preview_mode = (s.esp.chams_mode == 4) ? 3 : s.esp.chams_mode;
+                    // engine — в оверлее нет; mesh preview ≈ filled
+                    const int preview_mode = (s.esp.chams_mode == 4) ? 3
+                        : (s.esp.chams_mode == 5) ? 1
+                        : s.esp.chams_mode;
                     const int preview_shader = (s.esp.chams_mode == 4)
                         ? (int)Cheat::Visuals::ShaderChams::Neon
                         : s.esp.chams_shader;
@@ -800,11 +815,28 @@ void ESPPreview::Render()
                 }
             }
 
+            if (s.esp.box_fill && !s.esp.box) {
+                if (s.esp.box_fill_mode == 1) {
+                    int img = s.esp.box_fill_image;
+                    if (img < 0) img = 0;
+                    if (img >= Cheat::Visuals::BoxFill::k_fill_image_count)
+                        img = Cheat::Visuals::BoxFill::k_fill_image_count - 1;
+                    Cheat::Visuals::BoxFill::Draw(dl, img, ImVec2(bx1, by1), ImVec2(bx2, by2),
+                        s.esp.box_fill_image_alpha, false);
+                } else {
+                    dl->AddRectFilled(ImVec2(bx1, by1), ImVec2(bx2, by2), Col(s.esp.box_fill_color));
+                }
+            }
+
             if (s.esp.box) {
+                const float box_t = s.esp.box_thickness;
+                const bool box_ol = s.esp.esp_outline[Cheat::Settings::OUTLINE_BOX];
                 if (s.esp.box_mode == 1)
-                    DrawCornerBox(dl, ImVec2(bx1, by1), ImVec2(bx2, by2), Col(s.esp.box_color));
+                    DrawCornerBox(dl, ImVec2(bx1, by1), ImVec2(bx2, by2),
+                                  Col(s.esp.box_color), box_t, box_ol);
                 else
-                    DrawPlainBox(dl, ImVec2(bx1, by1), ImVec2(bx2, by2), Col(s.esp.box_color));
+                    DrawPlainBox(dl, ImVec2(bx1, by1), ImVec2(bx2, by2),
+                                 Col(s.esp.box_color), box_t, box_ol);
             }
 
             // если не драгаем компактим слоты (дыры забиваем)
@@ -944,14 +976,29 @@ void ESPPreview::Render()
             g_PrevHits = std::move(hits);
 
             if (s.esp.skeleton) {
-                std::vector<float> segs;
-                if (g_Renderer.GetProjectedR6Skeleton(segs)) {
-                    const ImU32 bone = Col(s.esp.skeleton_color);
-                    for (size_t i = 0; i + 3 < segs.size(); i += 4) {
-                        DrawSkeletonLine(dl,
-                            UV(segs[i], segs[i + 1]),
-                            UV(segs[i + 2], segs[i + 3]),
-                            bone);
+                const int skel_type = s.esp.skeleton_type;
+                if (skel_type >= 1 && skel_type <= 3) {
+                    int img = Cheat::Visuals::BoxFill::SK;
+                    if (skel_type == 2)
+                        img = Cheat::Visuals::BoxFill::US;
+                    else if (skel_type == 3)
+                        img = Cheat::Visuals::BoxFill::SE;
+                    Cheat::Visuals::BoxFill::Draw(dl, img,
+                        ImVec2(bx1, by1), ImVec2(bx2, by2),
+                        s.esp.skeleton_color[3], true);
+                } else {
+                    std::vector<float> segs;
+                    if (g_Renderer.GetProjectedR6Skeleton(segs)) {
+                        const ImU32 bone = Col(s.esp.skeleton_color);
+                        const float skel_t = s.esp.skeleton_thickness;
+                        const bool skel_ol = s.esp.esp_outline[
+                            Cheat::Settings::OUTLINE_SKELETON];
+                        for (size_t i = 0; i + 3 < segs.size(); i += 4) {
+                            DrawSkeletonLine(dl,
+                                UV(segs[i], segs[i + 1]),
+                                UV(segs[i + 2], segs[i + 3]),
+                                bone, skel_t, skel_ol);
+                        }
                     }
                 }
             }

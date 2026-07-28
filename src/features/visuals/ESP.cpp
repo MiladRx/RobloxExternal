@@ -2,7 +2,11 @@
 #include "ESP.h"
 #include "EspLayout.h"
 #include "HavocWorldEsp.h"
+#include "features/games/PhantomForces.h"
 #include "ShaderChams.h"
+#include "MeshChams.h"
+#include "MeshDxShader.h"
+#include "features/visuals/boxfill/BoxFill.h"
 #include "features/aim/Aim.h"
 #include "features/misc/HitboxExpander.h"
 #include "core/globals/Globals.h"
@@ -55,21 +59,34 @@ static void SnapEspBox(float min_x, float min_y, float max_x, float max_y,
     if (y2 <= y1) y2 = y1 + 1.0f;
 }
 
-// обычный бокс с чёрной обводкой
-static void DrawBox(ImDrawList* draw_list, ImVec2 top_left, ImVec2 bottom_right, ImU32 color)
+// обычный бокс, опционально с чёрной обводкой
+static void DrawBox(ImDrawList* draw_list, ImVec2 top_left, ImVec2 bottom_right,
+                    ImU32 color, float thick, bool outline)
 {
     float x1, y1, x2, y2;
     SnapEspBox(top_left.x, top_left.y, bottom_right.x, bottom_right.y, x1, y1, x2, y2);
+    if (thick < 0.5f) thick = 0.5f;
 
-    draw_list->AddRect(ImVec2(x1 - 1, y1 - 1), ImVec2(x2 + 1, y2 + 1), IM_COL32(0, 0, 0, 255), 0.0f, 0, 1.0f);
-    draw_list->AddRect(ImVec2(x1 + 1, y1 + 1), ImVec2(x2 - 1, y2 - 1), IM_COL32(0, 0, 0, 255), 0.0f, 0, 1.0f);
-    draw_list->AddRect(ImVec2(x1, y1), ImVec2(x2, y2), color, 0.0f, 0, 1.0f);
+    if (outline) {
+        if (thick <= 1.01f) {
+            draw_list->AddRect(ImVec2(x1 - 1, y1 - 1), ImVec2(x2 + 1, y2 + 1),
+                               IM_COL32(0, 0, 0, 255), 0.0f, 0, 1.0f);
+            draw_list->AddRect(ImVec2(x1 + 1, y1 + 1), ImVec2(x2 - 1, y2 - 1),
+                               IM_COL32(0, 0, 0, 255), 0.0f, 0, 1.0f);
+        } else {
+            draw_list->AddRect(ImVec2(x1, y1), ImVec2(x2, y2),
+                               IM_COL32(0, 0, 0, 255), 0.0f, 0, thick + 2.0f);
+        }
+    }
+    draw_list->AddRect(ImVec2(x1, y1), ImVec2(x2, y2), color, 0.0f, 0, thick);
 }
 
-static void DrawCornerBox(ImDrawList* draw_list, ImVec2 top_left, ImVec2 bottom_right, ImU32 color)
+static void DrawCornerBox(ImDrawList* draw_list, ImVec2 top_left, ImVec2 bottom_right,
+                          ImU32 color, float thick, bool outline)
 {
     float x1, y1, x2, y2;
     SnapEspBox(top_left.x, top_left.y, bottom_right.x, bottom_right.y, x1, y1, x2, y2);
+    if (thick < 0.5f) thick = 0.5f;
     float lw = std::floor((x2 - x1) * 0.25f);
     float lh = std::floor((y2 - y1) * 0.25f);
     if (lw < 2.f) lw = 2.f;
@@ -83,14 +100,20 @@ static void DrawCornerBox(ImDrawList* draw_list, ImVec2 top_left, ImVec2 bottom_
         { {x2, y2 - lh}, {x2, y2} }, { {x2 - lw, y2}, {x2, y2} },
     };
     ImU32 black = IM_COL32(0, 0, 0, 255);
-    for (const auto& s : segs) draw_list->AddLine(s.a, s.b, black, 3.0f);
-    for (const auto& s : segs) draw_list->AddLine(s.a, s.b, color, 1.0f);
+    if (outline) {
+        const float ot = thick + 2.0f;
+        for (const auto& s : segs) draw_list->AddLine(s.a, s.b, black, ot);
+    }
+    for (const auto& s : segs) draw_list->AddLine(s.a, s.b, color, thick);
 }
 
-static void DrawSkeletonLine(ImDrawList* draw_list, ImVec2 a, ImVec2 b, ImU32 color)
+static void DrawSkeletonLine(ImDrawList* draw_list, ImVec2 a, ImVec2 b,
+                             ImU32 color, float thick, bool outline)
 {
-    draw_list->AddLine(a, b, IM_COL32(0, 0, 0, 255), 3.0f);
-    draw_list->AddLine(a, b, color, 1.0f);
+    if (thick < 1.0f) thick = 1.0f;
+    if (outline)
+        draw_list->AddLine(a, b, IM_COL32(0, 0, 0, 255), thick + 2.0f);
+    draw_list->AddLine(a, b, color, thick);
 }
 
 static std::vector<ImVec2> ConvexHull(std::vector<ImVec2> pts)
@@ -338,6 +361,67 @@ bool WorldToScreen(const Matrix4x4& matrix, const Vector2& dimensions, const Vec
     screen.x = ((dimensions.x / 2) + (x * dimensions.x / 2)) * g_esp_scale_x;
     screen.y = ((dimensions.y / 2) - (y * dimensions.y / 2)) * g_esp_scale_y;
     return true;
+}
+
+// clip-space w точки (для near-plane клипа рёбер)
+static float ClipW(const Matrix4x4& m, const Vector3& p)
+{
+    return p.x * m.m[3][0] + p.y * m.m[3][1] + p.z * m.m[3][2] + m.m[3][3];
+}
+
+// экранный AABB по 8 углам OBB; если угол за камерой — клипаем рёбра (иначе бокс плывёт при повороте)
+static void ExpandScreenFromObbCorners(
+    const Matrix4x4& vm, const Vector2& viewport,
+    const Vector3 world[8],
+    float& min_x, float& max_x, float& min_y, float& max_y,
+    bool& any_visible)
+{
+    float cw[8];
+    for (int i = 0; i < 8; ++i)
+    {
+        cw[i] = ClipW(vm, world[i]);
+        Vector2 sp;
+        if (cw[i] >= 0.01f && WorldToScreen(vm, viewport, world[i], sp))
+        {
+            min_x = (std::min)(min_x, sp.x);
+            max_x = (std::max)(max_x, sp.x);
+            min_y = (std::min)(min_y, sp.y);
+            max_y = (std::max)(max_y, sp.y);
+            any_visible = true;
+        }
+    }
+
+    static const int k_edges[12][2] = {
+        { 0, 1 }, { 1, 3 }, { 3, 2 }, { 2, 0 },
+        { 4, 5 }, { 5, 7 }, { 7, 6 }, { 6, 4 },
+        { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 },
+    };
+    constexpr float k_near = 0.01f;
+    for (const auto& e : k_edges)
+    {
+        const int a = e[0], b = e[1];
+        const bool a_in = cw[a] >= k_near;
+        const bool b_in = cw[b] >= k_near;
+        if (a_in == b_in)
+            continue;
+        const float t = (k_near - cw[a]) / (cw[b] - cw[a]);
+        if (t < 0.f || t > 1.f)
+            continue;
+        const Vector3 p{
+            world[a].x + (world[b].x - world[a].x) * t,
+            world[a].y + (world[b].y - world[a].y) * t,
+            world[a].z + (world[b].z - world[a].z) * t,
+        };
+        Vector2 sp;
+        if (WorldToScreen(vm, viewport, p, sp))
+        {
+            min_x = (std::min)(min_x, sp.x);
+            max_x = (std::max)(max_x, sp.x);
+            min_y = (std::min)(min_y, sp.y);
+            max_y = (std::max)(max_y, sp.y);
+            any_visible = true;
+        }
+    }
 }
 
 ImVec2 TracerOrigin(float overlay_w, float overlay_h, int mode)
@@ -601,6 +685,17 @@ void Cheat::Visuals::ESP::Render()
     uintptr_t visual_engine = g_Memory.Read<uintptr_t>(s_module_base + Offsets::VisualEngine::Pointer);
     Matrix4x4 vm = g_Memory.Read<Matrix4x4>(visual_engine + Offsets::VisualEngine::ViewMatrix);
 
+    // dx mesh: shader / occluded / gpu outline
+    if (Cheat::g_Settings.esp.chams &&
+        Cheat::g_Settings.esp.chams_mode == 5 &&
+        (Cheat::g_Settings.esp.mesh_chams_style == 1 ||
+         Cheat::g_Settings.esp.mesh_chams_occlusion ||
+         Cheat::g_Settings.esp.mesh_chams_outline))
+    {
+        const float t = (float)GetTickCount64() * 0.001f;
+        Cheat::Visuals::MeshDxShader::BeginFrame(vm, cam_pos, t);
+    }
+
     std::uint64_t local_player_addr = 0;
     if (Cheat::Globals::Players && g_Memory.IsValid(Cheat::Globals::Players->address))
         local_player_addr = g_Memory.Read<std::uint64_t>(
@@ -791,6 +886,9 @@ void Cheat::Visuals::ESP::Render()
             cache.leftFoot, cache.rightFoot, cache.leftHand, cache.rightHand
         };
 
+        // свежая VP прямо перед боксом — иначе при повороте камеры плывёт
+        vm = g_Memory.Read<Matrix4x4>(visual_engine + Offsets::VisualEngine::ViewMatrix);
+
         float min_x = 10000.0f, max_x = -10000.0f;
         float min_y = 10000.0f, max_y = -10000.0f;
         bool any_visible = false;
@@ -815,6 +913,18 @@ void Cheat::Visuals::ESP::Render()
             Vector3 sz = Cheat::Features::HitboxExpander::SizeForEsp(part->address, bp.GetSize());
             Matrix4x4 rot = bp.GetRotation();
 
+            // PF: у парт size часто ~0 — как в roblox-ext подставляем R6
+            if (Games::PhantomForces::IsActivePlace() &&
+                sz.x < 0.01f && sz.y < 0.01f && sz.z < 0.01f) {
+                if (cache.head && part.get() == cache.head.get())
+                    sz = { 1.f, 1.f, 1.f };
+                else if ((cache.upperTorso && part.get() == cache.upperTorso.get()) ||
+                         (cache.humanoidRootPart && part.get() == cache.humanoidRootPart.get()))
+                    sz = { 2.f, 2.f, 1.f };
+                else
+                    sz = { 1.f, 2.f, 1.f };
+            }
+
             part_data.push_back({ pos, sz, rot, part.get() });
 
             const bool is_hrp = (cache.humanoidRootPart &&
@@ -822,47 +932,57 @@ void Cheat::Visuals::ESP::Render()
 
             Vector3 half = { sz.x / 2.0f, sz.y / 2.0f, sz.z / 2.0f };
 
-            Vector3 corners[8] = {
+            Vector3 local[8] = {
                 { -half.x, -half.y, -half.z }, { -half.x, -half.y,  half.z },
                 { -half.x,  half.y, -half.z }, { -half.x,  half.y,  half.z },
                 {  half.x, -half.y, -half.z }, {  half.x, -half.y,  half.z },
                 {  half.x,  half.y, -half.z }, {  half.x,  half.y,  half.z }
             };
 
+            Vector3 world[8];
             PartCorners pc{}; pc.full = true;
-            int idx = 0;
-
-            for (auto& corner : corners)
+            for (int i = 0; i < 8; ++i)
             {
-                Vector3 world_corner = {
-                    pos.x + (rot.m[0][0] * corner.x + rot.m[0][1] * corner.y + rot.m[0][2] * corner.z),
-                    pos.y + (rot.m[1][0] * corner.x + rot.m[1][1] * corner.y + rot.m[1][2] * corner.z),
-                    pos.z + (rot.m[2][0] * corner.x + rot.m[2][1] * corner.y + rot.m[2][2] * corner.z)
+                world[i] = {
+                    pos.x + (rot.m[0][0] * local[i].x + rot.m[0][1] * local[i].y + rot.m[0][2] * local[i].z),
+                    pos.y + (rot.m[1][0] * local[i].x + rot.m[1][1] * local[i].y + rot.m[1][2] * local[i].z),
+                    pos.z + (rot.m[2][0] * local[i].x + rot.m[2][1] * local[i].y + rot.m[2][2] * local[i].z)
                 };
-
-                wmin.x = (std::min)(wmin.x, world_corner.x); wmax.x = (std::max)(wmax.x, world_corner.x);
-                wmin.y = (std::min)(wmin.y, world_corner.y); wmax.y = (std::max)(wmax.y, world_corner.y);
-                wmin.z = (std::min)(wmin.z, world_corner.z); wmax.z = (std::max)(wmax.z, world_corner.z);
+                wmin.x = (std::min)(wmin.x, world[i].x); wmax.x = (std::max)(wmax.x, world[i].x);
+                wmin.y = (std::min)(wmin.y, world[i].y); wmax.y = (std::max)(wmax.y, world[i].y);
+                wmin.z = (std::min)(wmin.z, world[i].z); wmax.z = (std::max)(wmax.z, world[i].z);
 
                 Vector2 screen_pos;
-                if (WorldToScreen(vm, viewport, world_corner, screen_pos)) {
-                    min_x = (std::min)(min_x, screen_pos.x);
-                    max_x = (std::max)(max_x, screen_pos.x);
-                    min_y = (std::min)(min_y, screen_pos.y);
-                    max_y = (std::max)(max_y, screen_pos.y);
-                    any_visible = true;
-                    pc.pt[idx] = ImVec2(screen_pos.x, screen_pos.y);
-                }
-
+                if (WorldToScreen(vm, viewport, world[i], screen_pos))
+                    pc.pt[i] = ImVec2(screen_pos.x, screen_pos.y);
                 else
-                {
                     pc.full = false;
-                }
-                ++idx;
             }
 
-            if (want_chams && pc.full && !is_hrp)
+            ExpandScreenFromObbCorners(vm, viewport, world,
+                                       min_x, max_x, min_y, max_y, any_visible);
+
+            // overlay AABB chams; mesh=5 резолвит MeshData отдельно
+            if (want_chams && pc.full && !is_hrp &&
+                st.chams_mode != 4 && st.chams_mode != 5)
                 chams_parts.push_back(pc);
+        }
+
+        // bounding type=mesh: полный обход партов+мешей (не кэш конечностей — он часто неполный)
+        if (Cheat::g_Settings.esp.bounding_type == 1 &&
+            g_Memory.IsValid(cache.character))
+        {
+            vm = g_Memory.Read<Matrix4x4>(visual_engine + Offsets::VisualEngine::ViewMatrix);
+            min_x = 10000.0f; max_x = -10000.0f;
+            min_y = 10000.0f; max_y = -10000.0f;
+            any_visible = false;
+            wmin = { 1e9f, 1e9f, 1e9f };
+            wmax = { -1e9f, -1e9f, -1e9f };
+            if (Cheat::Visuals::MeshChams::ExpandBounds(
+                    cache.character, vm, viewport,
+                    g_esp_scale_x, g_esp_scale_y,
+                    min_x, max_x, min_y, max_y, wmin, wmax))
+                any_visible = true;
         }
 
         if (!any_visible || min_x > 5000.0f) return;
@@ -885,8 +1005,25 @@ void Cheat::Visuals::ESP::Render()
             draw_list->AddLine(from, to, tc, 1.0f);
         }
 
-        // чамсы (mode 4 = engine, в память, не сюда; у ботов engine нет)
-        if (want_chams && !chams_parts.empty() && st.chams_mode != 4)
+        // mesh chams: вершины/фейсы из MeshContentProvider
+        if (want_chams && st.chams_mode == 5 && g_Memory.IsValid(cache.character))
+        {
+            const float* fc_ptr = corpse_mode ? Cheat::g_Settings.esp.corpse_color : st.chams_fill;
+            ImU32 fill_col = IM_COL32(
+                (int)(fc_ptr[0] * 255), (int)(fc_ptr[1] * 255), (int)(fc_ptr[2] * 255),
+                corpse_mode ? (int)(fc_ptr[3] * 0.55f * 255) : (int)(fc_ptr[3] * 255));
+            if (!corpse_mode && aim_target)
+                fill_col = aim_red_fill;
+            // свежая матрица на каждого персонажа (mesh долгий → старый vm = отставание)
+            vm = g_Memory.Read<Matrix4x4>(visual_engine + Offsets::VisualEngine::ViewMatrix);
+            Cheat::Visuals::MeshChams::Draw(
+                draw_list, cache.character, vm, viewport,
+                g_esp_scale_x, g_esp_scale_y, fill_col);
+        }
+
+        // overlay chams (не engine/mesh)
+        if (want_chams && !chams_parts.empty() &&
+            st.chams_mode != 4 && st.chams_mode != 5)
         {
             const float* oc_ptr = corpse_mode ? Cheat::g_Settings.esp.corpse_color : st.chams_outline;
             const float* fc_ptr = corpse_mode ? Cheat::g_Settings.esp.corpse_color : st.chams_fill;
@@ -1033,6 +1170,25 @@ void Cheat::Visuals::ESP::Render()
         float bx1, by1, bx2, by2;
         SnapEspBox(min_x, min_y, max_x, max_y, bx1, by1, bx2, by2);
 
+        // заливка бокса: color / image (не вместе с bounding box)
+        if (Cheat::g_Settings.esp.box_fill && !st.box) {
+            const auto& bf = Cheat::g_Settings.esp;
+            if (bf.box_fill_mode == 1) {
+                int img = bf.box_fill_image;
+                if (img < 0) img = 0;
+                if (img >= Cheat::Visuals::BoxFill::k_fill_image_count)
+                    img = Cheat::Visuals::BoxFill::k_fill_image_count - 1;
+                Cheat::Visuals::BoxFill::Draw(draw_list, img,
+                    ImVec2(bx1, by1), ImVec2(bx2, by2), bf.box_fill_image_alpha, false);
+            } else {
+                const float* fc = bf.box_fill_color;
+                const ImU32 fill_col = IM_COL32(
+                    (int)(fc[0] * 255), (int)(fc[1] * 255),
+                    (int)(fc[2] * 255), (int)(fc[3] * 255));
+                draw_list->AddRectFilled(ImVec2(bx1, by1), ImVec2(bx2, by2), fill_col);
+            }
+        }
+
         // бокс: 2d / углы / 3d
         if (st.box) {
             const float* bc = st.box_color;
@@ -1057,19 +1213,31 @@ void Cheat::Visuals::ESP::Render()
                         all_ok = false;
                 }
                 if (all_ok) {
-                    const ImU32 black = IM_COL32(0, 0, 0, 255);
+                    const float box_t = Cheat::g_Settings.esp.box_thickness;
+                    const bool box_ol = Cheat::g_Settings.esp.esp_outline[
+                        Cheat::Settings::OUTLINE_BOX];
+                    if (box_ol) {
+                        const ImU32 black = IM_COL32(0, 0, 0, 255);
+                        const float ot = (box_t < 0.5f ? 0.5f : box_t) + 2.0f;
+                        for (const auto& e : k_box_edges)
+                            draw_list->AddLine(pts[e[0]], pts[e[1]], black, ot);
+                    }
                     for (const auto& e : k_box_edges)
-                        draw_list->AddLine(pts[e[0]], pts[e[1]], black, 3.0f);
-                    for (const auto& e : k_box_edges)
-                        draw_list->AddLine(pts[e[0]], pts[e[1]], box_color, 1.0f);
+                        draw_list->AddLine(pts[e[0]], pts[e[1]], box_color,
+                                           box_t < 0.5f ? 0.5f : box_t);
                     drew_3d = true;
                 }
             }
 
+            const float box_t = Cheat::g_Settings.esp.box_thickness;
+            const bool box_ol = Cheat::g_Settings.esp.esp_outline[
+                Cheat::Settings::OUTLINE_BOX];
             if (box_mode == 1)
-                DrawCornerBox(draw_list, ImVec2(bx1, by1), ImVec2(bx2, by2), box_color);
+                DrawCornerBox(draw_list, ImVec2(bx1, by1), ImVec2(bx2, by2),
+                              box_color, box_t, box_ol);
             else if (!drew_3d && box_mode != 1)
-                DrawBox(draw_list, ImVec2(bx1, by1), ImVec2(bx2, by2), box_color);
+                DrawBox(draw_list, ImVec2(bx1, by1), ImVec2(bx2, by2),
+                        box_color, box_t, box_ol);
         }
 
         const EspLayout::Box ebox{ bx1, by1, bx2, by2 };
@@ -1225,9 +1393,20 @@ void Cheat::Visuals::ESP::Render()
                            IM_COL32(255, 255, 255, 255));
         }
 
-        // кости
+        // кости / png скелет (anton / unfunny / egor)
         if (st.skeleton) {
             const float* sc = st.skeleton_color;
+            const int skel_type = Cheat::g_Settings.esp.skeleton_type;
+
+            if (skel_type >= 1 && skel_type <= 3) {
+                int img = Cheat::Visuals::BoxFill::SK;
+                if (skel_type == 2)
+                    img = Cheat::Visuals::BoxFill::US;
+                else if (skel_type == 3)
+                    img = Cheat::Visuals::BoxFill::SE;
+                Cheat::Visuals::BoxFill::Draw(draw_list, img,
+                    ImVec2(bx1, by1), ImVec2(bx2, by2), sc[3], true);
+            } else {
             const ImU32 skel_color = aim_target ? aim_red : IM_COL32(
                 (int)(sc[0]*255),(int)(sc[1]*255),(int)(sc[2]*255),(int)(sc[3]*255));
 
@@ -1255,10 +1434,14 @@ void Cheat::Visuals::ESP::Render()
                 return true;
             };
 
+            const float skel_t = Cheat::g_Settings.esp.skeleton_thickness;
+            const bool skel_ol = Cheat::g_Settings.esp.esp_outline[
+                Cheat::Settings::OUTLINE_SKELETON];
             auto line_w2s = [&](const Vector3& a, const Vector3& b) {
                 Vector2 sa, sb;
                 if (WorldToScreen(vm, viewport, a, sa) && WorldToScreen(vm, viewport, b, sb))
-                    DrawSkeletonLine(draw_list, ImVec2(sa.x, sa.y), ImVec2(sb.x, sb.y), skel_color);
+                    DrawSkeletonLine(draw_list, ImVec2(sa.x, sa.y), ImVec2(sb.x, sb.y),
+                                     skel_color, skel_t, skel_ol);
             };
 
             auto lerp3 = [](const Vector3& a, const Vector3& b, float t) -> Vector3 {
@@ -1379,6 +1562,7 @@ void Cheat::Visuals::ESP::Render()
                 bone(cache.rightUpperLeg, cache.rightLowerLeg);
                 bone(cache.rightLowerLeg, cache.rightFoot);
             }
+            } // funny skeleton (линии)
         }
     });
 

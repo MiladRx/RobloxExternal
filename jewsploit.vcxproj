@@ -189,9 +189,16 @@
     <ClInclude Include="src\features\visuals\Crosshair.h" />
     <ClInclude Include="src\features\visuals\ShaderChams.h" />
     <ClInclude Include="src\features\visuals\EngineChams.h" />
+    <ClInclude Include="src\features\visuals\MeshParser.h" />
+    <ClInclude Include="src\features\visuals\MeshCache.h" />
+    <ClInclude Include="src\features\visuals\MeshFetch.h" />
+    <ClInclude Include="src\features\visuals\MeshChams.h" />
+    <ClInclude Include="src\features\visuals\MeshDxShader.h" />
     <ClInclude Include="src\features\visuals\KillEffects.h" />
     <ClInclude Include="src\features\visuals\ESPPreview.h" />
+    <ClInclude Include="src\features\visuals\boxfill\BoxFill.h" />
     <ClInclude Include="src\features\visuals\HavocWorldEsp.h" />
+    <ClInclude Include="src\features\games\PhantomForces.h" />
     <ClInclude Include="src\features\visuals\ModelLoader.h" />
     <ClInclude Include="src\features\visuals\PreviewRenderer.h" />
     <ClInclude Include="assets\preview_model\preview_model_obj.h" />
@@ -201,6 +208,7 @@
     <ClInclude Include="src\features\aim\MagicBullet.h" />
     <ClInclude Include="src\features\aim\ViewportSilent.h" />
     <ClInclude Include="src\features\aim\MouseSilent.h" />
+    <ClInclude Include="src\features\aim\PhantomSilent.h" />
     <ClInclude Include="src\features\world\WorldVisuals.h" />
     <ClInclude Include="src\features\local\LocalMods.h" />
     <ClInclude Include="src\features\local\ThirdPerson.h" />
@@ -264,10 +272,20 @@
     <ClCompile Include="src\core\roblox\classes\Workspace.cpp" />
     <ClCompile Include="src\features\visuals\RaycastEngine.cpp" />
     <ClCompile Include="src\features\visuals\ESP.cpp" />
+    <ClCompile Include="src\features\visuals\boxfill\BoxFill.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+    </ClCompile>
     <ClCompile Include="src\features\visuals\HavocWorldEsp.cpp" />
+    <ClCompile Include="src\features\games\PhantomForces.cpp" />
     <ClCompile Include="src\features\visuals\Crosshair.cpp" />
     <ClCompile Include="src\features\visuals\ShaderChams.cpp" />
     <ClCompile Include="src\features\visuals\EngineChams.cpp" />
+    <ClCompile Include="src\features\visuals\MeshParser.cpp" />
+    <ClCompile Include="src\features\visuals\MeshCache.cpp" />
+    <ClCompile Include="src\features\visuals\MeshFetch.cpp" />
+    <ClCompile Include="src\features\visuals\MeshChams.cpp" />
+    <ClCompile Include="src\features\visuals\MeshDxShader.cpp" />
     <ClCompile Include="src\features\visuals\KillEffects.cpp" />
     <ClCompile Include="src\features\visuals\ESPPreview.cpp" />
     <ClCompile Include="src\features\visuals\ModelLoader.cpp" />
@@ -277,6 +295,7 @@
     <ClCompile Include="src\features\aim\MagicBullet.cpp" />
     <ClCompile Include="src\features\aim\ViewportSilent.cpp" />
     <ClCompile Include="src\features\aim\MouseSilent.cpp" />
+    <ClCompile Include="src\features\aim\PhantomSilent.cpp" />
     <ClCompile Include="src\features\world\WorldVisuals.cpp" />
     <ClCompile Include="src\features\local\LocalMods.cpp" />
     <ClCompile Include="src\features\local\ThirdPerson.cpp" />

@@ -488,7 +488,7 @@ void DumpWorld()
     Ptr(Color::Cyan, "Module", base);
     Ptr(Color::Yellow, "Front DM", front);
     Ptr(Color::Green, "Data Model", dm);
-    Ptr(Color::Magenta, "Render View", ve);
+    Ptr(Color::Magenta, "VisualEngine", ve);
     Ptr(Color::Blue, "Workspace", ws);
     Ptr(Color::Teal, "World", world);
     Ptr(Color::Sky, "Players", pl);

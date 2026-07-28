@@ -13,10 +13,15 @@
 #include "renderer/Renderer.h"
 #include "features/visuals/ESP.h"
 #include "features/visuals/HavocWorldEsp.h"
+#include "features/games/PhantomForces.h"
 #include "features/visuals/ESPPreview.h"
+#include "features/visuals/boxfill/BoxFill.h"
+#include "app/Graphics.h"
 #include "features/lua/LuaExecutor.h"
 #include "features/visuals/ShaderChams.h"
 #include "features/visuals/EngineChams.h"
+#include "features/visuals/MeshDxShader.h"
+#include "features/visuals/MeshChams.h"
 #include "features/visuals/KillEffects.h"
 #include "features/visuals/Crosshair.h"
 #include "features/aim/Aim.h"
@@ -158,6 +163,9 @@ void Menu::Render()
         // игровые фичи только когда роблокс в фокусе
         if (Renderer::IsGameActive()) {
             Visuals::ESP::Render();
+            // GPU mesh сразу после ESP — не ждать меню/explorer (меньше отставания от камеры)
+            if (Cheat::Core::g_RenderTargetView)
+                Cheat::Visuals::MeshDxShader::Flush(Cheat::Core::g_RenderTargetView);
             Features::HitboxExpander::Render();
             Features::Aim::Render();
             Visuals::KillEffects::Tick();
@@ -521,6 +529,59 @@ float Menu::DrawMenu()
                     ImGui::SetCursorPosX(6.0f);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
                     row_checkbox_color("bounding box", &g_Settings.esp.box, g_Settings.esp.box_color, "esp_box_color");
+                    if (g_Settings.esp.box)
+                        g_Settings.esp.box_fill = false;
+
+                    // box fill гасится когда включен bounding box
+                    if (!g_Settings.esp.box) {
+                    ImGui::SetCursorPosX(6.0f);
+                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
+                    // image mode: без колорпикера, color: с ним
+                    if (g_Settings.esp.box_fill_mode == 1)
+                        widgets::checkbox("box fill", &g_Settings.esp.box_fill);
+                    else
+                        row_checkbox_color("box fill", &g_Settings.esp.box_fill,
+                                           g_Settings.esp.box_fill_color, "esp_box_fill_color");
+
+                    if (g_Settings.esp.box_fill) {
+                        ImGui::SetCursorPosX(6.0f);
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                        static const char* k_fill_modes[] = { "color", "image" };
+                        widgets::combo("fill type", &g_Settings.esp.box_fill_mode, k_fill_modes, 2);
+
+                        if (g_Settings.esp.box_fill_mode == 1) {
+                            ImGui::SetCursorPosX(6.0f);
+                            ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                            static const char* k_fill_images[] = {
+                                "lebrone", "peter", "stewie", "2minion",
+                                "on_baby", "pink_floyd", "didi_bop", "herobrine",
+                                "vape", "dok", "panta",
+                                "charlie-binladen", "kostya", "loshad",
+                                "elsa", "vovka", "egor", "diddy_kirk", "a-kirk",
+                                "i_cant_fly", "patriot", "agatha_kirk"
+                            };
+                            widgets::combo("fill image", &g_Settings.esp.box_fill_image,
+                                           k_fill_images, 22);
+                            if (g_Settings.esp.box_fill_image < 0)
+                                g_Settings.esp.box_fill_image = 0;
+                            if (g_Settings.esp.box_fill_image > 21)
+                                g_Settings.esp.box_fill_image = 21;
+
+                            ImGui::SetCursorPosX(6.0f);
+                            ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                            widgets::slider_float("fill opacity",
+                                                  &g_Settings.esp.box_fill_image_alpha,
+                                                  0.0f, 1.0f, "%.2f");
+
+                            ImGui::SetCursorPosX(6.0f);
+                            ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
+                            widgets::checkbox("remove background",
+                                              &g_Settings.esp.box_fill_remove_bg);
+                            Cheat::Visuals::BoxFill::SetRemoveBg(
+                                Cheat::Core::g_Device, g_Settings.esp.box_fill_remove_bg);
+                        }
+                    }
+                    } // !bounding box
 
                     ImGui::SetCursorPosX(6.0f);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
@@ -537,10 +598,24 @@ float Menu::DrawMenu()
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
                     row_checkbox_color("skeleton", &g_Settings.esp.skeleton, g_Settings.esp.skeleton_color, "esp_skeleton_color");
 
+                    if (g_Settings.esp.skeleton) {
+                        ImGui::SetCursorPosX(6.0f);
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                        static const char* k_skel_types[] = {
+                            "funny skeleton", "anton", "unfunny_skeleton", "egor"
+                        };
+                        widgets::combo("skeleton type", &g_Settings.esp.skeleton_type, k_skel_types, 4);
+                        if (g_Settings.esp.skeleton_type < 0)
+                            g_Settings.esp.skeleton_type = 0;
+                        if (g_Settings.esp.skeleton_type > 3)
+                            g_Settings.esp.skeleton_type = 3;
+                    }
+
                     ImGui::SetCursorPosX(6.0f);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
                     widgets::checkbox("chams", &g_Settings.esp.chams);
 
+                    // цвета: не для overlay-shader/engine; mesh — fill/outline (color + dx)
                     if (g_Settings.esp.chams_mode != 3 && g_Settings.esp.chams_mode != 4) {
                         const float row_y = widgets::color_picker_row_y();
                         widgets::same_line_color_picker(row_y, 1, 2);
@@ -553,9 +628,9 @@ float Menu::DrawMenu()
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
                     {
                         static const char* k_chams_modes[] = {
-                            "box", "box filled", "clipper", "shader", "engine"
+                            "box", "box filled", "clipper", "shader", "engine", "mesh"
                         };
-                        widgets::combo("chams mode", &g_Settings.esp.chams_mode, k_chams_modes, 5);
+                        widgets::combo("chams mode", &g_Settings.esp.chams_mode, k_chams_modes, 6);
                     }
 
                     if (g_Settings.esp.chams_mode == 3) {
@@ -566,47 +641,138 @@ float Menu::DrawMenu()
                                        Visuals::ShaderChams::StyleNameCount());
                     }
 
+                    if (g_Settings.esp.chams_mode == 5) {
+                        ImGui::SetCursorPosX(6.0f);
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                        {
+                            static const char* k_mesh_style[] = { "flat", "shader" };
+                            widgets::combo("mesh style", &g_Settings.esp.mesh_chams_style,
+                                           k_mesh_style, 2);
+                        }
+                        if (g_Settings.esp.mesh_chams_style < 0)
+                            g_Settings.esp.mesh_chams_style = 0;
+                        if (g_Settings.esp.mesh_chams_style > 1)
+                            g_Settings.esp.mesh_chams_style = 1;
+
+                        if (g_Settings.esp.mesh_chams_style == 1) {
+                            ImGui::SetCursorPosX(6.0f);
+                            ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                            widgets::combo("mesh shader", &g_Settings.esp.mesh_chams_dx_mode,
+                                           Visuals::MeshDxShader::ModeNames(),
+                                           Visuals::MeshDxShader::ModeNameCount());
+                            if (g_Settings.esp.mesh_chams_dx_mode < 0)
+                                g_Settings.esp.mesh_chams_dx_mode = 0;
+                            if (g_Settings.esp.mesh_chams_dx_mode > 13)
+                                g_Settings.esp.mesh_chams_dx_mode = 13;
+                        }
+
+                        // faded silhouette outline (тип = стиль + анимация)
+                        ImGui::SetCursorPosX(6.0f);
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
+                        row_checkbox_color("mesh outline",
+                                           &g_Settings.esp.mesh_chams_outline,
+                                           g_Settings.esp.mesh_chams_outline_color,
+                                           "esp_mesh_outline_color");
+                        if (g_Settings.esp.mesh_chams_outline) {
+                            ImGui::SetCursorPosX(6.0f);
+                            ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                            widgets::combo("outline shader",
+                                           &g_Settings.esp.mesh_chams_outline_style,
+                                           Visuals::MeshChams::OutlineStyleNames(),
+                                           Visuals::MeshChams::OutlineStyleNameCount());
+                            if (g_Settings.esp.mesh_chams_outline_style < 0)
+                                g_Settings.esp.mesh_chams_outline_style = 0;
+                            if (g_Settings.esp.mesh_chams_outline_style >
+                                Visuals::MeshChams::OutlineStyleNameCount() - 1)
+                                g_Settings.esp.mesh_chams_outline_style =
+                                    Visuals::MeshChams::OutlineStyleNameCount() - 1;
+                            ImGui::SetCursorPosX(6.0f);
+                            ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                            widgets::slider_float("outline fade",
+                                                  &g_Settings.esp.mesh_chams_outline_fade,
+                                                  0.35f, 3.0f, "%.2f");
+                        }
+
+                        // occluded: flat + shader; picker как у name/skeleton
+                        ImGui::SetCursorPosX(6.0f);
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
+                        row_checkbox_color("occluded",
+                                           &g_Settings.esp.mesh_chams_occlusion,
+                                           g_Settings.esp.mesh_chams_occluded_color,
+                                           "esp_mesh_occluded_color");
+                        if (g_Settings.esp.mesh_chams_occlusion) {
+                            ImGui::SetCursorPosX(6.0f);
+                            ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                            widgets::combo("occluded shader",
+                                           &g_Settings.esp.mesh_chams_occluded_dx_mode,
+                                           Visuals::MeshDxShader::ModeNames(),
+                                           Visuals::MeshDxShader::ModeNameCount());
+                            if (g_Settings.esp.mesh_chams_occluded_dx_mode < 0)
+                                g_Settings.esp.mesh_chams_occluded_dx_mode = 0;
+                            if (g_Settings.esp.mesh_chams_occluded_dx_mode > 13)
+                                g_Settings.esp.mesh_chams_occluded_dx_mode = 13;
+                        }
+                    }
+
                     if (g_Settings.esp.chams_mode == 4) {
                         ImGui::SetCursorPosX(6.0f);
                         ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
                         {
-                            static const char* engine_styles[] = { "default", "ghost", "wireframe" };
+                            static const char* engine_styles[] = {
+                                "default", "ghost", "wireframe", "mesh", "charwire"
+                            };
                             widgets::combo("engine style", &g_Settings.esp.engine_chams_style,
-                                           engine_styles, 3);
+                                           engine_styles, 5);
                         }
 
-                        if (g_Settings.esp.engine_chams_style == 1) {
+                        const int est = g_Settings.esp.engine_chams_style;
+                        if (est == 1 || est == 3 || est == 4) {
                             ImGui::SetCursorPosX(6.0f);
                             ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
                             static const char* engine_colors[] = {
                                 "red", "green", "orange", "blue", "pink", "cyan", "white"
                             };
-                            widgets::combo("ghost color", &g_Settings.esp.engine_ghost_color_idx,
+                            widgets::combo("engine color", &g_Settings.esp.engine_ghost_color_idx,
                                            engine_colors, 7);
                         }
                     }
 
-                    ImGui::SetCursorPosX(6.0f);
-                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
-                    widgets::checkbox("health bar", &g_Settings.esp.healthbar);
-
-                    ImGui::SetCursorPosX(6.0f);
-                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
-                    widgets::checkbox("health text", &g_Settings.esp.health_text);
-
-                    ImGui::SetCursorPosX(6.0f);
-                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
-                    row_checkbox_color("distance", &g_Settings.esp.distance, g_Settings.esp.distance_color, "esp_distance_color");
-
-                    ImGui::SetCursorPosX(6.0f);
-                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
-                    row_checkbox_color("tool", &g_Settings.esp.tool, g_Settings.esp.tool_color, "esp_tool_color");
-
-                    ImGui::SetCursorPosX(6.0f);
-                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
-                    widgets::checkbox("flags", &g_Settings.esp.flags);
-
+                    const bool pf_place = Games::PhantomForces::IsActivePlace();
                     const bool havoc_place = Visuals::HavocWorldEsp::IsActivePlace();
+
+                    // PF: health/distance/tool/flags/dead/corpse не работают
+                    if (pf_place) {
+                        g_Settings.esp.healthbar = false;
+                        g_Settings.esp.health_text = false;
+                        g_Settings.esp.distance = false;
+                        g_Settings.esp.tool = false;
+                        g_Settings.esp.flags = false;
+                        g_Settings.esp.dead_check = false;
+                        g_Settings.esp.body_corpse = false;
+                    }
+
+                    if (!pf_place) {
+                        ImGui::SetCursorPosX(6.0f);
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
+                        widgets::checkbox("health bar", &g_Settings.esp.healthbar);
+
+                        ImGui::SetCursorPosX(6.0f);
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
+                        widgets::checkbox("health text", &g_Settings.esp.health_text);
+
+                        ImGui::SetCursorPosX(6.0f);
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
+                        row_checkbox_color("distance", &g_Settings.esp.distance, g_Settings.esp.distance_color, "esp_distance_color");
+
+                        ImGui::SetCursorPosX(6.0f);
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
+                        row_checkbox_color("tool", &g_Settings.esp.tool, g_Settings.esp.tool_color, "esp_tool_color");
+
+                        ImGui::SetCursorPosX(6.0f);
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
+                        widgets::checkbox("flags", &g_Settings.esp.flags);
+                    }
+
                     if (havoc_place)
                     {
                         g_Settings.esp.body_corpse = false;
@@ -753,7 +919,7 @@ float Menu::DrawMenu()
                         }
                     }
 
-                    else
+                    else if (!pf_place)
                     {
                         g_Settings.esp.bots = true;
                         g_Settings.esp.corpses = false;
@@ -851,6 +1017,41 @@ float Menu::DrawMenu()
                         static const char* k_box_modes[] = { "bounding", "corner", "3d" };
                         widgets::combo("box style", &g_Settings.esp.box_mode, k_box_modes, 3);
                     }
+
+                    ImGui::SetCursorPosX(6.0f);
+                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                    {
+                        static const char* k_bound_types[] = { "parts", "mesh" };
+                        widgets::combo("bounding type", &g_Settings.esp.bounding_type,
+                                       k_bound_types, 2);
+                        if (g_Settings.esp.bounding_type < 0)
+                            g_Settings.esp.bounding_type = 0;
+                        if (g_Settings.esp.bounding_type > 1)
+                            g_Settings.esp.bounding_type = 1;
+                    }
+
+                    ImGui::SetCursorPosX(6.0f);
+                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                    {
+                        static const char* k_esp_outline[] = { "skeleton", "box" };
+                        widgets::multi_combo(
+                            "esp outline", g_Settings.esp.esp_outline,
+                            k_esp_outline, Cheat::Settings::ESP_OUTLINE_COUNT);
+                    }
+
+                    if (g_Settings.esp.skeleton_type == 0) {
+                        ImGui::SetCursorPosX(6.0f);
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                        widgets::slider_float(
+                            "skeleton thickness", &g_Settings.esp.skeleton_thickness,
+                            1.0f, 6.0f, "%.1f");
+                    }
+
+                    ImGui::SetCursorPosX(6.0f);
+                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                    widgets::slider_float(
+                        "box thickness", &g_Settings.esp.box_thickness,
+                        0.5f, 6.0f, "%.1f");
 
                     ImGui::SetCursorPosX(6.0f);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
@@ -974,6 +1175,8 @@ float Menu::DrawMenu()
                     ImGui::SetCursorPosX(6.0f);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
                     widgets::checkbox("custom support", &g_Settings.misc.custom_support);
+                    ImGui::SetCursorPosX(6.0f);
+                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
 
                     ImGui::SetCursorPosX(6.0f);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
@@ -1194,17 +1397,36 @@ float Menu::DrawMenu()
 
                     if (g_Settings.aim.type == 2)
                     {
+                        const bool pf_aim = Games::PhantomForces::IsActivePlace();
                         ImGui::SetCursorPosX(6.0f);
                         ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
+                        if (pf_aim)
                         {
+                            // обычные silent'ы в PF не работают — слот под кастом позже
+                            g_Settings.aim.silent_method = Cheat::Settings::SILENT_PHANTOM;
+                            static const char* k_silent_pf[] = { "phantom forces" };
+                            int pf_idx = 0;
+                            widgets::combo("silent method", &pf_idx, k_silent_pf, 1);
+                        }
+                        else
+                        {
+                            if (g_Settings.aim.silent_method == Cheat::Settings::SILENT_PHANTOM)
+                                g_Settings.aim.silent_method = Cheat::Settings::SILENT_RAYCAST;
+
                             static const char* k_silent[] = {
                                 "viewport", "mouse", "raycast", "magic bullet"
                             };
-                            widgets::combo("silent method", &g_Settings.aim.silent_method,
-                                k_silent, Cheat::Settings::SILENT_METHOD_COUNT);
+                            // не показываем SILENT_PHANTOM в обычном списке
+                            int method = g_Settings.aim.silent_method;
+                            if (method < 0 || method >= Cheat::Settings::SILENT_PHANTOM)
+                                method = Cheat::Settings::SILENT_RAYCAST;
+                            widgets::combo("silent method", &method, k_silent,
+                                           Cheat::Settings::SILENT_PHANTOM);
+                            g_Settings.aim.silent_method = method;
                         }
 
-                        if (g_Settings.aim.silent_method == Cheat::Settings::SILENT_RAYCAST)
+                        if (!pf_aim &&
+                            g_Settings.aim.silent_method == Cheat::Settings::SILENT_RAYCAST)
                         {
                             ImGui::SetCursorPosX(6.0f);
                             ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
@@ -1482,16 +1704,27 @@ float Menu::DrawMenu()
 
                     ImGui::SetCursorPosX(6.0f);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                    widgets::checkbox("time changer", &g_Settings.world.time_changer);
+
+                    if (g_Settings.world.time_changer) {
+                        ImGui::SetCursorPosX(6.0f);
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
+                        widgets::slider_float("clock time", &g_Settings.world.clock_time,
+                                              0.0f, 24.0f, "%.1fh");
+                    }
+
+                    ImGui::SetCursorPosX(6.0f);
+                    ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
                     row_checkbox_color("fog", &g_Settings.world.fog,
                         g_Settings.world.fog_color, "world_fog_color");
 
                     ImGui::SetCursorPosX(6.0f);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
-                    widgets::slider_float("fog start", &g_Settings.world.fog_start, 0.0f, 100000.0f, "%.0f");
+                    widgets::slider_float("fog start", &g_Settings.world.fog_start, 0.0f, 100.0f, "%.0f");
 
                     ImGui::SetCursorPosX(6.0f);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
-                    widgets::slider_float("fog end", &g_Settings.world.fog_end, 0.0f, 100000.0f, "%.0f");
+                    widgets::slider_float("fog end", &g_Settings.world.fog_end, 0.0f, 2000.0f, "%.0f");
 
                     ImGui::SetCursorPosX(6.0f);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
@@ -1616,7 +1849,7 @@ float Menu::DrawMenu()
                     ImGui::SetCursorPosX(6.0f);
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
                     widgets::slider_float(
-                        "camera distance",
+                        "camera back/up",
                         &g_Settings.misc.third_person_distance,
                         1.0f, 120.0f, "%.1f");
 

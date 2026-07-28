@@ -99,7 +99,7 @@ std::string Memory::ReadString(std::uint64_t address) const
 
     // roblox string: длина на +0x10, SSO если < 16
     std::int32_t len = Read<std::int32_t>(address + 0x10);
-    if (len <= 0 || len > 255)
+    if (len <= 0 || len > 511)
         return "Unknown";
 
     std::uint64_t str_addr = address;

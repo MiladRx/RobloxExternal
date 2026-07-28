@@ -13,6 +13,12 @@ namespace Cheat {
             ARROW_INFO_COUNT
         };
 
+        enum EspOutline {
+            OUTLINE_SKELETON = 0,
+            OUTLINE_BOX,
+            ESP_OUTLINE_COUNT
+        };
+
         enum LootFilter {
             LOOT_WEAPONS = 0,
             LOOT_MAGS,
@@ -45,13 +51,45 @@ namespace Cheat {
             bool enabled{ false };
             bool draw_local{ false };
             bool box{ false };
+            bool box_fill{ false };
+            int  box_fill_mode{ 0 };   // 0 color, 1 image
+            int  box_fill_image{ 0 };  // BoxFill::ImageId 0..20
+            float box_fill_image_alpha{ 0.5f };
+            bool box_fill_remove_bg{ false };
+            float box_fill_color[4]{ 1.f, 1.f, 1.f, 0.2f };
             bool name{ false };
             bool skeleton{ false };
+            // 0 funny (линии) / 1 anton (SK) / 2 unfunny (US) / 3 egor (SE)
+            int  skeleton_type{ 0 };
             bool chams{ false };
 
-            int  chams_mode{ 0 }; // 0 box, 1 filled, 2 clipper, 3 shader, 4 engine
+            // 0 box, 1 filled, 2 clipper, 3 shader, 4 engine,
+            // 5 mesh — MeshData из MeshContentProvider (вершины/фейсы)
+            int  chams_mode{ 0 };
             int  chams_shader{ 0 };
-            int  engine_chams_style{ 0 }; // 0 default, 1 ghost, 2 wireframe (white)
+            // mesh chams: 0 flat (ImGui / dx flat) / 1 dx shader
+            int  mesh_chams_style{ 0 };
+            // 0..6 базовые, 7 plastic 8 metal 9 rubber 10 glass 11 pearl 12 glossy 13 holographic
+            int  mesh_chams_dx_mode{ 3 };
+            // world-depth occluded (отдельный чекбокс)
+            bool  mesh_chams_occlusion{ false };
+            // тот же список mode, что mesh_chams_dx_mode
+            int   mesh_chams_occluded_dx_mode{ 0 };
+            // перезаписывают шейдер: fill + outline/fresnel
+            float mesh_chams_occluded_color[4]{ 1.f, 1.f, 1.f, 1.f };
+            float mesh_chams_occluded_outline_color[4]{ 1.f, 1.f, 1.f, 1.f };
+            // контур-силуэт (faded glow) поверх mesh chams
+            bool  mesh_chams_outline{ false };
+            // 0 soft fade 1 pulse 2 flow 3 neon wave
+            int   mesh_chams_outline_style{ 0 };
+            float mesh_chams_outline_fade{ 1.8f }; // сила/ширина фейда
+            float mesh_chams_outline_color[4]{ 0.55f, 0.85f, 1.f, 1.f };
+            // 0 default (queue 13) — без цвета
+            // 1 ghost     — fill=0 flags2=0  param=color
+            // 2 wireframe — fill=1 flags2=0  param=white (без цвета)
+            // 3 mesh      — fill=0 flags2=15 param=color
+            // 4 charwire  — fill=1 flags2=7  param=color
+            int  engine_chams_style{ 0 };
             // charm: Param = idx+1, ColorData всегда 0xFFFFFFFF
             // 0 red 1 green 2 orange 3 blue 4 pink 5 cyan 6 white
             int  engine_ghost_color_idx{ 6 };
@@ -90,6 +128,12 @@ namespace Cheat {
             int   font{ 0 };
             float font_size{ 13.f };
             int   box_mode{ 0 };
+            // 0 parts (тело) 1 mesh (все меши + аксы)
+            int   bounding_type{ 0 };
+            // outline: skeleton / box
+            bool  esp_outline[ESP_OUTLINE_COUNT]{ true, true };
+            float skeleton_thickness{ 1.f };
+            float box_thickness{ 1.f };
             int   name_mode{ 0 };
             int   distance_unit{ 0 };
             bool  distance_check{ false };
@@ -233,6 +277,7 @@ namespace Cheat {
             SILENT_MOUSE,
             SILENT_RAYCAST,
             SILENT_MAGIC_BULLET,
+            SILENT_PHANTOM, // custom PF silent (impl later)
             SILENT_METHOD_COUNT
         };
 
@@ -278,8 +323,10 @@ namespace Cheat {
             bool  no_shadow{ false }; float brightness{ 5.0f };
             bool  fog{ false };
             float fog_start{ 0.f };
-            float fog_end{ 100000.f };
+            float fog_end{ 2000.f };
             float fog_color[4]{ 1.f, 1.f, 1.f, 1.f };
+            bool  time_changer{ false };
+            float clock_time{ 14.f }; // 0..24
         } world;
 
         struct {
@@ -361,6 +408,7 @@ namespace Cheat {
             bool  explorer{ false };
             bool  mcp{ false }; // localhost bridge для cursor mcp
             bool  custom_support{ false };
+            bool  pf_support{ true }; // Phantom Forces place-id support
 
             int   freecam_key{ 0 };
             int   freecam_mode{ 0 };

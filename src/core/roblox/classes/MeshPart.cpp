@@ -10,6 +10,11 @@ std::string Cheat::MeshPart::GetMeshId() const
 		return "Unknown";
 	}
 
+	// Content string is embedded at MeshId (not a pointer-to-string)
+	std::string s = g_Memory.ReadString(address + Offsets::MeshPart::MeshId);
+	if (!s.empty() && s != "Unknown")
+		return s;
+
 	std::uint64_t mesh = g_Memory.Read<std::uint64_t>(address + Offsets::MeshPart::MeshId);
 	if (!g_Memory.IsValid(mesh))
 	{
@@ -25,6 +30,10 @@ std::string Cheat::MeshPart::GetTexture() const
 	{
 		return "Unknown";
 	}
+
+	std::string s = g_Memory.ReadString(address + Offsets::MeshPart::Texture);
+	if (!s.empty() && s != "Unknown")
+		return s;
 
 	std::uint64_t tex = g_Memory.Read<std::uint64_t>(address + Offsets::MeshPart::Texture);
 	if (!g_Memory.IsValid(tex))

@@ -29,6 +29,7 @@
 **/_hitsounds_tmp/
 **/_offsets_candidates/
 *.rar
+/export/
 
 # Deps / IDE
 node_modules/

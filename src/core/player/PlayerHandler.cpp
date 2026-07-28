@@ -9,6 +9,7 @@
 #include "core/console/Console.h"
 #include "features/visuals/RaycastEngine.h"
 #include "features/visuals/HavocWorldEsp.h"
+#include "features/games/PhantomForces.h"
 #include "app/Settings.h"
 #include <mutex>
 #include <utility>
@@ -289,6 +290,12 @@ bool RetainCorpseEntry(Cheat::PlayerCache& out, const Cheat::PlayerCache& prev)
 
 std::uint64_t LocalCharacterAddress()
 {
+    if (Cheat::Games::PhantomForces::IsActivePlace()) {
+        const std::uint64_t pf = Cheat::Games::PhantomForces::LocalCharacter();
+        if (g_Memory.IsValid(pf))
+            return pf;
+    }
+
     if (!Cheat::Globals::Players || !g_Memory.IsValid(Cheat::Globals::Players->address))
         return 0;
 
@@ -630,7 +637,7 @@ std::uint64_t ResolveDataModel()
         Cheat::Console::Clear();
         Cheat::Console::Log(Cheat::Console::Color::Yellow, "waiting for datamodel");
         Cheat::Console::Ptr(Cheat::Console::Color::Yellow, "Front DM", front);
-        Cheat::Console::Ptr(Cheat::Console::Color::Magenta, "Render View", ve);
+        Cheat::Console::Ptr(Cheat::Console::Color::Magenta, "VisualEngine", ve);
     }
     return 0;
 }
@@ -703,11 +710,19 @@ std::uint64_t Cheat::PlayerHandler::ResolveTeamFolder(std::uint64_t character_ad
 
 std::uint64_t Cheat::PlayerHandler::LocalTeamFolder()
 {
+    if (Games::PhantomForces::IsActivePlace()) {
+        const std::uint64_t pf = Games::PhantomForces::LocalTeamFolder();
+        if (pf)
+            return pf;
+    }
     return ResolveTeamFolder(LocalCharacterAddress());
 }
 
 bool Cheat::PlayerHandler::IsTeammate(const PlayerCache& cache, std::uint64_t local_team_folder)
 {
+    if (Games::PhantomForces::IsActivePlace())
+        return Games::PhantomForces::IsTeammate(cache, local_team_folder);
+
     if (!local_team_folder || !cache.team_folder)
         return false;
     if (!cache.is_player)
@@ -775,28 +790,36 @@ void Cheat::PlayerHandler::CacheAllPlayers()
 
     std::unordered_map<std::uint64_t, PlayerCache> fresh;
 
-    if (Globals::Players && g_Memory.IsValid(Globals::Players->address))
+    if (Games::PhantomForces::IsActivePlace())
     {
-        auto players = Globals::Players->GetChildren();
-        fresh.reserve(players.size());
-        for (const auto& player : players)
-            UpdateCache(player, fresh);
+        // PF: чары в Workspace.Players, имена зашифрованы
+        Games::PhantomForces::MergePlayers(fresh);
     }
-
-    bool any_parts = false;
-    for (const auto& [addr, cache] : fresh)
+    else
     {
-        if (cache.humanoidRootPart)
+        if (Globals::Players && g_Memory.IsValid(Globals::Players->address))
         {
-            any_parts = true;
-            break;
+            auto players = Globals::Players->GetChildren();
+            fresh.reserve(players.size());
+            for (const auto& player : players)
+                UpdateCache(player, fresh);
         }
-    }
 
-    if (!any_parts)
-    {
-        fresh.clear();
-        CacheFromWorkspace(fresh);
+        bool any_parts = false;
+        for (const auto& [addr, cache] : fresh)
+        {
+            if (cache.humanoidRootPart)
+            {
+                any_parts = true;
+                break;
+            }
+        }
+
+        if (!any_parts)
+        {
+            fresh.clear();
+            CacheFromWorkspace(fresh);
+        }
     }
 
     // боты havoc, мержим после Players
@@ -871,9 +894,9 @@ void Cheat::PlayerHandler::CacheThreadLoop()
         CacheAllPlayers();
         Features::RaycastEngine::Tick();
 
-        // raycast крутится чаще, иначе обычный тик
+        // raycast / mesh occluded — кэш стен чаще
         int ms = 250;
-        if (Features::RaycastEngine::IsEnabled())
+        if (Features::RaycastEngine::WantsCache())
             ms = 20;
         std::this_thread::sleep_for(std::chrono::milliseconds(ms));
     }
