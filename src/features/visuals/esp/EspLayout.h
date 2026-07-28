@@ -18,7 +18,7 @@ namespace EspLayout {
         Right = 3
     };
 
-    // ╨░╨╣╨┤╨╕╤ê╨╜╨╕╨║╨╕ ╨┤╨╗╤Å ╨┐╤Ç╨╡╨▓╤î╤Ä (╤à╨┐╨▒╨░╤Ç ╨╛╤é╨┤╨╡╨╗╤î╨╜╨╛, ╨▓ ╤ü╤é╨╡╨║ ╨╜╨╡ ╨╗╨╡╨╖╨╡╤é)
+    // айдишники для превью (хпбар отдельно, в стек не лезет)
     enum ElemId : int {
         IdName = 0,
         IdDistance = 1,
@@ -66,7 +66,7 @@ namespace EspLayout {
 
     inline int ClampHealthBarSide(int side)
     {
-        // ╤à╨┐╨▒╨░╤Ç ╤é╨╛╨║╨░ ╤ü╨╗╨╡╨▓╨░/╤ü╨┐╤Ç╨░╨▓╨░
+        // хпбар тока слева/справа
         if (side == Right)
             return Right;
 
@@ -80,7 +80,7 @@ namespace EspLayout {
         return off;
     }
 
-    // ╤é╨╡╨║╤ü╤é ╤ü╨▒╨╛╨║╤â ╨╛╤é ╨▒╨╛╨║╤ü╨░
+    // текст сбоку от бокса
     inline void PlaceText(int side, const Box& b, float offset,
                           float textW, float textH, float padL, float padR, float pad,
                           float& outX, float& outY)
@@ -108,7 +108,7 @@ namespace EspLayout {
         }
     }
 
-    // ╨╕╨╖ ╨┐╨╛╨╖╨╕╤å╨╕╨╕ ╤é╨╡╨║╤ü╤é╨░ ╨╛╨▒╤Ç╨░╤é╨╜╨╛ ╨▓ offset
+    // из позиции текста обратно в offset
     inline float OffsetFromPos(int side, float tx, float ty, float textH,
                                const Box& b, float pad)
     {
@@ -150,7 +150,7 @@ namespace EspLayout {
         outY2 = b.y2;
     }
 
-    // ╨╢╨╝╤æ╨╝ ╤ü╤é╨╡╨║ ╨▒╨╡╨╖ ╨┤╤ï╤Ç, pinned ╤ü╨▓╨╡╤Ç╤à╤â ╨┐╤Ç╨╕ ╨┤╤Ç╨░╨│╨╡
+    // жмём стек без дыр, pinned сверху при драге
     inline void ResolveStack(std::vector<StackItem>& items, int pinned_id, float gap)
     {
         if (items.empty())
