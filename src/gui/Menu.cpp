@@ -615,13 +615,26 @@ float Menu::DrawMenu()
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
                     widgets::checkbox("chams", &g_Settings.esp.chams);
 
-                    // цвета: не для overlay-shader/engine; mesh — fill/outline (color + dx)
-                    if (g_Settings.esp.chams_mode != 3 && g_Settings.esp.chams_mode != 4) {
+                    // box/filled/clipper — outline+fill; mesh flat — один fill на чекбоксе
+                    if (g_Settings.esp.chams_mode <= 2) {
                         const float row_y = widgets::color_picker_row_y();
                         widgets::same_line_color_picker(row_y, 1, 2);
                         widgets::color_edit4("esp_chams_outline_color", g_Settings.esp.chams_outline_color);
                         widgets::same_line_color_picker(row_y, 0, 2);
                         widgets::color_edit4("esp_chams_fill_color", g_Settings.esp.chams_fill_color);
+                    } else if (g_Settings.esp.chams_mode == 5) {
+                        // color на чекбоксе: flat / wireframe / glass
+                        const int dx = g_Settings.esp.mesh_chams_dx_mode;
+                        const bool need_color =
+                            g_Settings.esp.mesh_chams_style == 0 ||
+                            (g_Settings.esp.mesh_chams_style == 1 &&
+                             (dx == 0 || dx == 7 || dx == 8));
+                        if (need_color) {
+                            const float row_y = widgets::color_picker_row_y();
+                            widgets::same_line_color_picker(row_y, 0, 1);
+                            widgets::color_edit4("esp_chams_fill_color",
+                                                 g_Settings.esp.chams_fill_color);
+                        }
                     }
 
                     ImGui::SetCursorPosX(6.0f);
@@ -662,8 +675,10 @@ float Menu::DrawMenu()
                                            Visuals::MeshDxShader::ModeNameCount());
                             if (g_Settings.esp.mesh_chams_dx_mode < 0)
                                 g_Settings.esp.mesh_chams_dx_mode = 0;
-                            if (g_Settings.esp.mesh_chams_dx_mode > 13)
-                                g_Settings.esp.mesh_chams_dx_mode = 13;
+                            if (g_Settings.esp.mesh_chams_dx_mode >
+                                Visuals::MeshDxShader::ModeNameCount() - 1)
+                                g_Settings.esp.mesh_chams_dx_mode =
+                                    Visuals::MeshDxShader::ModeNameCount() - 1;
                         }
 
                         // faded silhouette outline (тип = стиль + анимация)
@@ -709,8 +724,10 @@ float Menu::DrawMenu()
                                            Visuals::MeshDxShader::ModeNameCount());
                             if (g_Settings.esp.mesh_chams_occluded_dx_mode < 0)
                                 g_Settings.esp.mesh_chams_occluded_dx_mode = 0;
-                            if (g_Settings.esp.mesh_chams_occluded_dx_mode > 13)
-                                g_Settings.esp.mesh_chams_occluded_dx_mode = 13;
+                            if (g_Settings.esp.mesh_chams_occluded_dx_mode >
+                                Visuals::MeshDxShader::ModeNameCount() - 1)
+                                g_Settings.esp.mesh_chams_occluded_dx_mode =
+                                    Visuals::MeshDxShader::ModeNameCount() - 1;
                         }
                     }
 

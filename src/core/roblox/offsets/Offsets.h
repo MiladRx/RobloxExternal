@@ -512,7 +512,8 @@ namespace Offsets {
 
     namespace RenderView {
         inline constexpr uintptr_t DeviceD3D11 = 0x8;
-        inline constexpr uintptr_t LightingValid = 0x150;
+        // 0x150 в дампе — мусор (как Workspace); live/theo для клиента: 0x228
+        inline constexpr uintptr_t LightingValid = 0x228;
         inline constexpr uintptr_t SkyValid = 0x28d;
         inline constexpr uintptr_t VisualEngine = 0x10;
     }

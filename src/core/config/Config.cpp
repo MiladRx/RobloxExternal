@@ -97,6 +97,82 @@ bool GetInt(const KV& kv, const char* key, int& out)
     return true;
 }
 
+// legacy 0..13 → базовый набор
+int RemapMeshDxMode(int old)
+{
+    switch (old)
+    {
+    case 0:  return 0; // flat
+    case 4:  return 1; // chrome
+    case 5:  return 2; // rainbow
+    case 8:  return 1; // metal → chrome
+    case 10: return 3; // glass → pearl
+    case 11: return 3; // pearl
+    case 12: return 4; // glossy
+    case 13: return 5; // holographic
+    default:
+        if (old >= 0 && old <= 5)
+            return 0;
+        return 0;
+    }
+}
+
+// v2 имел glow@8; сейчас: glass@8 ropes@9 liquid@10
+int CompactMeshDxModeV2(int m)
+{
+    if (m < 0) return 0;
+    if (m <= 7) return m;
+    if (m == 8) return 0;  // glow удалён
+    if (m == 9) return 8;  // glass
+    if (m == 10) return 9; // ropes
+    if (m == 11) return 10; // liquid metal
+    return 10;
+}
+
+void ClampMeshDxMode(int& out)
+{
+    if (out < 0) out = 0;
+    if (out > 10) out = 10;
+}
+
+void LoadMeshDxMode(const KV& kv, int& out)
+{
+    if (GetInt(kv, "esp.mesh_chams_dx_mode_v3", out))
+    {
+        ClampMeshDxMode(out);
+        return;
+    }
+    if (GetInt(kv, "esp.mesh_chams_dx_mode_v2", out))
+    {
+        out = CompactMeshDxModeV2(out);
+        ClampMeshDxMode(out);
+        return;
+    }
+    int legacy = out;
+    if (GetInt(kv, "esp.mesh_chams_dx_mode", legacy))
+        out = RemapMeshDxMode(legacy);
+    ClampMeshDxMode(out);
+}
+
+void LoadMeshDxOccludedMode(const KV& kv, int& out)
+{
+    if (GetInt(kv, "esp.mesh_chams_occluded_dx_mode_v3", out))
+    {
+        ClampMeshDxMode(out);
+        return;
+    }
+    if (GetInt(kv, "esp.mesh_chams_occluded_dx_mode_v2", out))
+    {
+        out = CompactMeshDxModeV2(out);
+        ClampMeshDxMode(out);
+        return;
+    }
+    int legacy = out;
+    if (GetInt(kv, "esp.mesh_chams_occluded_dx_mode", legacy))
+        out = RemapMeshDxMode(legacy);
+    ClampMeshDxMode(out);
+}
+
 bool GetFloat(const KV& kv, const char* key, float& out)
 {
     auto it = kv.find(key);
@@ -301,9 +377,9 @@ bool Save(const std::string& name)
     PutInt(out, "esp.chams_mode", s.esp.chams_mode);
     PutInt(out, "esp.chams_shader", s.esp.chams_shader);
     PutInt(out, "esp.mesh_chams_style", s.esp.mesh_chams_style);
-    PutInt(out, "esp.mesh_chams_dx_mode", s.esp.mesh_chams_dx_mode);
+    PutInt(out, "esp.mesh_chams_dx_mode_v3", s.esp.mesh_chams_dx_mode);
     PutBool(out, "esp.mesh_chams_occlusion", s.esp.mesh_chams_occlusion);
-    PutInt(out, "esp.mesh_chams_occluded_dx_mode", s.esp.mesh_chams_occluded_dx_mode);
+    PutInt(out, "esp.mesh_chams_occluded_dx_mode_v3", s.esp.mesh_chams_occluded_dx_mode);
     PutF4(out, "esp.mesh_chams_occluded_color", s.esp.mesh_chams_occluded_color);
     PutF4(out, "esp.mesh_chams_occluded_outline_color", s.esp.mesh_chams_occluded_outline_color);
     PutBool(out, "esp.mesh_chams_outline", s.esp.mesh_chams_outline);
@@ -541,9 +617,9 @@ bool Load(const std::string& name)
     GetInt(kv, "esp.chams_mode", s.esp.chams_mode);
     GetInt(kv, "esp.chams_shader", s.esp.chams_shader);
     GetInt(kv, "esp.mesh_chams_style", s.esp.mesh_chams_style);
-    GetInt(kv, "esp.mesh_chams_dx_mode", s.esp.mesh_chams_dx_mode);
+    LoadMeshDxMode(kv, s.esp.mesh_chams_dx_mode);
     GetBool(kv, "esp.mesh_chams_occlusion", s.esp.mesh_chams_occlusion);
-    GetInt(kv, "esp.mesh_chams_occluded_dx_mode", s.esp.mesh_chams_occluded_dx_mode);
+    LoadMeshDxOccludedMode(kv, s.esp.mesh_chams_occluded_dx_mode);
     GetF4(kv, "esp.mesh_chams_occluded_color", s.esp.mesh_chams_occluded_color);
     GetF4(kv, "esp.mesh_chams_occluded_outline_color", s.esp.mesh_chams_occluded_outline_color);
     GetBool(kv, "esp.mesh_chams_outline", s.esp.mesh_chams_outline);

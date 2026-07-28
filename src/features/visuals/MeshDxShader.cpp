@@ -40,7 +40,7 @@ cbuffer Constants : register(b0)
     float  outline_fade;
     int    outline_style;
     int    outline_enabled;
-    float  outline_pad;
+    float  glow_strength;
 };
 
 Texture2D<float> world_depth : register(t0);
@@ -58,6 +58,7 @@ struct PSIn
     float4 pos    : SV_POSITION;
     float3 wpos   : TEXCOORD0;
     float3 normal : NORMAL;
+    float2 uv     : TEXCOORD1;
 };
 
 PSIn vs_main(VSIn i)
@@ -72,6 +73,7 @@ PSIn vs_main(VSIn i)
     o.wpos = wp.xyz;
     // non-uniform scale ломает обычный mul — для chams хватает face-normal из экрана
     o.normal = mul((float3x3)world, i.normal);
+    o.uv = i.uv;
     return o;
 }
 
@@ -137,74 +139,26 @@ float4 ps_main(PSIn i) : SV_TARGET
         result.rgb = bc.rgb;
         result.a   = 1.0;
     }
-    else if (m == 1) // lambert
-    {
-        result.rgb = bc.rgb * lambert;
-        result.a   = 1.0;
-    }
-    else if (m == 2) // fresnel
-    {
-        result.rgb = fc.rgb * fres;
-        result.a   = saturate(fres) * fc.a;
-    }
-    else if (m == 3) // lit fresnel
-    {
-        result.rgb = lerp(bc.rgb * lambert, fc.rgb, fres);
-        result.a   = 1.0;
-    }
-    else if (m == 4) // chrome
+    else if (m == 1) // chrome
     {
         float  spec   = pow(ndv, 14.0);
         result.rgb    = env * bc.rgb + spec.xxx * 0.6 + fc.rgb * fres;
         result.a      = 1.0;
     }
-    else if (m == 5) // rainbow
+    else if (m == 2) // rainbow
     {
         float3 rainbow = 0.5 + 0.5 * cos(time * 2.0 + i.wpos * 0.35 + float3(0.0, 2.0, 4.0));
         result.rgb     = rainbow * lambert;
         result.a       = 1.0;
     }
-    else if (m == 6) // glow
-    {
-        result.rgb = bc.rgb + fc.rgb * fres;
-        result.a   = saturate(fres + 0.05) * bc.a;
-    }
-    else if (m == 7) // plastic
-    {
-        float wrap = saturate(ndl * 0.5 + 0.5);
-        float spec = pow(ndh, 32.0) * 0.55;
-        float rim  = pow(saturate(1.0 - ndv), 3.0) * 0.25;
-        result.rgb = bc.rgb * (0.25 + wrap * 0.75) + spec.xxx + fc.rgb * rim;
-        result.a   = 1.0;
-    }
-    else if (m == 8) // metal
-    {
-        float spec = pow(ndh, 96.0) * 1.2;
-        float3 refl = env * lerp(bc.rgb, fc.rgb, 0.35);
-        result.rgb = refl * (0.35 + ndl * 0.65) + bc.rgb * spec + fc.rgb * fres * 0.45;
-        result.a   = 1.0;
-    }
-    else if (m == 9) // rubber
-    {
-        float wrap = saturate(ndl * 0.35 + 0.65);
-        float rim  = pow(saturate(1.0 - ndv), 2.0) * 0.08;
-        result.rgb = bc.rgb * wrap + fc.rgb * rim;
-        result.a   = 1.0;
-    }
-    else if (m == 10) // glass
-    {
-        float f = saturate(fres * 1.35 + 0.08);
-        result.rgb = lerp(bc.rgb * 0.35, fc.rgb, f) + pow(ndh, 64.0) * 0.4;
-        result.a   = saturate(f) * max(bc.a, fc.a);
-    }
-    else if (m == 11) // pearl
+    else if (m == 3) // pearl
     {
         float3 iri = 0.5 + 0.5 * cos(ndv * 6.2831 + float3(0.0, 2.1, 4.2));
         float spec = pow(ndh, 48.0) * 0.7;
         result.rgb = bc.rgb * lambert + iri * fres * 0.85 + fc.rgb * fres * 0.35 + spec.xxx;
         result.a   = 1.0;
     }
-    else if (m == 12) // glossy
+    else if (m == 4) // glossy
     {
         float wrap = saturate(ndl * 0.55 + 0.45);
         float spec = pow(ndh, 128.0) * 1.1;
@@ -212,11 +166,97 @@ float4 ps_main(PSIn i) : SV_TARGET
         result.rgb = bc.rgb * wrap + spec.xxx + fc.rgb * rim + env * fc.rgb * 0.12;
         result.a   = 1.0;
     }
-    else if (m == 13) // holographic
+    else if (m == 5) // holographic
     {
         float3 holo = 0.5 + 0.5 * cos(time * 3.0 + i.wpos.y * 2.0 + ndv * 8.0 + float3(0.0, 2.0, 4.0));
         float spec = pow(ndh, 80.0) * 0.9;
         result.rgb = bc.rgb * lambert * 0.55 + holo * (fres * 0.9 + 0.15) + fc.rgb * fres * 0.25 + spec.xxx;
+        result.a   = 1.0;
+    }
+    else if (m == 6) // fade — soft multi-color blend
+    {
+        float t = time * 0.45;
+        // крупные мягкие волны по телу (без frac-тайлинга → нет швов)
+        float3 p = i.wpos * 0.07;
+        float n1 = sin(p.x * 1.3 + p.y * 0.9 + t);
+        float n2 = sin(p.y * 1.1 - p.z * 1.0 + t * 0.85 + 2.1);
+        float n3 = sin(p.z * 1.2 + p.x * 0.8 - t * 0.7 + 4.2);
+        // domain warp — плавнее пятна
+        float w = sin(n1 * 1.4 + n2) * 0.55;
+        float u = saturate(0.5 + 0.5 * (n1 + w));
+        float v = saturate(0.5 + 0.5 * (n2 - w * 0.6));
+        float s = saturate(0.5 + 0.5 * (n3 + n1 * 0.35));
+
+        float3 cA = float3(0.95, 0.35, 0.70); // pink
+        float3 cB = float3(0.45, 0.55, 1.00); // blue
+        float3 cC = float3(0.40, 0.95, 0.85); // mint
+        float3 cD = float3(1.00, 0.70, 0.35); // peach
+        float3 cE = float3(0.70, 0.40, 0.95); // lilac
+
+        float3 col = lerp(cA, cB, u);
+        col = lerp(col, cC, v * 0.85);
+        col = lerp(col, cD, s * 0.70);
+        col = lerp(col, cE, (1.0 - u) * v * 0.55);
+        col += fres * 0.08;
+
+        result.rgb = saturate(col);
+        result.a   = 1.0;
+    }
+    else if (m == 7) // wireframe (FILL_WIREFRAME + solid color)
+    {
+        result.rgb = bc.rgb;
+        result.a   = 1.0;
+    }
+    else if (m == 8) // glass
+    {
+        float f = saturate(fres * 1.45 + 0.08);
+        float3 tint = lerp(bc.rgb * 0.42, float3(0.85, 0.92, 1.0), 0.35);
+        result.rgb = lerp(tint, saturate(bc.rgb + 0.35), f) + pow(ndh, 72.0) * 0.45;
+        result.a   = saturate(0.22 + f * 0.62) * max(bc.a, 0.35);
+    }
+    else if (m == 9) // ropes — copper diamond lattice, scrolls over body
+    {
+        float2 wp = float2(i.wpos.x + i.wpos.y, i.wpos.y + i.wpos.z) * 2.8
+                  + float2(time * 1.35, time * 0.95);
+        // fallback if uv broken — mix in mesh uv
+        wp += i.uv * 6.0;
+        float2 r = float2(wp.x + wp.y, wp.x - wp.y) * 0.7071;
+        float2 cell = abs(frac(r) - 0.5);
+        float d = min(cell.x, cell.y);
+        float rope_w = 1.0 - smoothstep(0.0, 0.07, d);
+        float core = 1.0 - smoothstep(0.0, 0.028, d);
+        float3 copper = float3(1.00, 0.42, 0.10);
+        float3 hi     = float3(1.00, 0.92, 0.55);
+        float3 dark   = float3(0.06, 0.03, 0.02);
+        float3 rope = lerp(copper, hi, core);
+        result.rgb = lerp(dark, rope, rope_w) * (0.85 + fres * 0.35);
+        result.a   = saturate(0.25 + rope_w * 0.85);
+    }
+    else if (m == 10) // liquid metal — animated mercury
+    {
+        float3 p = i.wpos * 0.9;
+        float t = time;
+        // бегущие волны по поверхности
+        float wA = sin(p.x * 3.4 + p.y * 2.1 - t * 2.4);
+        float wB = cos(p.y * 3.8 + p.z * 2.6 + t * 1.9);
+        float wC = sin(dot(p, float3(2.2, 1.6, 2.8)) + t * 2.8);
+        float flow = wA + wB * 0.85 + wC * 0.55;
+        float ripple = 0.5 + 0.5 * sin(flow * 3.0 + ndv * 8.0 + t * 1.5);
+        float streak = pow(saturate(0.5 + 0.5 * sin(p.y * 14.0 - t * 6.0 + flow * 2.0)), 6.0);
+
+        float3 dark = float3(0.16, 0.18, 0.20);
+        float3 mid  = float3(0.48, 0.50, 0.53);
+        float3 hi   = float3(0.92, 0.94, 0.97);
+        float3 iri  = 0.5 + 0.5 * cos(flow * 2.4 + t * 1.2 + ndv * 10.0 + float3(0.0, 2.1, 4.2));
+
+        float3 metal = lerp(dark, mid, saturate(0.45 + lambert * 0.4 + flow * 0.08));
+        metal = lerp(metal, hi, pow(ndh, 36.0) * 0.95 + pow(saturate(ndv), 8.0) * 0.4);
+        metal += streak * hi * 0.55;
+        metal += iri * fres * (0.18 + ripple * 0.28);
+        // искажённый fake-env — «жидкость»
+        float3 envW = pow(saturate(N * 0.5 + 0.5 + float3(flow, -flow, ripple) * 0.08), 1.2);
+        metal += envW * 0.22 * (0.5 + ripple * 0.5);
+        result.rgb = saturate(metal);
         result.a   = 1.0;
     }
 
@@ -360,7 +400,7 @@ struct CBData
 	float outline_fade;
 	int   outline_style;
 	int   outline_enabled;
-	float outline_pad;
+	float glow_strength;
 };
 static_assert(sizeof(CBData) % 16 == 0, "CBData");
 
@@ -391,6 +431,7 @@ ID3D11BlendState*        g_blend_no_color = nullptr;
 ID3D11DepthStencilState* g_ds = nullptr;
 ID3D11DepthStencilState* g_ds_off = nullptr;
 ID3D11RasterizerState*   g_raster = nullptr;
+ID3D11RasterizerState*   g_raster_wire = nullptr;
 ID3D11Texture2D*         g_depth_tex = nullptr;
 ID3D11DepthStencilView*  g_dsv = nullptr;
 ID3D11ShaderResourceView* g_cham_srv = nullptr;
@@ -410,9 +451,15 @@ bool     g_frame_valid = false;
 Vector3  g_camera{};
 
 const char* k_mode_names[] = {
-	"flat", "lambert", "fresnel", "lit fresnel", "chrome", "rainbow", "glow",
-	"plastic", "metal", "rubber", "glass", "pearl", "glossy", "holographic"
+	"flat", "chrome", "rainbow", "pearl", "glossy", "holographic",
+	"fade", "wireframe", "glass", "ropes", "liquid metal"
 };
+
+bool ModeUsesFillColor(int m)
+{
+	// flat / wireframe / glass — юзер-цвет
+	return m == 0 || m == 7 || m == 8;
+}
 
 void ReleaseMesh(GpuMesh& mesh)
 {
@@ -801,6 +848,12 @@ bool Init(ID3D11Device* device, ID3D11DeviceContext* context)
 	if (FAILED(g_device->CreateRasterizerState(&rd, &g_raster)))
 		return false;
 
+	D3D11_RASTERIZER_DESC rdw = rd;
+	rdw.FillMode = D3D11_FILL_WIREFRAME;
+	rdw.AntialiasedLineEnable = TRUE;
+	if (FAILED(g_device->CreateRasterizerState(&rdw, &g_raster_wire)))
+		return false;
+
 	return CreateUnitCube();
 }
 
@@ -820,6 +873,7 @@ void Shutdown()
 	if (g_cham_srv) { g_cham_srv->Release(); g_cham_srv = nullptr; }
 	if (g_dsv) { g_dsv->Release(); g_dsv = nullptr; }
 	if (g_depth_tex) { g_depth_tex->Release(); g_depth_tex = nullptr; }
+	if (g_raster_wire) { g_raster_wire->Release(); g_raster_wire = nullptr; }
 	if (g_raster) { g_raster->Release(); g_raster = nullptr; }
 	if (g_ds_off) { g_ds_off->Release(); g_ds_off = nullptr; }
 	if (g_ds) { g_ds->Release(); g_ds = nullptr; }
@@ -860,18 +914,23 @@ void BeginFrame(const Matrix4x4& view, const Vector3& camera, float time)
 	g_cbdata.time = time;
 
 	const auto& st = g_Settings.esp;
-	std::memcpy(g_cbdata.base_color, st.chams_fill_color, sizeof(g_cbdata.base_color));
-	std::memcpy(g_cbdata.fresnel_color, st.chams_outline_color, sizeof(g_cbdata.fresnel_color));
-	std::memcpy(g_cbdata.visible_color, st.chams_fill_color, sizeof(g_cbdata.visible_color));
-	std::memcpy(g_cbdata.occluded_color, st.mesh_chams_occluded_color, sizeof(g_cbdata.occluded_color));
-	std::memcpy(g_cbdata.occluded_fresnel, st.mesh_chams_occluded_color,
-	            sizeof(g_cbdata.occluded_fresnel));
 	g_cbdata.mode = (st.mesh_chams_style == 1) ? st.mesh_chams_dx_mode : 0;
 	if (g_cbdata.mode < 0) g_cbdata.mode = 0;
-	if (g_cbdata.mode > 13) g_cbdata.mode = 13;
+	if (g_cbdata.mode > 10) g_cbdata.mode = 10;
 	g_cbdata.occluded_mode = st.mesh_chams_occluded_dx_mode;
 	if (g_cbdata.occluded_mode < 0) g_cbdata.occluded_mode = 0;
-	if (g_cbdata.occluded_mode > 13) g_cbdata.occluded_mode = 13;
+	if (g_cbdata.occluded_mode > 10) g_cbdata.occluded_mode = 10;
+
+	static const float k_white[4] = { 1.f, 1.f, 1.f, 1.f };
+	const float* fill = ModeUsesFillColor(g_cbdata.mode) ? st.chams_fill_color : k_white;
+	std::memcpy(g_cbdata.base_color, fill, sizeof(g_cbdata.base_color));
+	std::memcpy(g_cbdata.fresnel_color, fill, sizeof(g_cbdata.fresnel_color));
+	std::memcpy(g_cbdata.visible_color, fill, sizeof(g_cbdata.visible_color));
+
+	std::memcpy(g_cbdata.occluded_color, st.mesh_chams_occluded_color,
+	            sizeof(g_cbdata.occluded_color));
+	std::memcpy(g_cbdata.occluded_fresnel, st.mesh_chams_occluded_color,
+	            sizeof(g_cbdata.occluded_fresnel));
 	g_cbdata.fresnel_power = 2.5f;
 	g_cbdata.occlusion_enabled = st.mesh_chams_occlusion ? 1 : 0;
 
@@ -883,7 +942,7 @@ void BeginFrame(const Matrix4x4& view, const Vector3& camera, float time)
 	if (g_cbdata.outline_style < 0) g_cbdata.outline_style = 0;
 	if (g_cbdata.outline_style > 3) g_cbdata.outline_style = 3;
 	g_cbdata.outline_enabled = st.mesh_chams_outline ? 1 : 0;
-	g_cbdata.outline_pad = 0.f;
+	g_cbdata.glow_strength = 0.f; // pad (glow удалён)
 }
 
 void QueueMesh(const std::string& mesh_id, const Matrix4x4& world)
@@ -959,7 +1018,7 @@ void Flush(ID3D11RenderTargetView* rtv)
 		0.f, 0.f, (float)g_width, (float)g_height, 0.f, 1.f
 	};
 	g_context->RSSetViewports(1, &vp);
-	g_context->RSSetState(g_raster);
+	g_context->RSSetState(g_raster); // depth/occ — solid
 	g_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	g_context->IASetInputLayout(g_layout);
 	g_context->VSSetShader(g_vs, nullptr, 0);
@@ -995,6 +1054,12 @@ void Flush(ID3D11RenderTargetView* rtv)
 	g_context->OMSetRenderTargets(1, &rtv, g_dsv);
 	g_context->OMSetBlendState(g_blend, bf, 0xFFFFFFFFu);
 	g_context->PSSetShader(g_ps, nullptr, 0);
+	{
+		const bool wire =
+			g_cbdata.mode == 7 ||
+			(g_cbdata.occlusion_enabled != 0 && g_cbdata.occluded_mode == 7);
+		g_context->RSSetState((wire && g_raster_wire) ? g_raster_wire : g_raster);
+	}
 
 	if (g_cbdata.occlusion_enabled != 0 && g_world_srv)
 	{
@@ -1018,6 +1083,7 @@ void Flush(ID3D11RenderTargetView* rtv)
 		g_cbdata.outline_enabled != 0 && g_cham_srv && g_vs_fs && g_ps_outline;
 	if (want_outline)
 	{
+		g_context->RSSetState(g_raster);
 		ID3D11RenderTargetView* null_rtv[1]{ nullptr };
 		g_context->OMSetRenderTargets(1, null_rtv, nullptr);
 

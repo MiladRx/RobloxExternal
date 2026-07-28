@@ -69,8 +69,9 @@ namespace Cheat {
             int  chams_shader{ 0 };
             // mesh chams: 0 flat (ImGui / dx flat) / 1 dx shader
             int  mesh_chams_style{ 0 };
-            // 0..6 базовые, 7 plastic 8 metal 9 rubber 10 glass 11 pearl 12 glossy 13 holographic
-            int  mesh_chams_dx_mode{ 3 };
+            // 0 flat 1 chrome 2 rainbow 3 pearl 4 glossy 5 holographic
+            // 6 fade 7 wireframe 8 glass 9 ropes 10 liquid metal
+            int  mesh_chams_dx_mode{ 4 };
             // world-depth occluded (отдельный чекбокс)
             bool  mesh_chams_occlusion{ false };
             // тот же список mode, что mesh_chams_dx_mode
