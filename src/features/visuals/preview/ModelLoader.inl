@@ -1,12 +1,3 @@
-#include "pch.h"
-#define NOMINMAX
-#include "ModelLoader.h"
-#include <fstream>
-#include <sstream>
-#include <cstring>
-#include <algorithm>
-#include <cmath>
-
 namespace Cheat::Core {
 namespace {
 
@@ -45,7 +36,7 @@ void BoundsFromPos(const std::vector<float>& pos, float mn[3], float mx[3])
     }
 }
 
-// ╨║╤Ç╤ï╨╗╤î╤Å / ╨╛╨│╤Ç╨╛╨╝╨╜╤ï╨╡ ╨░╨║╤ü╤ï ╨▓ ╨╛╤é╨┤╨╡╨╗╤î╨╜╤ï╨╣ ╨▒╨░╤é╤ç
+// крылья / огромные аксы в отдельный батч
 bool IsWingLikeAccessory(const ModelPartAABB& a, float bodyW, float bodyH)
 {
 	if (!a.valid)
@@ -126,7 +117,7 @@ void FinalizeModel(LoadedModel& out, std::vector<GroupAccum>& groups)
 
         else if (g.handle && g.aabb.valid)
         {
-            // handle ╤é╨╛╨╢╨╡ ╨▓ ╨▒╨╛╨║╤ü, ╨╕╨╜╨░╤ç╨╡ ╤Ç╨░╨╝╨║╨░ ╨║╤Ç╨╕╨▓╨░╤Å
+            // handle тоже в бокс, иначе рамка кривая
             out.box_parts.push_back(g.aabb);
             out.box_positions.insert(out.box_positions.end(), g.pos.begin(), g.pos.end());
         }
@@ -299,7 +290,7 @@ bool ParseOBJStream(std::istream& stream, LoadedModel& out)
                     }
                     if (i.vt >= 0 && i.vt * 2 + 1 < (int)uvs.size()) {
                         mv.u = uvs[i.vt * 2 + 0];
-                        mv.v = 1.0f - uvs[i.vt * 2 + 1]; // obj v ╨▓╨▓╨╡╤Ç╤à ╨╜╨╛╨│╨░╨╝╨╕
+                        mv.v = 1.0f - uvs[i.vt * 2 + 1]; // obj v вверх ногами
                     }
                     return mv;
                 };

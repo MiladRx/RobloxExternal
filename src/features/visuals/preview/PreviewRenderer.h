@@ -114,7 +114,7 @@ private:
     float m_Angle = 0.0f;
     float m_ManualYaw = 0.0f;
     float m_ManualPitch = 0.0f;
-    float m_Zoom = 0.936f; // ╤ç╤â╤é╤î ╨▒╨╗╨╕╨╢╨╡ ╤ç╨╡╨╝ 0.72
+    float m_Zoom = 0.936f; // чуть ближе чем 0.72
     bool m_AutoSpin = false;
     float m_SpinPauseRemaining = 0.0f;
     float m_SpinAccum = 0.0f;

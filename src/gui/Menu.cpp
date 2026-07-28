@@ -51,6 +51,10 @@ namespace {
         const float row_y = widgets::color_picker_row_y();
         widgets::same_line_color_picker(row_y, 0, 1);
         widgets::color_edit4(color_id, color);
+        // SameLine оставляет курсор на этой строке — иначе следующий combo/checkbox
+        // наезжает и колорпикеры «утекают» вниз (chrome / health bar и т.п.)
+        ImGui::SetCursorPosY(ImGui::GetItemRectMax().y - ImGui::GetWindowPos().y);
+        ImGui::SetCursorPosX(6.0f);
     }
 
     void sync_gui_theme()
@@ -615,15 +619,15 @@ float Menu::DrawMenu()
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5.0f);
                     widgets::checkbox("chams", &g_Settings.esp.chams);
 
-                    // box/filled/clipper — outline+fill; mesh flat — один fill на чекбоксе
+                    // box/filled/clipper — outline+fill; mesh flat/wire/glass — один fill
                     if (g_Settings.esp.chams_mode <= 2) {
                         const float row_y = widgets::color_picker_row_y();
                         widgets::same_line_color_picker(row_y, 1, 2);
                         widgets::color_edit4("esp_chams_outline_color", g_Settings.esp.chams_outline_color);
                         widgets::same_line_color_picker(row_y, 0, 2);
                         widgets::color_edit4("esp_chams_fill_color", g_Settings.esp.chams_fill_color);
+                        ImGui::SetCursorPosY(ImGui::GetItemRectMax().y - ImGui::GetWindowPos().y);
                     } else if (g_Settings.esp.chams_mode == 5) {
-                        // color на чекбоксе: flat / wireframe / glass
                         const int dx = g_Settings.esp.mesh_chams_dx_mode;
                         const bool need_color =
                             g_Settings.esp.mesh_chams_style == 0 ||
@@ -634,6 +638,7 @@ float Menu::DrawMenu()
                             widgets::same_line_color_picker(row_y, 0, 1);
                             widgets::color_edit4("esp_chams_fill_color",
                                                  g_Settings.esp.chams_fill_color);
+                            ImGui::SetCursorPosY(ImGui::GetItemRectMax().y - ImGui::GetWindowPos().y);
                         }
                     }
 
