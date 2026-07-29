@@ -15,6 +15,8 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdint>
+#include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -140,8 +142,7 @@ ResolveResult Resolve(const MeshParser::Entry& e)
 	// Head: своего меша нет в MCP — classic head.mesh из памяти (обычно всегда в LRU)
 	if (e.name == "Head")
 	{
-		CachedMesh tmp;
-		const bool have = !r.mesh_id.empty() && MeshCache::Get().Find(r.mesh_id, tmp);
+		const bool have = !r.mesh_id.empty() && (bool)MeshCache::Get().FindShared(r.mesh_id);
 		if (!have)
 		{
 			r.mesh_id = "rbxasset://avatar/heads/head.mesh";
@@ -161,11 +162,60 @@ ResolveResult Resolve(const MeshParser::Entry& e)
 	return r;
 }
 
-bool LookupMesh(const std::string& mesh_id, CachedMesh& mesh)
+std::shared_ptr<const CachedMesh> LookupMesh(const std::string& mesh_id)
 {
 	if (mesh_id.empty())
-		return false;
-	return MeshCache::Get().Find(mesh_id, mesh);
+		return nullptr;
+	return MeshCache::Get().FindShared(mesh_id);
+}
+
+struct FitCacheKey {
+	std::uint64_t part{ 0 };
+	std::size_t mesh_h{ 0 };
+	int qx{ 0 }, qy{ 0 }, qz{ 0 };
+	int flags{ 0 }; // acc / special / fit
+	bool operator==(const FitCacheKey& o) const
+	{
+		return part == o.part && mesh_h == o.mesh_h && qx == o.qx && qy == o.qy &&
+			qz == o.qz && flags == o.flags;
+	}
+};
+struct FitCacheKeyHash {
+	std::size_t operator()(const FitCacheKey& k) const
+	{
+		std::size_t h = (std::size_t)k.part ^ (k.mesh_h * 0x9e3779b97f4a7c15ull);
+		h ^= ((std::size_t)k.qx << 1) ^ ((std::size_t)k.qy << 11) ^ ((std::size_t)k.qz << 21);
+		h ^= (std::size_t)k.flags * 0x85ebca77u;
+		return h;
+	}
+};
+struct FitCacheVal {
+	Vector3 ms{ 1.f, 1.f, 1.f };
+	Vector3 off{ 0.f, 0.f, 0.f };
+};
+
+FitCacheKey MakeFitKey(
+	std::uint64_t part,
+	const std::string& mesh_id,
+	const Vector3& sz,
+	const Vector3& scale,
+	int flags)
+{
+	FitCacheKey k;
+	k.part = part;
+	k.mesh_h = std::hash<std::string>{}(mesh_id);
+	k.qx = (int)std::lround(sz.x * 100.f) ^ ((int)std::lround(scale.x * 100.f) << 16);
+	k.qy = (int)std::lround(sz.y * 100.f) ^ ((int)std::lround(scale.y * 100.f) << 16);
+	k.qz = (int)std::lround(sz.z * 100.f) ^ ((int)std::lround(scale.z * 100.f) << 16);
+	k.flags = flags;
+	return k;
+}
+
+bool IsAccessoryKind(MeshParser::Kind k)
+{
+	return k == MeshParser::Kind::Accessory ||
+		k == MeshParser::Kind::Hair ||
+		k == MeshParser::Kind::Face;
 }
 
 bool MeshAabb(const CachedMesh& mesh, const Vector3& ms, float out_min[3], float out_max[3])
@@ -283,6 +333,44 @@ void FitClassicR6Head(const CachedMesh& mesh, Vector3& ms, const Vector3& sz,
 
 	const float s = target / ext;
 	ms = { s, s, s };
+}
+
+// MeshPart body: Size + recenter (как limb box).
+// MeshPart hair/acc: Size fit, pivot Handle — БЕЗ recenter (иначе волосы уезжают).
+// SpecialMesh: только Scale/Offset — SanityFit ломает Offset.
+void ApplyVisualFit(
+	const MeshParser::Entry& e,
+	const ResolveResult& rr,
+	const CachedMesh& mesh,
+	Vector3& ms,
+	Vector3& off,
+	const Vector3& sz)
+{
+	const bool is_acc = IsAccessoryKind(e.kind);
+
+	if (e.name == "Head" && IsClassicHeadMesh(rr.mesh_id))
+	{
+		FitClassicR6Head(mesh, ms, sz, rr.scale);
+		if (!std::isfinite(off.x) || !std::isfinite(off.y) || !std::isfinite(off.z) ||
+			std::fabs(off.x) > 2.f || std::fabs(off.y) > 2.f || std::fabs(off.z) > 2.f)
+			off = { 0.f, 0.f, 0.f };
+		RecenterOffset(mesh, ms, off);
+		return;
+	}
+
+	if (rr.is_special)
+		return;
+
+	if (rr.fit_to_part)
+	{
+		FitScaleToPart(mesh, ms, sz);
+		if (!is_acc)
+			RecenterOffset(mesh, ms, off);
+		return;
+	}
+
+	if (!is_acc)
+		SanityFitIfHuge(mesh, ms, sz, false);
 }
 
 // R*(S*p + offset) + pos — тот же трансформ, что и у color-пути
@@ -897,8 +985,8 @@ bool ExpandBounds(
 			e.kind == MeshParser::Kind::Face;
 
 		ResolveResult rr = Resolve(e);
-		CachedMesh mesh;
-		const bool have = LookupMesh(rr.mesh_id, mesh) && !mesh.vertices.empty();
+		auto mesh = LookupMesh(rr.mesh_id);
+		const bool have = mesh && !mesh->vertices.empty();
 
 		// всегда Size OBB — руки/ноги не потеряются даже без MCP
 		push_part_obb(pos, rot, sz);
@@ -908,39 +996,16 @@ bool ExpandBounds(
 
 		Vector3 ms = rr.scale;
 		Vector3 off = rr.offset;
-		bool did_fit = false;
-		if (e.name == "Head" && IsClassicHeadMesh(rr.mesh_id))
-		{
-			FitClassicR6Head(mesh, ms, sz, rr.scale);
-			if (!std::isfinite(off.x) || !std::isfinite(off.y) || !std::isfinite(off.z) ||
-			    std::fabs(off.x) > 2.f || std::fabs(off.y) > 2.f || std::fabs(off.z) > 2.f)
-				off = { 0.f, 0.f, 0.f };
-			did_fit = true;
-		}
-		else if (rr.fit_to_part)
-		{
-			FitScaleToPart(mesh, ms, sz);
-			did_fit = true;
-		}
-		else
-		{
-			SanityFitIfHuge(mesh, ms, sz, is_acc);
-		}
-		if (is_acc && rr.fit_to_part)
-		{
-			SanityFitIfHuge(mesh, ms, sz, true);
-			did_fit = true;
-		}
-		if (did_fit)
-			RecenterOffset(mesh, ms, off);
+		(void)is_acc;
+		ApplyVisualFit(e, rr, *mesh, ms, off, sz);
 
 		// сэмпл вершин меша (аксы торчат за Size Handle)
-		const int n = (int)mesh.vertices.size();
+		const int n = (int)mesh->vertices.size();
 		int step = n / 96;
 		if (step < 1) step = 1;
 		for (int i = 0; i < n; i += step)
 		{
-			const float* p = mesh.vertices[i].pos;
+			const float* p = mesh->vertices[i].pos;
 			if (!std::isfinite(p[0]) || !std::isfinite(p[1]) || !std::isfinite(p[2]))
 				continue;
 			const float lx = p[0] * ms.x + off.x;
@@ -991,14 +1056,8 @@ void Draw(
 	};
 	refresh_view();
 
-	// MCP LRU — раз в кадр на всех персонажей, не на каждого
-	static ULONGLONG s_mcp_frame = 0;
+	// MCP Refresh — в cache-thread (PlayerHandler), не на overlay-кадре
 	const ULONGLONG now = GetTickCount64();
-	if (now != s_mcp_frame)
-	{
-		s_mcp_frame = now;
-		MeshCache::Get().Refresh(false);
-	}
 
 	// CollectDrawable тяжёлый (walk children) — короткий кэш
 	struct PartsCache {
@@ -1022,7 +1081,7 @@ void Draw(
 	const std::vector<MeshParser::Entry>* parts_ptr = nullptr;
 	{
 		auto& pc = s_parts[character];
-		if (pc.parts.empty() || now - pc.t > 120ull)
+		if (pc.parts.empty() || now - pc.t > 50ull)
 		{
 			pc.parts = MeshParser::CollectDrawable(character);
 			pc.t = now;
@@ -1055,6 +1114,14 @@ void Draw(
 	std::vector<ScreenTri> outline_tris;
 	if (want_outline)
 		outline_tris.reserve(4096);
+
+	static std::unordered_map<FitCacheKey, FitCacheVal, FitCacheKeyHash> s_fit;
+	static ULONGLONG s_fit_gc = 0;
+	if (now - s_fit_gc > 3000ull)
+	{
+		s_fit.clear();
+		s_fit_gc = now;
+	}
 
 	bool need_force_mcp = false;
 
@@ -1093,8 +1160,7 @@ void Draw(
 			else if (e.class_name == "MeshPart")
 				real = ReadMeshIdAt(e.part + Offsets::MeshPart::MeshId);
 
-			CachedMesh probe;
-			if (!real.empty() && MeshCache::Get().Find(real, probe))
+			if (!real.empty() && MeshCache::Get().FindShared(real))
 			{
 				rr.mesh_id = real;
 				if (e.special_mesh)
@@ -1125,15 +1191,14 @@ void Draw(
 			}
 		}
 
-		CachedMesh mesh;
-		if (!LookupMesh(rr.mesh_id, mesh) || mesh.faces.empty())
+		auto mesh = LookupMesh(rr.mesh_id);
+		if (!mesh || mesh->faces.empty())
 		{
 			if (!rr.mesh_id.empty())
 				need_force_mcp = true;
 
-			if (e.name == "Head" &&
-			    LookupMesh("rbxasset://avatar/heads/head.mesh", mesh) &&
-			    !mesh.faces.empty())
+			mesh = LookupMesh("rbxasset://avatar/heads/head.mesh");
+			if (e.name == "Head" && mesh && !mesh->faces.empty())
 			{
 				rr.mesh_id = "rbxasset://avatar/heads/head.mesh";
 				rr.fit_to_part = false;
@@ -1166,34 +1231,19 @@ void Draw(
 
 		Vector3 ms = rr.scale;
 		Vector3 off = rr.offset;
-		bool did_fit = false;
-		if (e.name == "Head" && IsClassicHeadMesh(rr.mesh_id))
+		const int fit_flags =
+			(is_acc ? 1 : 0) | (rr.is_special ? 2 : 0) | (rr.fit_to_part ? 4 : 0);
+		const FitCacheKey fk = MakeFitKey(e.part, rr.mesh_id, sz, rr.scale, fit_flags);
+		if (auto fit_it = s_fit.find(fk); fit_it != s_fit.end())
 		{
-			FitClassicR6Head(mesh, ms, sz, rr.scale);
-			if (!std::isfinite(off.x) || !std::isfinite(off.y) || !std::isfinite(off.z) ||
-			    std::fabs(off.x) > 2.f || std::fabs(off.y) > 2.f || std::fabs(off.z) > 2.f)
-				off = { 0.f, 0.f, 0.f };
-			did_fit = true;
-		}
-		else if (rr.fit_to_part)
-		{
-			FitScaleToPart(mesh, ms, sz);
-			did_fit = true;
+			ms = fit_it->second.ms;
+			off = fit_it->second.off;
 		}
 		else
 		{
-			SanityFitIfHuge(mesh, ms, sz, is_acc);
+			ApplyVisualFit(e, rr, *mesh, ms, off, sz);
+			s_fit[fk] = { ms, off };
 		}
-
-		if (is_acc && rr.fit_to_part)
-		{
-			SanityFitIfHuge(mesh, ms, sz, true);
-			did_fit = true;
-		}
-
-		// идеальная посадка: AABB меша в центрпарта (как у движка)
-		if (did_fit)
-			RecenterOffset(mesh, ms, off);
 
 		if (use_shader)
 			MeshDxShader::QueueMesh(rr.mesh_id, MakeWorld(pos, rot, ms, off));
@@ -1201,11 +1251,11 @@ void Draw(
 		if (!want_fill_imgui && !want_outline)
 			continue;
 
-		const int vtx_count = (int)mesh.vertices.size();
+		const int vtx_count = (int)mesh->vertices.size();
 		if (vtx_count <= 0 || vtx_count > 50000)
 			continue;
 
-		const int fac_total = (int)mesh.faces.size();
+		const int fac_total = (int)mesh->faces.size();
 		if (fac_total <= 0)
 			continue;
 
@@ -1220,7 +1270,7 @@ void Draw(
 		std::vector<char> need((std::size_t)vtx_count, 0);
 		for (int i = 0; i < fac_total; i += fac_stride)
 		{
-			const auto& f = mesh.faces[i];
+			const auto& f = mesh->faces[i];
 			if (f.indices[0] < (std::uint32_t)vtx_count) need[f.indices[0]] = 1;
 			if (f.indices[1] < (std::uint32_t)vtx_count) need[f.indices[1]] = 1;
 			if (f.indices[2] < (std::uint32_t)vtx_count) need[f.indices[2]] = 1;
@@ -1235,7 +1285,7 @@ void Draw(
 		{
 			if (!need[i])
 				continue;
-			const float* p = mesh.vertices[i].pos;
+			const float* p = mesh->vertices[i].pos;
 			float lx = p[0] * ms.x + off.x;
 			float ly = p[1] * ms.y + off.y;
 			float lz = p[2] * ms.z + off.z;
@@ -1255,9 +1305,9 @@ void Draw(
 
 		for (int i = 0; i < fac_total; i += fac_stride)
 		{
-			const std::uint32_t i0 = mesh.faces[i].indices[0];
-			const std::uint32_t i1 = mesh.faces[i].indices[1];
-			const std::uint32_t i2 = mesh.faces[i].indices[2];
+			const std::uint32_t i0 = mesh->faces[i].indices[0];
+			const std::uint32_t i1 = mesh->faces[i].indices[1];
+			const std::uint32_t i2 = mesh->faces[i].indices[2];
 			if (i0 >= (std::uint32_t)vtx_count || i1 >= (std::uint32_t)vtx_count ||
 			    i2 >= (std::uint32_t)vtx_count)
 				continue;
@@ -1291,6 +1341,7 @@ void Draw(
 		if (now - s_force_mcp > 400ull)
 		{
 			s_force_mcp = now;
+			// флаг: следующий Tick cache-thread подтянет MCP
 			MeshCache::Get().Refresh(true);
 		}
 	}

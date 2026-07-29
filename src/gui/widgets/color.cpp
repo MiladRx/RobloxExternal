@@ -181,6 +181,7 @@ namespace widgets {
             + slot_from_right * (box + g);
 
         ImGui::SameLine(slot_x);
+        // +6 = выравнивание свотча с checkbox-боксом (box_oy)
         ImGui::SetCursorPosY(row_y + 6.f);
     }
 

@@ -74,10 +74,10 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;ZSTD_DISABLE_ASM;ZSTD_LEGACY_SUPPORT=0;XXH_NAMESPACE=ZSTD_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)third_party;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -99,10 +99,10 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;ZSTD_DISABLE_ASM;ZSTD_LEGACY_SUPPORT=0;XXH_NAMESPACE=ZSTD_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)third_party;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -124,10 +124,10 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;ZSTD_DISABLE_ASM;ZSTD_LEGACY_SUPPORT=0;XXH_NAMESPACE=ZSTD_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)third_party;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -149,10 +149,10 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;ZSTD_DISABLE_ASM;ZSTD_LEGACY_SUPPORT=0;XXH_NAMESPACE=ZSTD_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)third_party;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -199,6 +199,7 @@
     <ClInclude Include="src\features\visuals\boxfill\BoxFill.h" />
     <ClInclude Include="src\features\visuals\HavocWorldEsp.h" />
     <ClInclude Include="src\features\games\PhantomForces.h" />
+    <ClInclude Include="src\features\games\ApocalypseRising.h" />
     <ClInclude Include="src\features\visuals\ModelLoader.h" />
     <ClInclude Include="src\features\visuals\PreviewRenderer.h" />
     <ClInclude Include="assets\preview_model\preview_model_obj.h" />
@@ -222,12 +223,15 @@
     <ClInclude Include="src\features\explorer\Explorer.h" />
     <ClInclude Include="src\features\mcp\McpBridge.h" />
     <ClInclude Include="src\features\lua\LuaExecutor.h" />
+    <ClInclude Include="src\features\lua\execute\Clipboard.h" />
+
     <ClInclude Include="src\gui\TextEditor\TextEditor.h" />
     <ClInclude Include="src\renderer\Renderer.h" />
     <ClInclude Include="src\gui\Menu.h" />
     <ClInclude Include="src\gui\colors\colors.h" />
     <ClInclude Include="src\gui\animation\animation.h" />
     <ClInclude Include="src\gui\resources\fonts\fonts.h" />
+    <ClInclude Include="src\gui\resources\fonts\font_fredoka_one.h" />
     <ClInclude Include="src\gui\resources\fonts\font_tahoma.h" />
     <ClInclude Include="src\gui\resources\fonts\font_tahoma_bold.h" />
     <ClInclude Include="src\gui\resources\fonts\font_proggyclean.h" />
@@ -235,6 +239,10 @@
     <ClInclude Include="src\gui\resources\icons\iconsdex.h" />
     <ClInclude Include="src\gui\widgets\widgets.h" />
     <ClInclude Include="src\gui\widgets\tabs.h" />
+    <ClInclude Include="third_party\lua\lua.h" />
+    <ClInclude Include="third_party\lua\lauxlib.h" />
+    <ClInclude Include="third_party\lua\lualib.h" />
+    <ClInclude Include="third_party\lua\luaconf.h" />
     <ClInclude Include="third_party\stb\stb_image.h" />
     <ClInclude Include="third_party\imgui\imconfig.h" />
     <ClInclude Include="third_party\imgui\imgui.h" />
@@ -278,6 +286,7 @@
     </ClCompile>
     <ClCompile Include="src\features\visuals\HavocWorldEsp.cpp" />
     <ClCompile Include="src\features\games\PhantomForces.cpp" />
+    <ClCompile Include="src\features\games\ApocalypseRising.cpp" />
     <ClCompile Include="src\features\visuals\Crosshair.cpp" />
     <ClCompile Include="src\features\visuals\ShaderChams.cpp" />
     <ClCompile Include="src\features\visuals\EngineChams.cpp" />
@@ -311,12 +320,403 @@
     <ClCompile Include="src\features\movement\Speed.cpp" />
     <ClCompile Include="src\features\explorer\Explorer.cpp" />
     <ClCompile Include="src\features\mcp\McpBridge.cpp" />
+    <ClInclude Include="src\features\lua\vm\LuaVM.h" />
+    <ClInclude Include="src\features\lua\vm\LuaBridge.h" />
     <ClCompile Include="src\features\lua\LuaExecutor.cpp" />
+    <ClCompile Include="third_party\lua\lapi.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lauxlib.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lbaselib.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lcode.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lcorolib.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lctype.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\ldblib.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\ldebug.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\ldo.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\ldump.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lfunc.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lgc.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\linit.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\liolib.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\llex.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lmathlib.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lmem.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\loadlib.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lobject.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lopcodes.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\loslib.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lparser.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lstate.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lstring.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lstrlib.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\ltable.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\ltablib.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\ltm.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lundump.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lutf8lib.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lvm.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\lua\lzio.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+
+    <ClCompile Include="src\features\lua\vm\LuaVM.cpp" />
+    <ClCompile Include="src\features\lua\vm\LuaBridge.cpp" />
+    <ClCompile Include="src\features\lua\vm\LuaTypes.cpp" />
+    <ClCompile Include="src\features\lua\vm\LuaDrawing.cpp" />
+    <ClCompile Include="src\features\lua\vm\LuaScripts.cpp" />
+    <ClCompile Include="src\features\lua\vm\ScriptBytecode.cpp" />
+
+    <ClCompile Include="third_party\zstd\lib\common\debug.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\zstd\lib\common\entropy_common.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\zstd\lib\common\error_private.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\zstd\lib\common\fse_decompress.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\zstd\lib\common\xxhash.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\zstd\lib\common\zstd_common.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\zstd\lib\decompress\huf_decompress.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\zstd\lib\decompress\zstd_ddict.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\zstd\lib\decompress\zstd_decompress.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="third_party\zstd\lib\decompress\zstd_decompress_block.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+
     <ClCompile Include="src\gui\TextEditor\TextEditor.cpp" />
     <ClCompile Include="third_party\stb\stb_image_impl.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\tabs\helpers.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\tabs\aim.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\tabs\esp.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\tabs\misc.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\tabs\settings_tab.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\jewsploit_shell.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\animation\animation.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\colors\theme.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\checkbox.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\child.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\slider.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\dropdown.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\keybind.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\label_keybind.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\label_color.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\select.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\keys.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\input.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\input_btn.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\btn_row.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\btn.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\strlist.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\scroll_fade.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\search_popup.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\colorpicker.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\color_presets.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\color_style.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\island.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\float_panel.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\lua_ui.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\explorer_ui.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\widgets\argb_field.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
     </ClCompile>
     <ClCompile Include="src\gui\Menu.cpp" />
     <ClCompile Include="src\gui\colors\colors.cpp" />
@@ -332,6 +732,8 @@
     <ClCompile Include="src\gui\widgets\tabs.cpp" />
     <ClCompile Include="src\gui\widgets\color.cpp" />
     <ClCompile Include="src\gui\widgets\keybind.cpp" />
+    <ClCompile Include="src\gui\widgets\layout.cpp" />
+
     <ClCompile Include="third_party\imgui\imgui.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>

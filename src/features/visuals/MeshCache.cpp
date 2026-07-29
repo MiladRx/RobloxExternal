@@ -203,10 +203,10 @@ void MeshCache::Refresh(bool force)
 		cache_[kv.first] = std::move(kv.second);
 }
 
-bool MeshCache::Find(const std::string& asset_id, CachedMesh& out) const
+std::shared_ptr<const CachedMesh> MeshCache::FindShared(const std::string& asset_id) const
 {
 	if (asset_id.empty() || asset_id == "Unknown")
-		return false;
+		return nullptr;
 
 	std::vector<std::string> keys;
 	const std::string cleaned = CleanAssetId(asset_id);
@@ -218,10 +218,18 @@ bool MeshCache::Find(const std::string& asset_id, CachedMesh& out) const
 		auto it = cache_.find(k);
 		if (it == cache_.end() || !it->second)
 			continue;
-		out = *it->second;
-		return true;
+		return it->second;
 	}
-	return false;
+	return nullptr;
+}
+
+bool MeshCache::Find(const std::string& asset_id, CachedMesh& out) const
+{
+	auto p = FindShared(asset_id);
+	if (!p)
+		return false;
+	out = *p;
+	return true;
 }
 
 std::size_t MeshCache::Count() const

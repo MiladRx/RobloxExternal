@@ -297,17 +297,36 @@ float4 ps_outline(FSIn i) : SV_TARGET
     if (OutlineSolid(sp))
         return float4(0, 0, 0, 0);
 
-    // широкий soft halo
-    int radius = (int)(7.0 + saturate(outline_fade / 3.0) * 17.0);
-    if (radius < 7) radius = 7;
-    if (radius > 24) radius = 24;
+    // было 24 луча × radius 24 ≈ 576 Load/пиксель на весь экран → FPS влетел
+    // 8 лучей × radius 2..8, плюс coarse reject
+    int radius = (int)(2.0 + saturate(outline_fade / 3.0) * 6.0);
+    if (radius < 2) radius = 2;
+    if (radius > 8) radius = 8;
+
+    // быстрый отсев пустоты: только кольца r=1, mid, max (24 Load max)
+    bool near = false;
+    [unroll] for (int k = 0; k < 8; ++k)
+    {
+        float ang = (float)k * 0.78539816; // 2pi/8
+        float2 dir = float2(cos(ang), sin(ang));
+        int2 n1 = sp + int2(round(dir.x), round(dir.y));
+        if (OutlineSolid(n1)) { near = true; break; }
+        int mid = max(radius / 2, 2);
+        int2 n2 = sp + int2(round(dir.x * (float)mid), round(dir.y * (float)mid));
+        if (OutlineSolid(n2)) { near = true; break; }
+        int2 n3 = sp + int2(round(dir.x * (float)radius), round(dir.y * (float)radius));
+        if (OutlineSolid(n3)) { near = true; break; }
+    }
+    if (!near)
+        return float4(0, 0, 0, 0);
 
     float nearest = 1e5;
-    [unroll] for (int k = 0; k < 24; ++k)
+    [unroll] for (int k = 0; k < 8; ++k)
     {
-        float ang = (float)k * 0.26179939; // 2pi/24
+        float ang = (float)k * 0.78539816;
         float2 dir = float2(cos(ang), sin(ang));
-        [loop] for (int r = 1; r <= radius; ++r)
+        // шаг 2 — вдвое меньше Load, на soft halo незаметно
+        [loop] for (int r = 1; r <= radius; r += 1)
         {
             int2 np = sp + int2(round(dir.x * (float)r), round(dir.y * (float)r));
             if (!OutlineSolid(np))
@@ -323,59 +342,54 @@ float4 ps_outline(FSIn i) : SV_TARGET
         return float4(0, 0, 0, 0);
 
     float t = saturate(nearest / (float)radius);
-    // ядро + mid bloom + длинный dissolve наружу
-    float core = exp(-nearest * nearest * 0.18);
-    float mid  = exp(-t * t * 1.85);
-    float tail = pow(saturate(1.0 - t), 3.8);
-    float fall = core * 0.50 + mid * 0.42 + tail * 0.48;
+    float core = exp(-nearest * nearest * 0.35);
+    float mid  = exp(-t * t * 2.2);
+    float tail = pow(saturate(1.0 - t), 2.8);
+    float fall = core * 0.55 + mid * 0.40 + tail * 0.35;
 
     float3 rgb = outline_color.rgb;
-    float a = outline_color.a * fall * 0.88;
+    float a = outline_color.a * fall * 0.90;
     float anim = 1.0;
 
-    if (outline_style == 0) // soft fade — дыхание + лёгкий shimmer
+    if (outline_style == 0) // soft fade
     {
-        float breath = 0.80 + 0.20 * sin(time * 1.55);
-        float shimmer = 0.93 + 0.07 * sin(time * 6.2 + nearest * 0.4);
-        anim = breath * shimmer;
-        rgb *= 0.90 + 0.18 * core;
+        float breath = 0.85 + 0.15 * sin(time * 1.55);
+        anim = breath;
+        rgb *= 0.92 + 0.14 * core;
     }
-    else if (outline_style == 1) // pulse — волна от силуэта наружу
+    else if (outline_style == 1) // pulse
     {
-        float wave = 0.5 + 0.5 * sin(nearest * 0.48 - time * 4.0);
-        float pulse = 0.50 + 0.50 * (0.5 + 0.5 * sin(time * 2.6));
-        anim = lerp(0.50, 1.20, wave) * pulse;
-        fall = core * 0.45 + mid * (0.35 + 0.35 * wave) + tail * 0.55;
+        float wave = 0.5 + 0.5 * sin(nearest * 0.55 - time * 4.0);
+        float pulse = 0.55 + 0.45 * (0.5 + 0.5 * sin(time * 2.6));
+        anim = lerp(0.55, 1.15, wave) * pulse;
+        fall = core * 0.50 + mid * (0.35 + 0.30 * wave) + tail * 0.40;
         a = outline_color.a * fall * 0.92;
-        rgb *= 0.82 + 0.40 * wave;
+        rgb *= 0.85 + 0.35 * wave;
     }
-    else if (outline_style == 2) // flow — мягкие бегущие полосы
+    else if (outline_style == 2) // flow
     {
         float2 c = float2(sp) + 0.5;
         float band = sin(c.x * 0.065 + c.y * 0.048 - time * 3.2);
-        float band2 = sin(c.x * 0.028 - c.y * 0.075 + time * 1.9);
-        float flow = 0.50 + 0.50 * (0.5 + 0.5 * band);
-        flow *= 0.78 + 0.22 * (0.5 + 0.5 * band2);
+        float flow = 0.55 + 0.45 * (0.5 + 0.5 * band);
         anim = flow;
-        rgb = lerp(rgb, saturate(rgb * 1.4 + 0.12), saturate(band * 0.45 + 0.30));
-        a = outline_color.a * fall * (0.50 + 0.60 * flow);
+        rgb = lerp(rgb, saturate(rgb * 1.35 + 0.10), saturate(band * 0.40 + 0.25));
+        a = outline_color.a * fall * (0.55 + 0.50 * flow);
     }
-    else // neon wave — вращающийся neon rim + dissolve
+    else // neon
     {
         float ang = atan2((float)sp.y, (float)sp.x);
-        float swirl = 0.5 + 0.5 * sin(ang * 3.0 + time * 2.5 + nearest * 0.22);
-        float rim = exp(-nearest * nearest * 0.10);
-        anim = 0.55 + 0.45 * swirl;
-        fall = rim * 0.70 + mid * 0.40 + tail * 0.55;
-        a = outline_color.a * fall * (0.60 + 0.50 * swirl);
-        rgb = lerp(rgb, saturate(rgb + float3(0.22, 0.32, 0.55) * swirl), 0.40);
-        rgb *= 0.88 + 0.50 * rim;
+        float swirl = 0.5 + 0.5 * sin(ang * 3.0 + time * 2.5 + nearest * 0.25);
+        float rim = exp(-nearest * nearest * 0.18);
+        anim = 0.60 + 0.40 * swirl;
+        fall = rim * 0.75 + mid * 0.35 + tail * 0.40;
+        a = outline_color.a * fall * (0.65 + 0.45 * swirl);
+        rgb = lerp(rgb, saturate(rgb + float3(0.20, 0.30, 0.50) * swirl), 0.35);
+        rgb *= 0.90 + 0.40 * rim;
     }
 
     a *= anim;
-    // финальное растворение — хвост почти прозрачный
-    a *= saturate(1.15 - t * 0.85);
-    if (a < 0.005)
+    a *= saturate(1.10 - t * 0.75);
+    if (a < 0.008)
         return float4(0, 0, 0, 0);
     return float4(rgb, saturate(a));
 }
@@ -640,15 +654,15 @@ const GpuMesh* Fetch(const std::string& mesh_id)
 	if (auto it = g_uploaded.find(mesh_id); it != g_uploaded.end())
 		return it->second.vb ? &it->second : nullptr;
 
-	CachedMesh copy;
-	if (!MeshCache::Get().Find(mesh_id, copy) || copy.vertices.empty() || copy.faces.empty())
+	const auto mesh = MeshCache::Get().FindShared(mesh_id);
+	if (!mesh || mesh->vertices.empty() || mesh->faces.empty())
 		return nullptr;
 
-	const std::size_t vcount = copy.vertices.size();
+	const std::size_t vcount = mesh->vertices.size();
 	if (vcount > 50000)
 		return nullptr;
 
-	std::size_t fac_count = copy.faces.size();
+	std::size_t fac_count = mesh->faces.size();
 	if (fac_count > 20000)
 		fac_count = 20000;
 
@@ -656,7 +670,7 @@ const GpuMesh* Fetch(const std::string& mesh_id)
 	indices.reserve(fac_count * 3);
 	for (std::size_t i = 0; i < fac_count; ++i)
 	{
-		const auto& f = copy.faces[i];
+		const auto& f = mesh->faces[i];
 		if (f.indices[0] >= vcount || f.indices[1] >= vcount || f.indices[2] >= vcount)
 			continue;
 		indices.push_back(f.indices[0]);
@@ -673,7 +687,7 @@ const GpuMesh* Fetch(const std::string& mesh_id)
 		g_uploaded.clear();
 	}
 
-	GpuMesh gpu = Upload(copy.vertices.data(), vcount, indices.data(), indices.size());
+	GpuMesh gpu = Upload(mesh->vertices.data(), vcount, indices.data(), indices.size());
 	auto [it, _] = g_uploaded.emplace(mesh_id, gpu);
 	return it->second.vb ? &it->second : nullptr;
 }
@@ -937,7 +951,8 @@ void BeginFrame(const Matrix4x4& view, const Vector3& camera, float time)
 	std::memcpy(g_cbdata.outline_color, st.mesh_chams_outline_color, sizeof(g_cbdata.outline_color));
 	g_cbdata.outline_fade = st.mesh_chams_outline_fade;
 	if (g_cbdata.outline_fade < 0.35f) g_cbdata.outline_fade = 0.35f;
-	if (g_cbdata.outline_fade > 3.f) g_cbdata.outline_fade = 3.f;
+	// >2 почти не даёт вида, но раздувает radius в шейдере
+	if (g_cbdata.outline_fade > 2.f) g_cbdata.outline_fade = 2.f;
 	g_cbdata.outline_style = st.mesh_chams_outline_style;
 	if (g_cbdata.outline_style < 0) g_cbdata.outline_style = 0;
 	if (g_cbdata.outline_style > 3) g_cbdata.outline_style = 3;
@@ -984,21 +999,14 @@ void Flush(ID3D11RenderTargetView* rtv)
 	const bool want_occ = g_cbdata.occlusion_enabled != 0 && g_world_dsv && g_world_srv && g_unit_cube.vb;
 	if (want_occ)
 	{
-		// VisitOccluders очень тяжёлый — кэш ~2 кадра при 60hz, иначе mesh выглядит как 30fps
-		static std::vector<Matrix4x4> s_occ_cache;
-		static ULONGLONG s_occ_t = 0;
-		const ULONGLONG occ_now = GetTickCount64();
-		if (s_occ_cache.empty() || occ_now - s_occ_t > 48ull)
-		{
-			s_occ_cache.clear();
-			Features::RaycastEngine::VisitOccluders(
-				g_camera, 180.f, 900,
-				[](const Vector3& pos, const Matrix4x4& rot, const Vector3& size) {
-					s_occ_cache.push_back(MakeBoxWorld(pos, rot, size));
-				});
-			s_occ_t = occ_now;
-		}
-		g_world_boxes = s_occ_cache;
+		// VisitOccluders читает уже готовый raycast-кэш — каждый Flush, иначе ~20fps «дёрганье»
+		g_world_boxes.clear();
+		g_world_boxes.reserve(900);
+		Features::RaycastEngine::VisitOccluders(
+			g_camera, 180.f, 900,
+			[](const Vector3& pos, const Matrix4x4& rot, const Vector3& size) {
+				g_world_boxes.push_back(MakeBoxWorld(pos, rot, size));
+			});
 	}
 
 	// VP прямо перед GPU: BeginFrame был в начале ESP, к Flush камера уже уехала

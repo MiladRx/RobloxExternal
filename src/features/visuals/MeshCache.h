@@ -38,6 +38,8 @@ public:
 	static MeshCache& Get();
 
 	void Refresh(bool force = false);
+	// hot path: без deep-copy
+	std::shared_ptr<const CachedMesh> FindShared(const std::string& asset_id) const;
 	bool Find(const std::string& asset_id, CachedMesh& out) const;
 	std::size_t Count() const;
 

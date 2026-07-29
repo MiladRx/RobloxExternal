@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../State.h"
-#include "gui/colors/colors.h"
+#include "jewsploit/colors/colors.h"
 #include "imgui.h"
 
 namespace Cheat {
@@ -25,15 +25,15 @@ inline ImU32 LevelColor(LogLevel level)
 	switch (level)
 	{
 	case LogLevel::Print:
-		return colors::text_active_u32();
+		return IM_COL32(230, 235, 245, 255);
 	case LogLevel::Warn:
 		return IM_COL32(230, 180, 70, 255);
 	case LogLevel::Error:
 		return IM_COL32(235, 85, 85, 255);
 	case LogLevel::Success:
-		return colors::accent_u32();
+		return col::accent_u32(255);
 	default:
-		return colors::text_inactive_u32();
+		return IM_COL32(140, 145, 155, 255);
 	}
 }
 
@@ -47,11 +47,11 @@ inline void PushOutput(LogLevel level, const char* text)
 	line.text = text;
 	g_output.push_back(std::move(line));
 
-	// лог не бесконечный
-	if (g_output.size() > 500)
-		g_output.erase(g_output.begin(), g_output.begin() + (g_output.size() - 500));
+	if (g_output.size() > 2000)
+		g_output.erase(g_output.begin(), g_output.begin() + (g_output.size() - 2000));
 
-	g_scroll_out = true;
+	if (g_out_auto_scroll)
+		g_scroll_out = true;
 }
 
 }

@@ -211,6 +211,8 @@ namespace widgets {
         if (!key)
             return false;
 
+        menu_row();
+
         ImGuiWindow* window = ImGui::GetCurrentWindow();
         if (!window || window->SkipItems)
             return false;
@@ -261,12 +263,14 @@ namespace widgets {
             changed |= draw_mode_box(mode_id, activation_mode);
         }
 
+        ImGui::SetCursorPosX(k_menu_pad_x);
         return changed;
     }
 
     bool checkbox_keybind(const char* label, bool* value, int* key, int* activation_mode)
     {
         bool label_changed = checkbox(label, value);
+        const float next_y = ImGui::GetCursorPosY();
 
         float key_w = 72.f;
         float mode_w = 56.f;
@@ -297,6 +301,9 @@ namespace widgets {
             ImFormatString(mode_id, IM_ARRAYSIZE(mode_id), "%s##mode", label ? label : "");
             key_changed |= draw_mode_box(mode_id, activation_mode);
         }
+
+        ImGui::SetCursorPosY(next_y);
+        ImGui::SetCursorPosX(k_menu_pad_x);
 
         if (value && key && *key != 0)
         {

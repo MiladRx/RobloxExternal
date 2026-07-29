@@ -815,7 +815,7 @@ void ESPPreview::Render()
                 }
             }
 
-            if (s.esp.box_fill && !s.esp.box) {
+            if (s.esp.box_fill && s.esp.box) {
                 if (s.esp.box_fill_mode == 1) {
                     int img = s.esp.box_fill_image;
                     if (img < 0) img = 0;
@@ -1053,8 +1053,7 @@ void ESPPreview::Render()
         dl->AddText(font, fs, ImVec2(origin.x + (avail.x - tsz.x) * 0.5f, y),
                     colors::text_inactive_u32(), t);
     };
-    hint("drag esp / drag part to swap | click part cycle", hy);
-    hint("drag empty: rotate | scroll zoom", hy + fs + 2.0f);
+    hint("drag · click · scroll", hy);
     }
 
 }

@@ -226,11 +226,14 @@ namespace widgets {
 
         float child_h = content_size.y - inset_y - header_h;
         if (child_h < 0.f) child_h = 0.f;
-        return ImGui::BeginChild(
+        const bool ok = ImGui::BeginChild(
             id,
             ImVec2(content_size.x, child_h),
             false,
             ImGuiWindowFlags_NoScrollbar);
+        if (ok)
+            menu_row_reset();
+        return ok;
     }
 
     void end_child_panel()
