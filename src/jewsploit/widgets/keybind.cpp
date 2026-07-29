@@ -69,7 +69,9 @@ bool ng::keybind(const char* id, int* vk, int* mode, bool shown)
 	st->SetFloat(oid, open);
 	float e = anim::ease_out_cubic(open);
 
+	ImGuiID skip_id = ImGui::GetID("skip");
 	int waiting = st->GetInt(wid, 0);
+	int skip_cap = st->GetInt(skip_id, 0);
 	if (!shown)
 	{
 		if (waiting)
@@ -78,7 +80,9 @@ bool ng::keybind(const char* id, int* vk, int* mode, bool shown)
 		}
 
 		waiting = 0;
+		skip_cap = 0;
 		st->SetInt(wid, 0);
+		st->SetInt(skip_id, 0);
 	}
 
 	if (e < 0.001f)
@@ -108,7 +112,14 @@ bool ng::keybind(const char* id, int* vk, int* mode, bool shown)
 	float md_h = 24.f;
 	float rnd = 7.f;
 
-	float right = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+	// dummy на всю строку -> row1.x; после чекбокса короткий -> content right
+	float right = row1.x;
+	float cr = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
+	if (right < cr - 1.f)
+	{
+		right = cr;
+	}
+
 	float md_x = right - pad_r - md_w;
 	float kb_x = md_x - gap - kb_w;
 
@@ -124,15 +135,19 @@ bool ng::keybind(const char* id, int* vk, int* mode, bool shown)
 
 	ImGui::SetCursorScreenPos(ImVec2(kb_x, kb_y));
 	ImGui::InvisibleButton("kb", ImVec2(kb_w, kb_h));
-	bool kb_hit = ImGui::IsItemClicked();
-	bool kb_hov = ImGui::IsItemHovered();
+	ImVec2 kb0 = ImGui::GetItemRectMin();
+	ImVec2 kb1 = ImGui::GetItemRectMax();
+	// HoveredRect+click — IsItemClicked врёт когда сверху/снизу чужой ActiveId
+	bool kb_hov = ImGui::IsMouseHoveringRect(kb0, kb1);
+	bool kb_hit = kb_hov && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
 
-	if (kb_hit && e > 0.55f)
+	if (kb_hit)
 	{
 		if (waiting)
 		{
 			waiting = 0;
 			st->SetInt(wid, 0);
+			st->SetInt(skip_id, 0);
 			clear_ignore();
 		}
 
@@ -140,11 +155,23 @@ bool ng::keybind(const char* id, int* vk, int* mode, bool shown)
 		{
 			waiting = 1;
 			st->SetInt(wid, 1);
+			st->SetInt(skip_id, 1);
 			arm_ignore();
+			skip_cap = 1;
 		}
 	}
 
-	if (waiting)
+	if (waiting && skip_cap)
+	{
+		// кадр клика / пока лкм ещё зажат — не жрем клавиши
+		if ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0)
+		{
+			skip_cap = 0;
+			st->SetInt(skip_id, 0);
+		}
+	}
+
+	else if (waiting)
 	{
 		for (int k = 1; k < 256; k++)
 		{
@@ -236,10 +263,12 @@ bool ng::keybind(const char* id, int* vk, int* mode, bool shown)
 
 	ImGui::SetCursorScreenPos(ImVec2(md_x, md_y));
 	ImGui::InvisibleButton("md", ImVec2(md_w, md_h));
-	bool md_hit = ImGui::IsItemClicked();
-	bool md_hov = ImGui::IsItemHovered();
+	ImVec2 md0 = ImGui::GetItemRectMin();
+	ImVec2 md1 = ImGui::GetItemRectMax();
+	bool md_hov = ImGui::IsMouseHoveringRect(md0, md1);
+	bool md_hit = md_hov && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
 
-	if (md_hit && e > 0.55f)
+	if (md_hit)
 	{
 		*mode = (*mode == 0) ? 1 : 0;
 		ch = true;

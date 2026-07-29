@@ -103,15 +103,15 @@ void ng_tabs::row_keybind(const char* id, const char* label, int* vk, int* mode)
 	pad();
 	ImGui::PushID(id);
 
+	// как чекбокс+keybind: короткий item слева, справа дырка под kb/mode
 	ImVec2 p = ImGui::GetCursorScreenPos();
 	float h = 28.f;
-	float w = ImGui::GetContentRegionAvail().x - 12.f;
-	if (w < 40.f) w = 40.f;
-
-	ImGui::InvisibleButton("##anchor", ImVec2(w, h));
-	ImDrawList* dl = ImGui::GetWindowDrawList();
 	ImVec2 ts = ImGui::CalcTextSize(label ? label : "");
-	dl->AddText(
+	float lw = ts.x + 10.f;
+	if (lw < 40.f) lw = 40.f;
+
+	ImGui::Dummy(ImVec2(lw, h));
+	ImGui::GetWindowDrawList()->AddText(
 		ImVec2(p.x, p.y + (h - ts.y) * 0.5f),
 		IM_COL32(220, 226, 236, 230),
 		label ? label : ""
