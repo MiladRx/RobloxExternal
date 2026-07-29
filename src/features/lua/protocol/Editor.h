@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../State.h"
-#include "gui/colors/colors.h"
+#include "jewsploit/colors/colors.h"
 #include "gui/resources/fonts/fonts.h"
 #include "gui/TextEditor/TextEditor.h"
 #include "imgui.h"
@@ -34,13 +34,14 @@ inline ImU32 MixU32(const ImVec4& a, const ImVec4& b, float t, float alpha = 1.0
 
 inline TextEditor::Palette MakePalette()
 {
-	/* editor colors */
+	/* editor colors под gui тему */
 	TextEditor::Palette p = TextEditor::GetDarkPalette();
 
-	ImVec4 bg = colors::child_fill;
-	ImVec4 text = colors::text_active;
-	ImVec4 dim = colors::text_inactive;
-	ImVec4 acc = colors::accent;
+	col::theme_t& th = col::live();
+	ImVec4 bg = ImVec4(th.child[0], th.child[1], th.child[2], 1.f);
+	ImVec4 text = ImVec4(0.92f, 0.93f, 0.96f, 1.f);
+	ImVec4 dim = ImVec4(0.55f, 0.58f, 0.64f, 1.f);
+	ImVec4 acc = ImVec4(th.accent[0], th.accent[1], th.accent[2], 1.f);
 
 	p[(int)TextEditor::PaletteIndex::Default] = ToU32(text);
 	p[(int)TextEditor::PaletteIndex::Keyword] = ToU32(acc);
@@ -83,26 +84,6 @@ inline std::unique_ptr<TextEditor> MakeEditor(const char* seed = "")
 	if (seed && seed[0])
 		ed->SetText(seed);
 	return ed;
-}
-
-inline void PushChrome()
-{
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
-	ImVec4 grip = colors::child_fill;
-	grip.w = 0.35f;
-	ImGui::PushStyleColor(ImGuiCol_ResizeGrip, grip);
-	ImVec4 a = colors::accent;
-	a.w = 0.7f;
-	ImGui::PushStyleColor(ImGuiCol_ResizeGripHovered, a);
-	a.w = 1.f;
-	ImGui::PushStyleColor(ImGuiCol_ResizeGripActive, a);
-}
-
-inline void PopChrome()
-{
-	ImGui::PopStyleColor(3);
-	ImGui::PopStyleVar(2);
 }
 
 }

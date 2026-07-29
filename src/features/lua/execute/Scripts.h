@@ -65,7 +65,8 @@ inline bool LoadFileIntoTab(const fs::path& path)
 		{
 			g_tab = i;
 			if (!g_tabs[i].editor)
-				g_tabs[i].editor = MakeEditor();
+				g_tabs[i].text = data;
+			g_tabs[i].editor = MakeEditor();
 			ConfigureEditor(*g_tabs[i].editor);
 			g_tabs[i].editor->SetText(data);
 			PushOutput(LogLevel::Info, ("opened " + path.filename().string()).c_str());
@@ -76,6 +77,7 @@ inline bool LoadFileIntoTab(const fs::path& path)
 	EditorTab t;
 	t.name = path.stem().string();
 	t.path = path.string();
+	t.text = data;
 	t.editor = MakeEditor();
 	t.editor->SetText(data);
 	g_tabs.push_back(std::move(t));
@@ -87,7 +89,6 @@ inline bool LoadFileIntoTab(const fs::path& path)
 inline bool SaveCurrent()
 {
 	auto& t = Cur();
-	TextEditor& ed = CurEditor();
 
 	fs::path path;
 	if (t.path.empty())
@@ -100,8 +101,7 @@ inline bool SaveCurrent()
 	if (!out)
 		return false;
 
-	std::string text = ed.GetText();
-	out.write(text.data(), (std::streamsize)text.size());
+	out.write(t.text.data(), (std::streamsize)t.text.size());
 	t.path = path.string();
 	t.name = path.stem().string();
 	RefreshScripts();

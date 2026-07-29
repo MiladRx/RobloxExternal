@@ -1170,8 +1170,8 @@ void Cheat::Visuals::ESP::Render()
         float bx1, by1, bx2, by2;
         SnapEspBox(min_x, min_y, max_x, max_y, bx1, by1, bx2, by2);
 
-        // заливка бокса: color / image (не вместе с bounding box)
-        if (Cheat::g_Settings.esp.box_fill && !st.box) {
+        // заливка бокса: color / image (только с bounding box)
+        if (Cheat::g_Settings.esp.box_fill && st.box) {
             const auto& bf = Cheat::g_Settings.esp;
             if (bf.box_fill_mode == 1) {
                 int img = bf.box_fill_image;

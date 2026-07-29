@@ -646,12 +646,8 @@ void PreviewRenderer::Update(float dt)
     m_Ctx->RSGetViewports(&numVP, &prevVP);
 
     m_Ctx->OMSetRenderTargets(1, &m_RTV, m_DSV);
-    const float clear_bg[4] = {
-        colors::child_fill.x,
-        colors::child_fill.y,
-        colors::child_fill.z,
-        colors::child_fill.w
-    };
+	// прозрачный clear — фон идёт из child меню, не чёрный квадрат
+    const float clear_bg[4] = { 0.f, 0.f, 0.f, 0.f };
     m_Ctx->ClearRenderTargetView(m_RTV, clear_bg);
     m_Ctx->ClearDepthStencilView(m_DSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
 

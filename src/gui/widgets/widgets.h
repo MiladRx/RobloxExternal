@@ -5,6 +5,17 @@
 #include "tabs.h"
 
 namespace widgets {
+    // единый отступ рядов меню — вызывается из checkbox/combo/slider/keybind
+    inline constexpr float k_menu_pad_x = 12.0f;
+    inline constexpr float k_menu_row_pull = 5.0f;
+    inline constexpr float k_menu_top_pad = 4.0f;   // первый ряд: вниз от бордера чайлда
+    inline constexpr float k_menu_row_h = 21.0f;    // высота ряда = checkbox
+
+    void menu_row_reset();
+    void menu_row();
+    // лейбл + колорпикер справа, те же отступы что у checkbox
+    bool menu_color_row(const char* label, float color[4], const char* id);
+
     struct text_span {
         const char* text;
         ImU32 color;
@@ -36,13 +47,19 @@ namespace widgets {
         float wavelength_px);
 
     bool checkbox(const char* label, bool* value);
+    // без menu_row — для тулбаров / SameLine
+    bool checkbox_inline(const char* label, bool* value);
     bool button(const char* label, const ImVec2& size = ImVec2(0.0f, 0.0f));
+    // крестик в рамке виджета (как button)
+    bool icon_close(const char* id, const ImVec2& size = ImVec2(14.0f, 14.0f));
 
     bool input_text(const char* id, const char* hint, char* buffer, int buffer_size,
                     float width = 0.0f, ImGuiInputTextFlags flags = 0);
     bool slider_float(const char* label, float* value, float v_min, float v_max, const char* format = "%.3f");
     bool slider_int(const char* label, int* value, int v_min, int v_max, const char* format = "%d");
     bool combo(const char* label, int* current_item, const char* const items[], int items_count);
+    // компактный дроп без лейбла / menu_row
+    bool combo_inline(const char* id, int* current_item, const char* const items[], int items_count, float width = 80.0f);
     bool multi_combo(const char* label, bool* selected, const char* const items[], int items_count);
 
     float color_picker_width();

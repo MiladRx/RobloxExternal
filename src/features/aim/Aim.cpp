@@ -32,6 +32,8 @@ namespace Cheat {
 
             bool s_was_pressed = false;
             bool s_toggled = false;
+            bool s_silent_was = false;
+            bool s_silent_tog = false;
             bool s_force_mb_was = false;
             bool s_force_mb_tog = false;
 
@@ -980,7 +982,9 @@ namespace Cheat {
 
         void Aim::Render()
         {
-            Config& cfg = g_Settings.aim.active();
+			Config& aim_cfg =
+				(g_Settings.aim.type == 1) ? g_Settings.aim.camera : g_Settings.aim.mouse;
+			Config& silent_cfg = g_Settings.aim.silent;
 
             // один слот BoundFunc, magic и raycast шарят RaycastSilent
             // (два хука на слот = Install thrash, работает 1 из 10).
@@ -1002,38 +1006,80 @@ namespace Cheat {
                 RaycastSilent::Ensure(false);
             }
 
-            draw_fov(cfg);
+			if (g_Settings.aim.type != 2)
+				draw_fov(aim_cfg);
+			draw_fov(silent_cfg);
 
-            int key = g_Settings.aim.bind;
-            if (key == 0)
-            {
-                s_was_pressed = false;
-                s_toggled = false;
-                RaycastSilent::SetActive(false);
-                MagicBullet::SetActive(false);
-                clear_silents();
-                release_cursor_clip();
-                return;
-            }
+			// aim key
+			bool aim_on = false;
+			if (g_Settings.aim.type != 2 && g_Settings.aim.bind != 0)
+			{
+				bool pressed = (GetAsyncKeyState(g_Settings.aim.bind) & 0x8000) != 0;
+				if (g_Settings.aim.bind_mode == 1)
+				{
+					if (pressed && !s_was_pressed)
+						s_toggled = !s_toggled;
+					aim_on = s_toggled;
+				}
 
-            bool pressed = (GetAsyncKeyState(key) & 0x8000) != 0;
-            bool active = false;
-            if (g_Settings.aim.bind_mode == 1)
-            {
-                if (pressed && !s_was_pressed)
-                {
-                    s_toggled = !s_toggled;
-                }
-                active = s_toggled;
-            }
+				else
+				{
+					aim_on = pressed;
+				}
+				s_was_pressed = pressed;
+			}
 
-            else
-            {
-                active = pressed;
-            }
-            s_was_pressed = pressed;
+			else
+			{
+				s_was_pressed = false;
+				s_toggled = false;
+			}
 
-            if (!active)
+			// silent key (0 = тот же aim.bind, шарим состояние)
+			bool silent_on = false;
+			{
+				int sk = g_Settings.aim.silent_bind;
+				int sm = g_Settings.aim.silent_bind_mode;
+				if (sk == 0)
+				{
+					sk = g_Settings.aim.bind;
+					sm = g_Settings.aim.bind_mode;
+				}
+
+				if (sk != 0 && g_Settings.aim.silent_bind == 0 &&
+				    g_Settings.aim.type != 2)
+				{
+					// один бинд с аимом — не дёргаем второй toggle
+					silent_on = aim_on;
+					s_silent_was = s_was_pressed;
+					s_silent_tog = s_toggled;
+				}
+
+				else if (sk != 0)
+				{
+					bool pressed = (GetAsyncKeyState(sk) & 0x8000) != 0;
+					if (sm == 1)
+					{
+						if (pressed && !s_silent_was)
+							s_silent_tog = !s_silent_tog;
+						silent_on = s_silent_tog;
+					}
+
+					else
+					{
+						silent_on = pressed;
+					}
+					s_silent_was = pressed;
+				}
+
+				else
+				{
+					s_silent_was = false;
+					s_silent_tog = false;
+				}
+			}
+
+            if (!aim_on && !silent_on)
             {
                 s_target = 0;
                 s_pending = 0;
@@ -1055,9 +1101,12 @@ namespace Cheat {
                 return;
             }
 
+			// таргет: если оба — aim cfg, иначе кто активен
+			Config& tgt_cfg = aim_on ? aim_cfg : silent_cfg;
+
             Vector3 world{};
             Vector2 screen{};
-            if (!select_target(cfg, sc, world, screen))
+            if (!select_target(tgt_cfg, sc, world, screen))
             {
                 s_target = 0;
                 RaycastSilent::SetActive(false);
@@ -1067,35 +1116,38 @@ namespace Cheat {
                 return;
             }
 
-            draw_aim_tracer(cfg, screen);
+            draw_aim_tracer(tgt_cfg, screen);
 
-            if (!hitchance_ok(cfg))
-            {
-                RaycastSilent::SetActive(false);
-                MagicBullet::SetActive(false);
-                clear_silents();
-                release_cursor_clip();
-                return;
-            }
+			bool aim_fire = aim_on && hitchance_ok(aim_cfg);
+			bool silent_fire = silent_on && hitchance_ok(silent_cfg);
 
-            if (g_Settings.aim.type == 0)
-            {
-                clear_silents();
-                RaycastSilent::SetActive(false);
-                MagicBullet::SetActive(false);
-                apply_mouse(cfg, screen);
-            }
+			if (!aim_fire && !silent_fire)
+			{
+				RaycastSilent::SetActive(false);
+				MagicBullet::SetActive(false);
+				clear_silents();
+				release_cursor_clip();
+				return;
+			}
 
-            else if (g_Settings.aim.type == 1)
-            {
-                release_cursor_clip();
-                clear_silents();
-                RaycastSilent::SetActive(false);
-                MagicBullet::SetActive(false);
-                apply_camera(cfg, sc, world);
-            }
+			if (aim_fire && g_Settings.aim.type == 0)
+			{
+				apply_mouse(aim_cfg, screen);
+			}
 
-            else if (g_Settings.aim.silent_method == Settings::SILENT_VIEWPORT)
+			else if (aim_fire && g_Settings.aim.type == 1)
+			{
+				release_cursor_clip();
+				apply_camera(aim_cfg, sc, world);
+			}
+
+			else if (!aim_fire)
+			{
+				release_cursor_clip();
+			}
+
+            if (silent_fire &&
+                g_Settings.aim.silent_method == Settings::SILENT_VIEWPORT)
             {
                 release_cursor_clip();
                 RaycastSilent::SetActive(false);
@@ -1104,7 +1156,8 @@ namespace Cheat {
                 ViewportSilent::SetActive(true, world);
             }
 
-            else if (g_Settings.aim.silent_method == Settings::SILENT_MOUSE)
+            else if (silent_fire &&
+                     g_Settings.aim.silent_method == Settings::SILENT_MOUSE)
             {
                 release_cursor_clip();
                 RaycastSilent::SetActive(false);
@@ -1113,10 +1166,13 @@ namespace Cheat {
                 MouseSilent::SetActive(true, world);
             }
 
-            else if (g_Settings.aim.silent_method == Settings::SILENT_RAYCAST)
+            else if (silent_fire &&
+                     g_Settings.aim.silent_method == Settings::SILENT_RAYCAST)
             {
                 release_cursor_clip();
-                clear_silents();
+                ViewportSilent::SetActive(false);
+                MouseSilent::SetActive(false);
+                PhantomSilent::SetActive(false);
 
                 // force magic поверх raycast
                 bool force_mb = false;
@@ -1157,16 +1213,20 @@ namespace Cheat {
                 RaycastSilent::SetActive(true, world, force_mb);
             }
 
-            else if (g_Settings.aim.silent_method == Settings::SILENT_MAGIC_BULLET)
+            else if (silent_fire &&
+                     g_Settings.aim.silent_method == Settings::SILENT_MAGIC_BULLET)
             {
                 release_cursor_clip();
-                clear_silents();
+                ViewportSilent::SetActive(false);
+                MouseSilent::SetActive(false);
+                PhantomSilent::SetActive(false);
                 MagicBullet::SetActive(false);
                 // wallbang на том же RaycastSilent-хуке, без второго Install
                 RaycastSilent::SetActive(true, world, true);
             }
 
-            else if (g_Settings.aim.silent_method == Settings::SILENT_PHANTOM)
+            else if (silent_fire &&
+                     g_Settings.aim.silent_method == Settings::SILENT_PHANTOM)
             {
                 release_cursor_clip();
                 ViewportSilent::SetActive(false);
@@ -1178,7 +1238,6 @@ namespace Cheat {
 
             else
             {
-                release_cursor_clip();
                 clear_silents();
                 RaycastSilent::SetActive(false);
                 MagicBullet::SetActive(false);

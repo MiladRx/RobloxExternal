@@ -121,6 +121,8 @@ namespace {
         if (!data)
             return false;
 
+        widgets::menu_row();
+
         ImGuiWindow* window = ImGui::GetCurrentWindow();
         if (!window || window->SkipItems)
             return false;

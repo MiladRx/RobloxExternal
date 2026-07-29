@@ -422,6 +422,7 @@ bool Save(const std::string& name)
     PutBool(out, "esp.body_corpse", s.esp.body_corpse);
     PutF4(out, "esp.corpse_color", s.esp.corpse_color);
     PutBool(out, "esp.bots", s.esp.bots);
+    PutBool(out, "esp.apocalypse", s.esp.apocalypse);
     for (int i = 0; i < Settings::BOT_ESP_COUNT; ++i) {
         char key[48];
         std::snprintf(key, sizeof(key), "esp.bot_esp_%d", i);
@@ -479,6 +480,9 @@ bool Save(const std::string& name)
     PutInt(out, "aim.bind_mode", s.aim.bind_mode);
     PutInt(out, "aim.type", s.aim.type);
     PutInt(out, "aim.silent_method", s.aim.silent_method);
+    PutBool(out, "aim.silent_enabled", s.aim.silent_enabled);
+    PutInt(out, "aim.silent_bind", s.aim.silent_bind);
+    PutInt(out, "aim.silent_bind_mode", s.aim.silent_bind_mode);
     PutBool(out, "aim.force_magic_bullet", s.aim.force_magic_bullet);
     PutInt(out, "aim.force_magic_key", s.aim.force_magic_key);
     PutInt(out, "aim.force_magic_mode", s.aim.force_magic_mode);
@@ -677,6 +681,7 @@ bool Load(const std::string& name)
     GetBool(kv, "esp.body_corpse", s.esp.body_corpse);
     GetF4(kv, "esp.corpse_color", s.esp.corpse_color);
     GetBool(kv, "esp.bots", s.esp.bots);
+    GetBool(kv, "esp.apocalypse", s.esp.apocalypse);
     for (int i = 0; i < Settings::BOT_ESP_COUNT; ++i) {
         char key[48];
         std::snprintf(key, sizeof(key), "esp.bot_esp_%d", i);
@@ -741,6 +746,12 @@ bool Load(const std::string& name)
     ReadAimCfg(kv, "aim.mouse", s.aim.mouse);
     ReadAimCfg(kv, "aim.camera", s.aim.camera);
     ReadAimCfg(kv, "aim.silent", s.aim.silent);
+	if (kv.count("aim.silent_enabled"))
+		GetBool(kv, "aim.silent_enabled", s.aim.silent_enabled);
+	else if (s.aim.type == 2)
+		s.aim.silent_enabled = true;
+	GetInt(kv, "aim.silent_bind", s.aim.silent_bind);
+	GetInt(kv, "aim.silent_bind_mode", s.aim.silent_bind_mode);
 
     GetBool(kv, "world.no_shadow", s.world.no_shadow);
     GetFloat(kv, "world.brightness", s.world.brightness);

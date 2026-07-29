@@ -5,6 +5,7 @@
 #include <cmath>
 
 namespace fonts {
+    extern ImFont* fredoka_one;
     extern ImFont* imgui;
     extern ImFont* tahoma_bold;
     extern ImFont* proggy_clean;
@@ -18,14 +19,19 @@ namespace fonts {
     void load(ImGuiIO& io);
 
     inline ImFont* by_index(int index) {
+		// 0 fredoka (дефолт), дальше старые индексы как были
         switch (index) {
+        case 0: if (fredoka_one)  return fredoka_one;  break;
         case 1: if (tahoma_bold)  return tahoma_bold;  break;
         case 2: if (proggy_clean) return proggy_clean; break;
         case 3: if (visitor)      return visitor;      break;
         case 4: if (verdana)      return verdana;      break;
+        case 5: if (imgui)        return imgui;        break;
         default: break;
         }
 
+        if (fredoka_one)
+            return fredoka_one;
         if (imgui)
             return imgui;
         if (tahoma_bold)
@@ -49,7 +55,7 @@ namespace fonts {
         ImFont* f = font ? font : ui();
         if (f && f->LegacySize > 0.0f)
             return f->LegacySize;
-        return 13.0f;
+        return 14.0f;
     }
 
     inline float snap_px(float size) {

@@ -92,6 +92,60 @@ namespace widgets {
         return pressed;
     }
 
+    bool icon_close(const char* id, const ImVec2& size_arg)
+    {
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        if (!window || window->SkipItems)
+            return false;
+
+        ImGuiContext& g = *GImGui;
+        const char* sid = id ? id : "##close";
+        float w = size_arg.x > 0.f ? size_arg.x : 14.f;
+        float h = size_arg.y > 0.f ? size_arg.y : 14.f;
+
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 size(w, h);
+        ImRect bb(pos, pos + size);
+
+        ImGui::ItemSize(size);
+        ImGuiID wid = window->GetID(sid);
+        if (!ImGui::ItemAdd(bb, wid))
+            return false;
+
+        bool hovered = false;
+        bool held = false;
+        bool pressed = ImGui::ButtonBehavior(bb, wid, &hovered, &held);
+
+        float* anim = window->StateStorage.GetFloatRef(wid, 0.f);
+        *anim = ImLerp(*anim, hovered ? 1.f : 0.f, 15.f * g.IO.DeltaTime);
+
+        draw_framed_box(dl, pos, pos + size);
+        if (*anim > 0.01f)
+        {
+            ImRect hover_fill(
+                ImVec2(pos.x + 2.f, pos.y + 2.f),
+                ImVec2(pos.x + w - 2.f, pos.y + h - 2.f));
+            dl->AddRectFilled(
+                hover_fill.Min, hover_fill.Max,
+                colors::widget_track_hover_u32(*anim));
+        }
+
+        const float inset = ImMax(3.f, ImFloor(ImMin(w, h) * 0.28f));
+        const ImU32 col = colors::label_u32(*anim);
+        const float thick = 1.25f;
+        dl->AddLine(
+            ImVec2(pos.x + inset, pos.y + inset),
+            ImVec2(pos.x + w - inset, pos.y + h - inset),
+            col, thick);
+        dl->AddLine(
+            ImVec2(pos.x + w - inset, pos.y + inset),
+            ImVec2(pos.x + inset, pos.y + h - inset),
+            col, thick);
+
+        return pressed;
+    }
+
     bool input_text(const char* id, const char* hint, char* buffer, int buffer_size,
                     float width, ImGuiInputTextFlags flags)
     {

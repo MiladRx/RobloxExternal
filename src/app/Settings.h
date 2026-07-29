@@ -94,7 +94,7 @@ namespace Cheat {
             // charm: Param = idx+1, ColorData всегда 0xFFFFFFFF
             // 0 red 1 green 2 orange 3 blue 4 pink 5 cyan 6 white
             int  engine_ghost_color_idx{ 6 };
-            bool preview{ true };
+            bool preview{ false }; // окно превью рядом с меню, тумблер в settings
 
             bool healthbar{ false };
             bool health_text{ false };
@@ -145,6 +145,7 @@ namespace Cheat {
             float corpse_color[4]{ 1.f, 0.25f, 0.25f, 0.90f };
 
             bool  bots{ true };
+            bool  apocalypse{ true }; // AR place: зомби/кастомный кэш
             bool  corpses{ false };
             bool  ground_loot{ false };
             bool  containers{ false };
@@ -285,8 +286,11 @@ namespace Cheat {
         struct {
             int  bind{ 0 };
             int  bind_mode{ 0 };
-            int  type{ 0 };
+            int  type{ 0 }; // 0 mouse, 1 camera, 2 off (без аимбота, silent отдельно)
             int  silent_method{ SILENT_RAYCAST };
+            bool silent_enabled{ true }; // всегда on, рубит silent key
+            int  silent_bind{ 0 }; // 0 = тот же что aim.bind
+            int  silent_bind_mode{ 0 };
 
             bool force_magic_bullet{ false };
             int  force_magic_key{ 0 };
@@ -309,10 +313,10 @@ namespace Cheat {
             }
 
             bool silent_raycast() const {
-                return type == 2 && silent_method == SILENT_RAYCAST;
+                return silent_method == SILENT_RAYCAST;
             }
             bool silent_magic() const {
-                return type == 2 && silent_method == SILENT_MAGIC_BULLET;
+                return silent_method == SILENT_MAGIC_BULLET;
             }
 
             bool silent_uses_raycast_hook() const {
@@ -407,6 +411,7 @@ namespace Cheat {
             int   fly_key_mode{ 0 };
 
             bool  explorer{ false };
+            bool  players{ false }; // island stub, вкладки players в меню нет
             bool  mcp{ false }; // localhost bridge для cursor mcp
             bool  custom_support{ false };
             bool  pf_support{ true }; // Phantom Forces place-id support

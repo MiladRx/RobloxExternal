@@ -8,9 +8,12 @@
 #include "core/globals/Globals.h"
 #include "core/console/Console.h"
 #include "features/visuals/RaycastEngine.h"
+#include "features/visuals/MeshCache.h"
 #include "features/visuals/HavocWorldEsp.h"
 #include "features/games/PhantomForces.h"
+#include "features/games/ApocalypseRising.h"
 #include "app/Settings.h"
+#include <algorithm>
 #include <mutex>
 #include <utility>
 #include <unordered_set>
@@ -825,6 +828,10 @@ void Cheat::PlayerHandler::CacheAllPlayers()
     // боты havoc, мержим после Players
     MergeStreamedBots(fresh);
 
+    // AR: Characters + Zombies
+    if (Games::ApocalypseRising::IsActivePlace())
+        Games::ApocalypseRising::MergeEntities(fresh);
+
     // после смерти парты не кидаем, трупные чамсы/имя
     if (g_Settings.esp.body_corpse)
     {
@@ -894,10 +901,16 @@ void Cheat::PlayerHandler::CacheThreadLoop()
         CacheAllPlayers();
         Features::RaycastEngine::Tick();
 
+        // MCP LRU для mesh chams — не на render-thread
+        if (g_Settings.esp.enabled && g_Settings.esp.chams_mode == 5)
+            Visuals::MeshCache::Get().Refresh(false);
+
         // raycast / mesh occluded — кэш стен чаще
         int ms = 250;
         if (Features::RaycastEngine::WantsCache())
             ms = 20;
+        if (g_Settings.esp.enabled && g_Settings.esp.chams_mode == 5)
+            ms = (std::min)(ms, 100);
         std::this_thread::sleep_for(std::chrono::milliseconds(ms));
     }
 }
