@@ -63,10 +63,11 @@ namespace Cheat {
             int  skeleton_type{ 0 };
             bool chams{ false };
 
-            // 0 box, 1 filled, 2 clipper, 3 shader, 4 engine,
-            // 5 mesh — MeshData из MeshContentProvider (вершины/фейсы)
+            // 0 box, 1 filled, 2 clipper, 3 shader, 4 mesh
+            // engine — отдельный чекбокс (комбо с mesh/shader/…)
             int  chams_mode{ 0 };
             int  chams_shader{ 0 };
+            bool engine_chams{ false };
             // mesh chams: 0 flat (ImGui / dx flat) / 1 dx shader
             int  mesh_chams_style{ 0 };
             // 0 flat 1 chrome 2 rainbow 3 pearl 4 glossy 5 holographic
@@ -85,15 +86,13 @@ namespace Cheat {
             int   mesh_chams_outline_style{ 0 };
             float mesh_chams_outline_fade{ 1.8f }; // сила/ширина фейда
             float mesh_chams_outline_color[4]{ 0.55f, 0.85f, 1.f, 1.f };
-            // 0 default (queue 13) — без цвета
-            // 1 ghost     — fill=0 flags2=0  param=color
-            // 2 wireframe — fill=1 flags2=0  param=white (без цвета)
-            // 3 mesh      — fill=0 flags2=15 param=color
-            // 4 charwire  — fill=1 flags2=7  param=color
+            // 0 default 1 ghost 2 simple wire 3 colored frame 4 colored 5 smoke no shadow 6 smoke
             int  engine_chams_style{ 0 };
-            // charm: Param = idx+1, ColorData всегда 0xFFFFFFFF
+            // colored / colored frame — старая палитра Param
             // 0 red 1 green 2 orange 3 blue 4 pink 5 cyan 6 white
             int  engine_ghost_color_idx{ 6 };
+            // ghost / simple wire / smoke / smoke no shadow — picker
+            float engine_chams_color[4]{ 0.f, 0.50f, 1.f, 1.f };
             bool preview{ false }; // окно превью рядом с меню, тумблер в settings
 
             bool healthbar{ false };
@@ -105,6 +104,16 @@ namespace Cheat {
             bool  tracer{ false };
             int   tracer_origin{ 0 }; // 0 bottom, 1 center, 2 mouse, 3 top
             float tracer_color[4]{ 1.f, 1.f, 1.f, 0.85f };
+
+            bool  china_hat{ false };
+            float china_hat_color[4]{ 1.f, 1.f, 1.f, 0.42f };
+            float china_hat_height{ 1.0f };
+            float china_hat_radius{ 1.5f };
+
+            // hit flash на clipper/shader/mesh
+            bool  hit_chams{ false };
+            float hit_chams_color[4]{ 1.f, 0.25f, 0.25f, 0.85f };
+            float hit_chams_duration{ 0.55f };
 
             bool  offscreen_arrows{ false };
             float arrow_size{ 14.f };
@@ -126,7 +135,7 @@ namespace Cheat {
             float health_text_off{ 0.f };
             int   healthbar_side{ 2 }; // только left/right
 
-            int   font{ 0 };
+            int   font{ 4 }; // verdana
             float font_size{ 13.f };
             int   box_mode{ 0 };
             // 0 parts (тело) 1 mesh (все меши + аксы)
@@ -145,6 +154,7 @@ namespace Cheat {
             float corpse_color[4]{ 1.f, 0.25f, 0.25f, 0.90f };
 
             bool  bots{ true };
+            float bot_max_distance{ 300.f }; // havoc bots, метры
             bool  apocalypse{ true }; // AR place: зомби/кастомный кэш
             bool  corpses{ false };
             bool  ground_loot{ false };
@@ -164,7 +174,8 @@ namespace Cheat {
 
             // havoc боты отдельно, оранжевые по дефолту
             bool  bot_esp[BOT_ESP_COUNT]{
-                true, true, true, false, true, false, true, true, true
+                // box name skel chams hpbar hptext dist tool flags
+                true, true, true, false, true, false, true, true, false
             };
             int   bot_chams_mode{ 3 };   // shader
             int   bot_chams_shader{ 6 }; // gold
@@ -325,13 +336,82 @@ namespace Cheat {
         } aim;
 
         struct {
-            bool  no_shadow{ false }; float brightness{ 5.0f };
+            bool  no_shadow{ false };
+
             bool  fog{ false };
             float fog_start{ 0.f };
             float fog_end{ 2000.f };
             float fog_color[4]{ 1.f, 1.f, 1.f, 1.f };
+            // clock+sun+moon+grad отдельно от amb/bri/light
             bool  time_changer{ false };
             float clock_time{ 14.f }; // 0..24
+
+            bool  ambient{ false };
+            float ambient_col[4]{ 0.5f, 0.5f, 0.5f, 1.f };
+            bool  outdoor{ false };
+            float outdoor_col[4]{ 0.5f, 0.5f, 0.5f, 1.f };
+            bool  brightness{ false };
+            float brightness_val{ 2.f };
+            bool  exposure_on{ false };
+            float exposure{ 0.f };
+            bool  light{ false };
+            float light_col[4]{ 1.f, 1.f, 1.f, 1.f };
+            float light_dir[3]{ 0.f, -1.f, 0.f };
+            bool  time_manual{ false }; // старый конфиг, не юзаем
+
+            bool  env{ false };
+            float env_diffuse{ 1.f };
+            float env_specular{ 1.f };
+
+            bool  color_shift{ false };
+            float shift_top[4]{ 0.f, 0.f, 0.f, 1.f };
+            float shift_bot[4]{ 0.f, 0.f, 0.f, 1.f };
+
+            // 11-14 atmosphere
+            bool  atmosphere{ false };
+            float atmo_density{ 0.3f };
+            float atmo_haze{ 0.f };
+            float atmo_glare{ 0.f };
+            float atmo_offset{ 0.25f };
+            float atmo_color[4]{ 0.8f, 0.85f, 1.f, 1.f };
+            float atmo_decay[4]{ 0.9f, 0.7f, 0.5f, 1.f };
+
+            // sky цепочка (Lighting.Sky) — один тоггл
+            bool  sky{ false };
+            float sun_angular{ 21.f };
+            float moon_angular{ 11.f };
+            float sky_orient_xyz[3]{ 0.f, 0.f, 0.f };
+            int   skybox_mode{ 1 }; // 0 shader 1 roblox
+            int   skybox_shader{ 0 };
+            int   skybox_preset{ 0 };
+
+            // 20-24 postfx
+            bool  bloom{ false };
+            float bloom_intensity{ 1.f };
+            float bloom_size{ 24.f };
+            float bloom_threshold{ 0.95f };
+
+            bool  color_corr{ false };
+            float cc_bri{ 0.f };
+            float cc_con{ 0.f };
+            float cc_tint[4]{ 1.f, 1.f, 1.f, 1.f };
+
+            bool  color_grade{ false };
+            int   tonemapper{ 0 }; // 0 Default 1 Futuristic
+
+            bool  dof{ false };
+            float dof_far{ 0.1f };
+            float dof_near{ 0.1f };
+            float dof_focus{ 20.f };
+            float dof_radius{ 50.f };
+
+            // terrain цепочка (Workspace.Terrain) — один тоггл
+            bool  terrain{ false };
+            float grass_len{ 0.2f };
+            float grass_col[4]{ 0.35f, 0.55f, 0.2f, 1.f };
+            float water_col[4]{ 0.1f, 0.35f, 0.55f, 1.f };
+            float water_refl{ 1.f };
+            float water_trans{ 0.3f };
         } world;
 
         struct {
@@ -411,7 +491,7 @@ namespace Cheat {
             int   fly_key_mode{ 0 };
 
             bool  explorer{ false };
-            bool  players{ false }; // island stub, вкладки players в меню нет
+            bool  players{ false }; // island -> float players_ui
             bool  mcp{ false }; // localhost bridge для cursor mcp
             bool  custom_support{ false };
             bool  pf_support{ true }; // Phantom Forces place-id support
@@ -449,7 +529,7 @@ namespace Cheat {
 
         struct {
             int   theme{ 0 };
-            int   font{ 0 };
+            int   font{ 4 }; // verdana
             bool  watermark{ false };
             float watermark_x{ 10.f };
             float watermark_y{ 10.f };

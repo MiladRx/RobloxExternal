@@ -38,7 +38,11 @@ float Cheat::Camera::GetFieldOfView() const
 		return 0.f;
 	}
 
-	return g_Memory.Read<float>(address + Offsets::Camera::FieldOfView);
+	// в памяти часто радианы; наружу как в lua — градусы
+	float cur = g_Memory.Read<float>(address + Offsets::Camera::FieldOfView);
+	if (cur > 0.f && cur < 3.2f)
+		return cur * (180.f / 3.14159265f);
+	return cur;
 }
 
 Vector2 Cheat::Camera::GetViewportSize() const
@@ -58,7 +62,13 @@ void Cheat::Camera::SetFieldOfView(float fov) const
 		return;
 	}
 
-	g_Memory.Write<float>(address + Offsets::Camera::FieldOfView, fov);
+	std::uint64_t addr = address + Offsets::Camera::FieldOfView;
+	float cur = g_Memory.Read<float>(addr);
+	bool rad = cur > 0.f && cur < 3.2f;
+	float v = fov;
+	if (rad)
+		v = fov * (3.14159265f / 180.f);
+	g_Memory.Write<float>(addr, v);
 }
 
 void Cheat::Camera::SetRotation(const Matrix4x4& rot) const

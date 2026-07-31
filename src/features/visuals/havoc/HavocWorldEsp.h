@@ -12,7 +12,7 @@ namespace Cheat {
 
             bool IsActivePlace();
 
-            // havoc: всегда метры, кап 400m
+            // havoc: всегда метры, кап 400m (люди)
             inline float StudsToMeters(float studs)
             {
                 return studs * kStudToMeter;

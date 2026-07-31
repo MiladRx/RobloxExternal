@@ -661,7 +661,7 @@ void ESPPreview::Render()
                     *op = EspLayout::OffsetFromPos(side, g_DragVisualPos.x, g_DragVisualPos.y,
                                                    g_DragTextH, g_PrevBox, 2.f);
                 }
-                EspLayout::ResolveAllSides(s, esp_fs, s.esp.flags ? 2 : 1, g_DragElem);
+                EspLayout::ResolveAllSides(s, esp_fs, 1, g_DragElem);
             }
 
             else if (g_HasPrevBox && g_DragElem == ElemHealthBar)
@@ -676,7 +676,7 @@ void ESPPreview::Render()
         if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
         {
             if (g_DragElem != ElemHealthBar)
-                EspLayout::ResolveAllSides(s, esp_fs, s.esp.flags ? 2 : 1, -1);
+                EspLayout::ResolveAllSides(s, esp_fs, 1, -1);
             g_DragElem = ElemNone;
             g_LayoutDrag = false;
             g_DragVisualInit = false;
@@ -802,16 +802,41 @@ void ESPPreview::Render()
                             pc[i] = UV(box[i].first, box[i].second);
                         parts.push_back(pc);
                     }
-                    // engine mode в оверлее нет, рисуем как neon шейдер
-                    // engine — в оверлее нет; mesh preview ≈ filled
-                    const int preview_mode = (s.esp.chams_mode == 4) ? 3
-                        : (s.esp.chams_mode == 5) ? 1
+                    // mesh preview ≈ filled; engine отдельно в мире
+                    const int preview_mode = (s.esp.chams_mode == 4) ? 1
                         : s.esp.chams_mode;
-                    const int preview_shader = (s.esp.chams_mode == 4)
-                        ? (int)Cheat::Visuals::ShaderChams::Neon
-                        : s.esp.chams_shader;
+                    const int preview_shader = s.esp.chams_shader;
                     DrawPreviewChams(dl, parts, preview_mode, preview_shader,
                         Col(s.esp.chams_outline_color), Col(s.esp.chams_fill_color));
+                }
+            }
+
+            // skel/chams сначала, fill потом сверху
+            if (s.esp.skeleton) {
+                const int skel_type = s.esp.skeleton_type;
+                if (skel_type >= 1 && skel_type <= 3) {
+                    int img = Cheat::Visuals::BoxFill::SK;
+                    if (skel_type == 2)
+                        img = Cheat::Visuals::BoxFill::US;
+                    else if (skel_type == 3)
+                        img = Cheat::Visuals::BoxFill::SE;
+                    Cheat::Visuals::BoxFill::Draw(dl, img,
+                        ImVec2(bx1, by1), ImVec2(bx2, by2),
+                        s.esp.skeleton_color[3], true);
+                } else {
+                    std::vector<float> segs;
+                    if (g_Renderer.GetProjectedR6Skeleton(segs)) {
+                        const ImU32 bone = Col(s.esp.skeleton_color);
+                        const float skel_t = s.esp.skeleton_thickness;
+                        const bool skel_ol = s.esp.esp_outline[
+                            Cheat::Settings::OUTLINE_SKELETON];
+                        for (size_t i = 0; i + 3 < segs.size(); i += 4) {
+                            DrawSkeletonLine(dl,
+                                UV(segs[i], segs[i + 1]),
+                                UV(segs[i + 2], segs[i + 3]),
+                                bone, skel_t, skel_ol);
+                        }
+                    }
                 }
             }
 
@@ -841,7 +866,7 @@ void ESPPreview::Render()
 
             // если не драгаем компактим слоты (дыры забиваем)
             if (!(g_LayoutDrag && s_dragged && g_DragElem != ElemHealthBar))
-                EspLayout::ResolveAllSides(s, esp_fs, s.esp.flags ? 2 : 1, -1);
+                EspLayout::ResolveAllSides(s, esp_fs, 1, -1);
 
             float bar_w = 2.f;
             float bar_gap = 3.f;
@@ -921,47 +946,6 @@ void ESPPreview::Render()
                            Col(s.esp.tool_color));
             }
 
-            if (s.esp.flags) {
-                struct Flag { const char* text; ImU32 color; };
-                const Flag flag_list[] = {
-                    { "standing", IM_COL32(160, 160, 160, 255) },
-                    { "speed",    IM_COL32(245, 220, 80, 255) },
-                };
-                const float flag_step = esp_fs + 2.0f;
-                const bool flags_active = (g_DragElem == ElemFlags && s_dragged);
-                ImRect flags_union;
-                bool have_flags = false;
-                for (int i = 0; i < 2; ++i) {
-                    const auto& f = flag_list[i];
-                    const ImVec2 tsz = esp_font->CalcTextSizeA(esp_fs, FLT_MAX, 0.0f, f.text);
-                    const int sidx = (s.esp.flags_side < 0 || s.esp.flags_side > 3) ? 0 : s.esp.flags_side;
-                    float tx, ty;
-                    EspLayout::PlaceText(sidx, ebox, s.esp.flags_off + i * flag_step,
-                                         tsz.x, tsz.y, pad_l, pad_r, pad, tx, ty);
-                    ImVec2 pos(Floor(tx), Floor(ty));
-                    if (flags_active)
-                        pos = ImVec2(g_DragVisualPos.x, g_DragVisualPos.y + i * flag_step);
-                    widgets::draw_outlined_text(dl, esp_font, esp_fs, pos, f.color, f.text);
-                    const ImRect r(ImVec2(pos.x - 3.0f, pos.y - 2.0f),
-                                   ImVec2(pos.x + tsz.x + 3.0f, pos.y + tsz.y + 2.0f));
-                    if (!have_flags) { flags_union = r; have_flags = true; }
-                    else {
-                        flags_union.Min.x = (std::min)(flags_union.Min.x, r.Min.x);
-                        flags_union.Min.y = (std::min)(flags_union.Min.y, r.Min.y);
-                        flags_union.Max.x = (std::max)(flags_union.Max.x, r.Max.x);
-                        flags_union.Max.y = (std::max)(flags_union.Max.y, r.Max.y);
-                    }
-                }
-                if (have_flags) {
-                    if (flags_active)
-                        g_DragTextH = flags_union.GetHeight() - 4.f;
-                    if (flags_active || (hovered && HitTestElems(io.MousePos) == ElemFlags && g_DragElem == ElemNone))
-                        dl->AddRect(flags_union.Min, flags_union.Max,
-                                    IM_COL32(90, 180, 255, flags_active ? 220 : 120));
-                    hits.push_back({ ElemFlags, flags_union });
-                }
-            }
-
             if (s.esp.health_text) {
                 const bool with_bar = s.esp.healthbar;
                 char hp_buf[16];
@@ -974,34 +958,6 @@ void ESPPreview::Render()
             }
 
             g_PrevHits = std::move(hits);
-
-            if (s.esp.skeleton) {
-                const int skel_type = s.esp.skeleton_type;
-                if (skel_type >= 1 && skel_type <= 3) {
-                    int img = Cheat::Visuals::BoxFill::SK;
-                    if (skel_type == 2)
-                        img = Cheat::Visuals::BoxFill::US;
-                    else if (skel_type == 3)
-                        img = Cheat::Visuals::BoxFill::SE;
-                    Cheat::Visuals::BoxFill::Draw(dl, img,
-                        ImVec2(bx1, by1), ImVec2(bx2, by2),
-                        s.esp.skeleton_color[3], true);
-                } else {
-                    std::vector<float> segs;
-                    if (g_Renderer.GetProjectedR6Skeleton(segs)) {
-                        const ImU32 bone = Col(s.esp.skeleton_color);
-                        const float skel_t = s.esp.skeleton_thickness;
-                        const bool skel_ol = s.esp.esp_outline[
-                            Cheat::Settings::OUTLINE_SKELETON];
-                        for (size_t i = 0; i + 3 < segs.size(); i += 4) {
-                            DrawSkeletonLine(dl,
-                                UV(segs[i], segs[i + 1]),
-                                UV(segs[i + 2], segs[i + 3]),
-                                bone, skel_t, skel_ol);
-                        }
-                    }
-                }
-            }
 
             {
                 auto& acfg = Cheat::g_Settings.aim.active();

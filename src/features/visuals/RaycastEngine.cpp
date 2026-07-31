@@ -768,7 +768,7 @@ bool WantsCache()
     if (g_Settings.misc.raycast_engine)
         return true;
     return g_Settings.esp.chams &&
-           g_Settings.esp.chams_mode == 5 &&
+           g_Settings.esp.chams_mode == 4 &&
            g_Settings.esp.mesh_chams_occlusion;
 }
 

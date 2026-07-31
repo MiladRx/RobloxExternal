@@ -48,6 +48,13 @@ bool resolve_want()
 	auto& m = Cheat::g_Settings.misc;
 	int key = m.third_person_key;
 
+	if (m.third_person_mode == 2)
+	{
+		g_key_was = false;
+		m.third_person = true;
+		return true;
+	}
+
 	if (key != 0)
 	{
 		bool down = (GetAsyncKeyState(key) & 0x8000) != 0;

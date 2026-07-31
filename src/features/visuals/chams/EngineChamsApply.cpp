@@ -283,11 +283,11 @@ void ApplyEntity(uintptr_t ent)
 		}
 	}
 
-	// всегда пишем — движок сбрасывает queue
-	g_Memory.Write<std::uint32_t>(rq, 13);
-
 	int style = Cheat::g_Settings.esp.engine_chams_style;
 	int color_idx = Cheat::g_Settings.esp.engine_ghost_color_idx;
+
+	// движок сбрасывает queue — пишем каждый тик
+	g_Memory.Write<std::uint32_t>(rq, StyleQueue(style));
 
 	if (ApplyStyleLayers(ent, style, color_idx))
 	{

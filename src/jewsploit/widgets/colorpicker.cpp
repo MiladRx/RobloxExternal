@@ -147,11 +147,16 @@ bool ng::colorpicker_any_open()
 	return g_cp_open_prev;
 }
 
-bool ng::colorpicker(const char* id, float col[4], bool shown, int slot, bool show_swatch, bool open_now)
+bool ng::colorpicker(const char* id, float col[4], bool shown, int slot, bool show_swatch, bool open_now, bool show_alpha)
 {
 	if (!col)
 	{
 		return false;
+	}
+
+	if (!show_alpha)
+	{
+		col[3] = 1.f;
 	}
 
 	if (slot < 0) slot = 0;
@@ -270,7 +275,11 @@ bool ng::colorpicker(const char* id, float col[4], bool shown, int slot, bool sh
 		float gap = 8.f;
 		float sq_r = 12.f;
 		float pw = pad + sq + gap + hue_w + pad;
-		float ph = pad + sq + 12.f + 14.f + 12.f + 22.f + pad;
+		float ph = pad + sq + 12.f + 22.f + pad;
+		if (show_alpha)
+		{
+			ph = pad + sq + 12.f + 14.f + 12.f + 22.f + pad;
+		}
 
 		ImVec2 pp = ImVec2(sx + sw - pw, sy + sh + 8.f);
 		if (pp.x < 8.f) pp.x = 8.f;
@@ -378,29 +387,40 @@ bool ng::colorpicker(const char* id, float col[4], bool shown, int slot, bool sh
 		float hy = h0.y + hh * sq;
 		pdl->AddRectFilled(ImVec2(h0.x - 2.f, hy - 2.f), ImVec2(h1.x + 2.f, hy + 2.f), IM_COL32(255, 255, 255, 230), 3.f);
 
-		float ay = sq1.y + 12.f;
-		ImVec2 a0 = ImVec2(sq0.x, ay);
-		ImVec2 a1 = ImVec2(sq1.x + gap + hue_w, ay + 14.f);
-		pdl->AddRectFilled(a0, a1, col::checkbox_off_u32(), 7.f);
-		pdl->AddRectFilled(a0, ImVec2(a0.x + (a1.x - a0.x) * col[3], a1.y), col4(col[0], col[1], col[2], 1.f), 7.f);
-		pdl->AddRect(a0, a1, IM_COL32(255, 255, 255, 28), 7.f, 0, 1.f);
+		ImVec2 a1 = ImVec2(sq1.x + gap + hue_w, sq1.y);
+		float py = sq1.y + 12.f;
 
-		ImGui::SetCursorScreenPos(a0);
-		ImGui::InvisibleButton("alpha", ImVec2(a1.x - a0.x, a1.y - a0.y));
-		if (ImGui::IsItemActive())
+		if (show_alpha)
 		{
-			col[3] = (io.MousePos.x - a0.x) / (a1.x - a0.x);
-			if (col[3] < 0.f) col[3] = 0.f;
-			if (col[3] > 1.f) col[3] = 1.f;
-			ch = true;
+			float ay = sq1.y + 12.f;
+			ImVec2 a0 = ImVec2(sq0.x, ay);
+			a1 = ImVec2(sq1.x + gap + hue_w, ay + 14.f);
+			pdl->AddRectFilled(a0, a1, col::checkbox_off_u32(), 7.f);
+			pdl->AddRectFilled(a0, ImVec2(a0.x + (a1.x - a0.x) * col[3], a1.y), col4(col[0], col[1], col[2], 1.f), 7.f);
+			pdl->AddRect(a0, a1, IM_COL32(255, 255, 255, 28), 7.f, 0, 1.f);
+
+			ImGui::SetCursorScreenPos(a0);
+			ImGui::InvisibleButton("alpha", ImVec2(a1.x - a0.x, a1.y - a0.y));
+			if (ImGui::IsItemActive())
+			{
+				col[3] = (io.MousePos.x - a0.x) / (a1.x - a0.x);
+				if (col[3] < 0.f) col[3] = 0.f;
+				if (col[3] > 1.f) col[3] = 1.f;
+				ch = true;
+			}
+
+			float ax = a0.x + col[3] * (a1.x - a0.x);
+			pdl->AddCircleFilled(ImVec2(ax, (a0.y + a1.y) * 0.5f), 6.f, IM_COL32(245, 248, 255, 255));
+			pdl->AddCircle(ImVec2(ax, (a0.y + a1.y) * 0.5f), 6.f, col4(col[0], col[1], col[2], 1.f), 0, 2.f);
+			py = a1.y + 12.f;
 		}
 
-		float ax = a0.x + col[3] * (a1.x - a0.x);
-		pdl->AddCircleFilled(ImVec2(ax, (a0.y + a1.y) * 0.5f), 6.f, IM_COL32(245, 248, 255, 255));
-		pdl->AddCircle(ImVec2(ax, (a0.y + a1.y) * 0.5f), 6.f, col4(col[0], col[1], col[2], 1.f), 0, 2.f);
+		else
+		{
+			col[3] = 1.f;
+		}
 
 		// preview + argb micro child
-		float py = a1.y + 12.f;
 		float prev_w = 36.f;
 		float prev_h = 22.f;
 		draw_round_swatch(
@@ -418,6 +438,11 @@ bool ng::colorpicker(const char* id, float col[4], bool shown, int slot, bool sh
 		if (ng::argb_field("##argb", col, field_w))
 		{
 			ch = true;
+		}
+
+		if (!show_alpha)
+		{
+			col[3] = 1.f;
 		}
 
 		// закрытие по пустому месту — даже если dim/search словили клик

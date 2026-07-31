@@ -956,7 +956,7 @@ namespace Cheat {
                 }
 
                 float pos[3]{ world_target.x, world_target.y, world_target.z };
-                // magic = всегда wallbang; scale мелкий, origin у самой цели
+                // wallbang; camera-ray режет RaycastSilent stub
                 std::uint32_t flags = 1u;
                 float scale = 1.15f;
                 std::uint32_t one = 1;

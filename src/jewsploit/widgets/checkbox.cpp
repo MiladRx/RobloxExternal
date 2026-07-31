@@ -24,7 +24,6 @@ namespace
 
 bool ng::checkbox(const char* label, bool* v)
 {
-	ImVec2 pos = ImGui::GetCursorScreenPos();
 	ImDrawList* dl = ImGui::GetWindowDrawList();
 	ImGuiIO& io = ImGui::GetIO();
 
@@ -40,8 +39,9 @@ bool ng::checkbox(const char* label, bool* v)
 	}
 
 	float w = box + gap + ts.x + 6.f;
+	float row_h = h + 2.f;
 
-	ImGui::InvisibleButton(label, ImVec2(w, h + 2.f));
+	ImGui::InvisibleButton(label, ImVec2(w, row_h));
 	bool hit = ImGui::IsItemClicked();
 
 	if (hit)
@@ -58,15 +58,18 @@ bool ng::checkbox(const char* label, bool* v)
 
 	float e = anim::ease_out_cubic(t);
 
-	float by = pos.y + (h - box) * 0.5f + 3.f;
+	// рисуем от item rect — совпадает со свотчем по центру
+	ImVec2 r0 = ImGui::GetItemRectMin();
+	float ih = ImGui::GetItemRectSize().y;
+	float by = r0.y + (ih - box) * 0.5f;
+	float ty = r0.y + (ih - ts.y) * 0.5f;
+
 	ImU32 bg = mix_u32(col::checkbox_off_u32(), col::checkbox_on_u32(), e);
 	ImU32 br = mix_u32(IM_COL32(255, 255, 255, 28), IM_COL32(255, 255, 255, 48), e);
 
-	dl->AddRectFilled(ImVec2(pos.x, by), ImVec2(pos.x + box, by + box), bg, rnd);
-	dl->AddRect(ImVec2(pos.x, by), ImVec2(pos.x + box, by + box), br, rnd, 0, 1.f);
-
-	float ty = pos.y + (h - ts.y) * 0.5f + 3.f;
-	dl->AddText(ImVec2(pos.x + box + gap, ty), IM_COL32(220, 226, 236, 230), label);
+	dl->AddRectFilled(ImVec2(r0.x, by), ImVec2(r0.x + box, by + box), bg, rnd);
+	dl->AddRect(ImVec2(r0.x, by), ImVec2(r0.x + box, by + box), br, rnd, 0, 1.f);
+	dl->AddText(ImVec2(r0.x + box + gap, ty), IM_COL32(220, 226, 236, 230), label);
 
 	return hit;
 }

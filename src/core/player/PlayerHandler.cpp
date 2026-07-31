@@ -751,6 +751,7 @@ void Cheat::PlayerHandler::UpdateCache(const Instance& player,
 
     cache.character = char_addr;
     cache.team_folder = ResolveTeamFolder(char_addr);
+    cache.user_id = Player(player.address).GetUserId();
     cache.is_player = true;
     PopulateParts(char_addr, cache);
 
@@ -902,14 +903,14 @@ void Cheat::PlayerHandler::CacheThreadLoop()
         Features::RaycastEngine::Tick();
 
         // MCP LRU для mesh chams — не на render-thread
-        if (g_Settings.esp.enabled && g_Settings.esp.chams_mode == 5)
+        if (g_Settings.esp.enabled && g_Settings.esp.chams_mode == 4)
             Visuals::MeshCache::Get().Refresh(false);
 
         // raycast / mesh occluded — кэш стен чаще
         int ms = 250;
         if (Features::RaycastEngine::WantsCache())
             ms = 20;
-        if (g_Settings.esp.enabled && g_Settings.esp.chams_mode == 5)
+        if (g_Settings.esp.enabled && g_Settings.esp.chams_mode == 4)
             ms = (std::min)(ms, 100);
         std::this_thread::sleep_for(std::chrono::milliseconds(ms));
     }

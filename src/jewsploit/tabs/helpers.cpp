@@ -8,18 +8,21 @@
 #include "../widgets/slider.h"
 #include "../widgets/dropdown.h"
 #include "../widgets/spacing.h"
+#include "../animation/animation.h"
 
 #include <imgui.h>
 
 void ng_tabs::pad()
 {
-	ImGui::SetCursorPosX(12.f);
+	ImGui::SetCursorPosX(14.f);
 }
 
 void ng_tabs::gap()
 {
-	ImGui::Dummy(ImVec2(0.f, ng::item_gap));
-	pad();
+	// сначала X, потом dummy — иначе после colorpicker лестница вправо
+	ImGui::SetCursorPosX(14.f);
+	ImGui::Dummy(ImVec2(0.01f, ng::item_gap));
+	ImGui::SetCursorPosX(14.f);
 }
 
 void ng_tabs::lab(const char* text)
@@ -38,10 +41,12 @@ bool ng_tabs::row_cb_color(const char* label, bool* v, float col[4], const char*
 
 	pad();
 	bool ch = ng::checkbox(label, v);
+	ImVec2 r0 = ImGui::GetItemRectMin();
+	ImVec2 r1 = ImGui::GetItemRectMax();
 
 	if (ng::cp_style() == 1)
 	{
-		ImGui::SetCursorPosX(12.f);
+		ImGui::SetCursorPosX(14.f);
 		if (ng::color_presets(id, "color", label, col, *v))
 			ch = true;
 	}
@@ -52,6 +57,10 @@ bool ng_tabs::row_cb_color(const char* label, bool* v, float col[4], const char*
 			ch = true;
 	}
 
+	// свотч уводит курсор вправо — вернуть под чекбокс
+	ImGui::SetCursorScreenPos(ImVec2(r0.x, r1.y));
+	ImGui::Dummy(ImVec2(0.01f, 0.01f));
+	pad();
 	return ch;
 }
 
@@ -73,14 +82,16 @@ bool ng_tabs::row_cb_color2(
 
 	pad();
 	bool ch = ng::checkbox(label, v);
+	ImVec2 r0 = ImGui::GetItemRectMin();
+	ImVec2 r1 = ImGui::GetItemRectMax();
 	bool show = colors_always ? true : *v;
 
 	if (ng::cp_style() == 1)
 	{
-		ImGui::SetCursorPosX(12.f);
+		ImGui::SetCursorPosX(14.f);
 		if (ng::color_presets(id_a, "color", name_a, col_a, show))
 			ch = true;
-		ImGui::SetCursorPosX(12.f);
+		ImGui::SetCursorPosX(14.f);
 		if (ng::color_presets(id_b, "color", name_b, col_b, show))
 			ch = true;
 	}
@@ -93,6 +104,9 @@ bool ng_tabs::row_cb_color2(
 			ch = true;
 	}
 
+	ImGui::SetCursorScreenPos(ImVec2(r0.x, r1.y));
+	ImGui::Dummy(ImVec2(0.01f, 0.01f));
+	pad();
 	return ch;
 }
 
@@ -121,20 +135,65 @@ void ng_tabs::row_keybind(const char* id, const char* label, int* vk, int* mode)
 	ImGui::PopID();
 }
 
-bool ng_tabs::row_select(const char* id, const char* label, int* cur, const char* const items[], int count)
+bool ng_tabs::row_select(const char* id, const char* label, int* cur, const char* const items[], int count, bool shown, bool close_on_pick)
 {
 	if (!cur || !items || count <= 0) return false;
-	pad();
-	lab(label);
-	return ng::select(id, cur, items, count);
+
+	ImGui::PushID(id);
+	ImGuiStorage* st = ImGui::GetStateStorage();
+	ImGuiID oid = ImGui::GetID("lab_open");
+	float open = st->GetFloat(oid, shown ? 1.f : 0.f);
+	open = anim::approach(open, shown ? 1.f : 0.f, 7.f, ImGui::GetIO().DeltaTime);
+	st->SetFloat(oid, open);
+	float e = anim::ease_out_cubic(open);
+
+	if (e > 0.001f)
+	{
+		pad();
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+		ImVec2 p = ImGui::GetCursorScreenPos();
+		int a = (int)(230.f * e);
+		if (a < 0) a = 0;
+		if (a > 255) a = 255;
+		dl->AddText(p, IM_COL32(220, 226, 236, a), label ? label : "");
+		ImGui::Dummy(ImVec2(0.f, (ImGui::GetFontSize() + 4.f) * e));
+		pad();
+	}
+
+	bool ch = ng::select("##sel", cur, items, count, shown, close_on_pick);
+	ImGui::PopID();
+	return ch;
 }
 
 bool ng_tabs::row_slider(const char* id, const char* label, float* v, float mn, float mx, bool shown)
 {
 	if (!v) return false;
-	pad();
-	lab(label);
-	return ng::slider(id, v, mn, mx, shown);
+
+	// лейбл вместе со слайдером, а то fog start торчит при выкл
+	ImGui::PushID(id);
+	ImGuiStorage* st = ImGui::GetStateStorage();
+	ImGuiID oid = ImGui::GetID("lab_open");
+	float open = st->GetFloat(oid, shown ? 1.f : 0.f);
+	open = anim::approach(open, shown ? 1.f : 0.f, 7.f, ImGui::GetIO().DeltaTime);
+	st->SetFloat(oid, open);
+	float e = anim::ease_out_cubic(open);
+
+	if (e > 0.001f)
+	{
+		pad();
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+		ImVec2 p = ImGui::GetCursorScreenPos();
+		int a = (int)(230.f * e);
+		if (a < 0) a = 0;
+		if (a > 255) a = 255;
+		dl->AddText(p, IM_COL32(220, 226, 236, a), label ? label : "");
+		ImGui::Dummy(ImVec2(0.f, (ImGui::GetFontSize() + 4.f) * e));
+		pad();
+	}
+
+	bool ch = ng::slider("##sl", v, mn, mx, shown);
+	ImGui::PopID();
+	return ch;
 }
 
 bool ng_tabs::row_slider_i(const char* id, const char* label, int* v, int mn, int mx, bool shown)

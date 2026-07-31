@@ -1,6 +1,7 @@
 #include "island.h"
 #include "../colors/colors.h"
 #include "../animation/animation.h"
+#include "../jewsploit_shell.h"
 #include "app/Settings.h"
 
 #include <stdio.h>
@@ -10,13 +11,14 @@ void ng::island()
 {
 	ImGuiIO& io = ImGui::GetIO();
 
-	static float tab_t[2]{};
+	static float tab_t[3]{};
 
-	const char* names[] = { "lua", "explorer" };
-	const int n = 2;
-	bool* tab_on[2] = {
+	const char* names[] = { "lua", "explorer", "players" };
+	const int n = 3;
+	bool* tab_on[3] = {
 		&Cheat::g_Settings.lua.executor,
-		&Cheat::g_Settings.misc.explorer
+		&Cheat::g_Settings.misc.explorer,
+		&Cheat::g_Settings.misc.players
 	};
 
 	float pad_x = 16.f;
@@ -25,7 +27,7 @@ void ng::island()
 	float hit_pad = 8.f;
 	float hit_h = 26.f;
 
-	float widths[2]{};
+	float widths[3]{};
 	float row_w = 0.f;
 	for (int i = 0; i < n; i++)
 	{
@@ -123,4 +125,6 @@ void ng::island()
 	ImGui::End();
 	ImGui::PopStyleColor(2);
 	ImGui::PopStyleVar(3);
+
+	// lua/explorer/players — свои float окна, island ток тумблеры
 }

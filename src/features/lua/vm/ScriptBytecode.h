@@ -21,11 +21,14 @@ bool Decompress(const std::vector<std::uint8_t>& raw, std::vector<std::uint8_t>&
 
 bool ReadDecompressed(std::uint64_t script_addr, const std::string& class_name, std::vector<std::uint8_t>& out);
 
-// readable-ish source (imports / constants / linear lift). optional Fission HTTP if up.
+// readable source: Fission.Server :3001 если жив, иначе built-in lifter
 std::string Decompile(const std::vector<std::uint8_t>& raw_or_luau, const char* chunk_name = "script");
 
-// try localhost Fission.Server (base64 POST). empty = unavailable/fail
+// try localhost Fission.Server POST /luau/decompile. empty = unavailable/fail
 std::string DecompileViaFission(const std::vector<std::uint8_t>& luau_bc);
+
+// ping :3001, если нет — стартануть Fission.Server.exe рядом с читом
+bool EnsureFissionServer();
 
 } // namespace ScriptBytecode
 } // namespace Features

@@ -12,13 +12,17 @@
 #include "features/lua/execute/Tabs.h"
 #include "features/lua/execute/Scripts.h"
 #include "features/lua/protocol/Log.h"
+#include "features/lua/execute/Clipboard.h"
 #include "app/Settings.h"
 #include "gui/resources/fonts/fonts.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
 #include <string>
+#include <vector>
 
 using namespace Cheat::Features;
 using namespace Cheat::Features::LuaDetail;
@@ -142,6 +146,35 @@ namespace
 		ng::child_end();
 	}
 
+	std::string g_out_view;
+
+	void rebuild_out_view()
+	{
+		std::vector<OutputLine> snap;
+		{
+			std::lock_guard<std::mutex> lock(g_output_mu);
+			snap = g_output;
+		}
+
+		g_out_view.clear();
+		if (snap.empty())
+		{
+			g_out_view = "empty - press execute";
+			return;
+		}
+
+		g_out_view.reserve(snap.size() * 64);
+		for (size_t i = 0; i < snap.size(); ++i)
+		{
+			const auto& line = snap[i];
+			g_out_view += '[';
+			g_out_view += LevelTag(line.level);
+			g_out_view += "]  ";
+			g_out_view += line.text;
+			g_out_view += '\n';
+		}
+	}
+
 	void draw_output(float w, float h)
 	{
 		if (!ng::child_begin("##lua_out", "output", w, h, 12.f, true))
@@ -150,39 +183,83 @@ namespace
 			return;
 		}
 
-		if (g_output.empty())
+		static size_t cached_n = (size_t)-1;
+		size_t cur_n = 0;
 		{
-			ImGui::TextColored(ImVec4(0.55f, 0.58f, 0.64f, 1.f), "empty - press execute");
+			std::lock_guard<std::mutex> lock(g_output_mu);
+			cur_n = g_output.size();
 		}
 
-		else
+		if (cached_n != cur_n || g_scroll_out)
 		{
-			float wrap = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
-			for (int i = 0; i < (int)g_output.size(); i++)
+			rebuild_out_view();
+			cached_n = cur_n;
+		}
+
+		{
+			const size_t n = g_out_view.size();
+			g_out_view.resize(n + 1, '\0');
+			g_out_view.resize(n);
+		}
+
+		ImVec2 av = ImGui::GetContentRegionAvail();
+		float box_h = av.y - 10.f;
+		if (box_h < 40.f) box_h = 40.f;
+		float box_w = av.x;
+		if (box_w < 40.f) box_w = 40.f;
+
+		ImVec2 pos = ImGui::GetCursorScreenPos();
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+		float rnd = 10.f;
+		dl->AddRectFilled(pos, ImVec2(pos.x + box_w, pos.y + box_h), col::checkbox_off_u32(), rnd);
+		dl->AddRect(pos, ImVec2(pos.x + box_w, pos.y + box_h), IM_COL32(255, 255, 255, 28), rnd, 0, 1.f);
+
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.f, 0.f, 0.f, 0.f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.f, 0.f, 0.f, 0.f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.f, 0.f, 0.f, 0.f));
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(220.f / 255.f, 226.f / 255.f, 236.f / 255.f, 1.f));
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.f, 10.f));
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, rnd);
+		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);
+
+		ImGui::SetCursorScreenPos(pos);
+		ImGuiID id = ImGui::GetID("##lua_out_ro");
+
+		if (g_scroll_out)
+		{
+			if (ImGuiInputTextState* st = ImGui::GetInputTextState(id))
 			{
-				const auto& line = g_output[i];
-				ImGui::PushID(i);
+				if (g_out_auto_scroll)
+					st->ReloadUserBufAndMoveToEnd();
 
-				char label[2048]{};
-				std::snprintf(label, sizeof(label), "[%s]  %s",
-				              LevelTag(line.level), line.text.c_str());
-
-				ImVec4 tc = ImGui::ColorConvertU32ToFloat4(LevelColor(line.level));
-				ImGui::PushStyleColor(ImGuiCol_Text, tc);
-				ImGui::PushTextWrapPos(wrap);
-				ImGui::TextUnformatted(label);
-				ImGui::PopTextWrapPos();
-				ImGui::PopStyleColor();
-
-				ImGui::PopID();
+				else
+					st->ReloadUserBufAndKeepSelection();
 			}
 		}
 
+		const size_t buf_n = g_out_view.size();
+		ImGui::InputTextMultiline(
+			"##lua_out_ro",
+			g_out_view.data(),
+			buf_n + 1,
+			ImVec2(box_w, box_h),
+			ImGuiInputTextFlags_ReadOnly
+		);
+
 		if (g_scroll_out && g_out_auto_scroll)
 		{
-			ImGui::SetScrollHereY(1.f);
+			if (ImGuiInputTextState* st = ImGui::GetInputTextState(id))
+				st->Scroll.y = 1e9f;
 			g_scroll_out = false;
 		}
+
+		else if (g_scroll_out)
+		{
+			g_scroll_out = false;
+		}
+
+		ImGui::PopStyleVar(3);
+		ImGui::PopStyleColor(4);
 
 		ImGui::Dummy(ImVec2(0.f, 12.f));
 		ng::child_end();
@@ -260,8 +337,8 @@ void ng_lua::draw(float alpha)
 		draw_output(left_w, out_h);
 
 		float by = y + ed_h + gap + out_h + gap;
-		float bw = (avail_w - gap * 2.f) / 3.f;
-		if (bw < 90.f) bw = 90.f;
+		float bw = (avail_w - gap * 3.f) / 4.f;
+		if (bw < 80.f) bw = 80.f;
 
 		ImGui::SetCursorPos(ImVec2(x, by));
 		if (ng::btn("##exec", "execute", bw, btn_h))
@@ -276,10 +353,23 @@ void ng_lua::draw(float alpha)
 			LuaExecutor::Log(LogLevel::Info, "editor cleared");
 		}
 		ImGui::SameLine(0.f, gap);
+		if (ng::btn("##copy_out", "copy out", bw, btn_h))
+		{
+			if (g_out_view.empty())
+				SetClipboardText("");
+
+			else
+				SetClipboardText(g_out_view);
+		}
+		ImGui::SameLine(0.f, gap);
 		if (ng::btn("##clr_out", "clear output", bw, btn_h))
 		{
-			g_output.clear();
+			{
+				std::lock_guard<std::mutex> lock(g_output_mu);
+				g_output.clear();
+			}
 			g_out_sel = -1;
+			g_out_sel_end = -1;
 		}
 
 		ng::float_panel_end();

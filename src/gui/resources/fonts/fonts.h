@@ -19,7 +19,7 @@ namespace fonts {
     void load(ImGuiIO& io);
 
     inline ImFont* by_index(int index) {
-		// 0 fredoka (дефолт), дальше старые индексы как были
+		// 0 fredoka … 4 verdana (gui дефолт = 4)
         switch (index) {
         case 0: if (fredoka_one)  return fredoka_one;  break;
         case 1: if (tahoma_bold)  return tahoma_bold;  break;
@@ -30,6 +30,8 @@ namespace fonts {
         default: break;
         }
 
+        if (verdana)
+            return verdana;
         if (fredoka_one)
             return fredoka_one;
         if (imgui)

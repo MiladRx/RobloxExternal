@@ -8,6 +8,7 @@
 #include "MeshDxShader.h"
 #include "features/visuals/boxfill/BoxFill.h"
 #include "features/aim/Aim.h"
+#include "features/visuals/KillEffects.h"
 #include "features/misc/HitboxExpander.h"
 #include "core/globals/Globals.h"
 #include "core/player/PlayerHandler.h"
@@ -26,6 +27,114 @@
 #include <cstring>
 #include <cfloat>
 #include <cstddef>
+
+// havoc position attr (без lua-потока — иначе есп мигает)
+static bool HavocReadPosAttr(std::uint64_t inst, Vector3& out)
+{
+	if (!g_Memory.IsValid(inst))
+		return false;
+
+	const std::uint64_t cmap = g_Memory.Read<std::uint64_t>(
+		inst + Offsets::Instance::ComponentMap);
+	if (!g_Memory.IsValid(cmap))
+		return false;
+
+	const uintptr_t base = g_Memory.GetModuleBase();
+	if (!base)
+		return false;
+
+	const std::uint16_t want = g_Memory.Read<std::uint16_t>(
+		base + Offsets::Attribute::TypeIdRva);
+	if (!want)
+		return false;
+
+	std::uint64_t amap = 0;
+	const std::uint64_t b = g_Memory.Read<std::uint64_t>(cmap);
+	const std::uint64_t e = g_Memory.Read<std::uint64_t>(cmap + 8);
+	if (g_Memory.IsValid(b) && g_Memory.IsValid(e) && e >= b && (e - b) < 0x4000)
+	{
+		for (std::uint64_t slot = b; slot < e; slot += 16)
+		{
+			const std::uint16_t t = g_Memory.Read<std::uint16_t>(slot + 8);
+			if (t != want)
+				continue;
+			const std::uint64_t ptr = g_Memory.Read<std::uint64_t>(slot);
+			if (g_Memory.IsValid(ptr))
+			{
+				amap = ptr;
+				break;
+			}
+		}
+	}
+
+	if (!amap)
+	{
+		const std::uint64_t page = g_Memory.Read<std::uint64_t>(cmap + 24);
+		if (!g_Memory.IsValid(page))
+			return false;
+		const std::uint32_t n = g_Memory.Read<std::uint32_t>(page + 24);
+		const std::uint64_t arr = g_Memory.Read<std::uint64_t>(page);
+		if (!g_Memory.IsValid(arr) || n > 256)
+			return false;
+		for (std::uint32_t i = 0; i < n; ++i)
+		{
+			const std::uint64_t blk = g_Memory.Read<std::uint64_t>(arr + 8 * (i >> 2));
+			if (!g_Memory.IsValid(blk))
+				continue;
+			const std::uint64_t ent = blk + 16ull * (i & 3);
+			const std::uint16_t t = g_Memory.Read<std::uint16_t>(ent + 8);
+			if (t != want)
+				continue;
+			const std::uint64_t ptr = g_Memory.Read<std::uint64_t>(ent);
+			if (g_Memory.IsValid(ptr))
+			{
+				amap = ptr;
+				break;
+			}
+		}
+	}
+
+	if (!amap)
+		return false;
+
+	const std::uint32_t cnt = g_Memory.Read<std::uint32_t>(
+		amap + Offsets::AttributesMap::Length);
+	const std::uint64_t ents = g_Memory.Read<std::uint64_t>(
+		amap + Offsets::AttributesMap::Attributes);
+	if (!g_Memory.IsValid(ents) || cnt == 0 || cnt > 256)
+		return false;
+
+	for (std::uint32_t i = 0; i < cnt; ++i)
+	{
+		const std::uint64_t ent = ents + Offsets::Attribute::Size * i;
+		const std::uint64_t k = g_Memory.Read<std::uint64_t>(ent + Offsets::Attribute::Key);
+		if (!g_Memory.IsValid(k))
+			continue;
+		if (g_Memory.ReadString(k) != "position")
+			continue;
+
+		const std::uint64_t va = ent + Offsets::Attribute::Value;
+		const std::uint64_t tag = g_Memory.Read<std::uint64_t>(va);
+		const Vector3 pos = g_Memory.Read<Vector3>(va + 16);
+		if (pos.x != pos.x || pos.y != pos.y || pos.z != pos.z)
+			return false;
+		if (std::fabs(pos.x) > 1e6f || std::fabs(pos.y) > 1e6f || std::fabs(pos.z) > 1e6f)
+			return false;
+		if (std::fabs(pos.x) < 0.01f && std::fabs(pos.y) < 0.01f && std::fabs(pos.z) < 0.01f)
+			return false;
+
+		// 7/20 = cframe, 4/17 = vec3; иначе тоже берём если tag мелкий
+		if (tag > 0 && tag < 64)
+		{
+			out = pos;
+			return true;
+		}
+
+		return false;
+	}
+
+	return false;
+}
 
 static void DrawTextWithOutline(ImDrawList* draw_list, ImFont* font, float font_size,
                                 ImVec2 pos, ImU32 color, const char* text)
@@ -636,10 +745,129 @@ ImU32 Col4(const float c[4])
     return IM_COL32((int)(c[0]*255),(int)(c[1]*255),(int)(c[2]*255),(int)(c[3]*255));
 }
 
+// конус над башкой
+static void DrawChinaHat(
+    ImDrawList* dl,
+    const Matrix4x4& vm,
+    const Vector2& viewport,
+    float overlay_w,
+    float overlay_h,
+    const Vector3& head_pos,
+    const float* col4)
+{
+    if (!dl || !col4)
+    {
+        return;
+    }
+
+    float hat_h = Cheat::g_Settings.esp.china_hat_height;
+    float hat_r = Cheat::g_Settings.esp.china_hat_radius;
+    if (hat_h < 0.1f)
+    {
+        hat_h = 0.1f;
+    }
+
+    if (hat_r < 0.1f)
+    {
+        hat_r = 0.1f;
+    }
+
+    const int segs = 48;
+    Vector3 apex(
+        head_pos.x,
+        head_pos.y + hat_h + 0.15f,
+        head_pos.z);
+
+    Vector2 apex_s{};
+    if (!WorldToScreen(vm, viewport, apex, apex_s))
+    {
+        return;
+    }
+
+    ImVec2 base_s[48];
+    bool any = PointOnOverlay(apex_s, overlay_w, overlay_h, 2.f);
+    bool all_ok = true;
+
+    for (int i = 0; i < segs; ++i)
+    {
+        float ang = (2.f * 3.14159f * (float)i) / (float)segs;
+        Vector3 p(
+            head_pos.x + hat_r * cosf(ang),
+            head_pos.y + 0.2f,
+            head_pos.z + hat_r * sinf(ang));
+
+        Vector2 sp{};
+        if (!WorldToScreen(vm, viewport, p, sp))
+        {
+            all_ok = false;
+            base_s[i] = ImVec2(-9999.f, -9999.f);
+            continue;
+        }
+
+        base_s[i] = ImVec2(sp.x, sp.y);
+        any = any || PointOnOverlay(sp, overlay_w, overlay_h, 2.f);
+    }
+
+    if (!any)
+    {
+        return;
+    }
+
+    ImU32 fill = IM_COL32(
+        (int)(col4[0] * 255), (int)(col4[1] * 255),
+        (int)(col4[2] * 255), (int)(col4[3] * 255));
+    ImU32 base_col = IM_COL32(
+        (int)(col4[0] * 255), (int)(col4[1] * 255),
+        (int)(col4[2] * 255), (int)(col4[3] * 0.6f * 255));
+    ImU32 outline = IM_COL32(0, 0, 0, 100);
+
+    ImDrawListFlags fl = dl->Flags;
+    dl->Flags |= ImDrawListFlags_AntiAliasedFill | ImDrawListFlags_AntiAliasedLines;
+
+    ImVec2 apex_im(apex_s.x, apex_s.y);
+    const float soft = 2.f;
+
+    for (int i = 0; i < segs; ++i)
+    {
+        int next = (i + 1) % segs;
+        if (base_s[i].x < -9000.f || base_s[next].x < -9000.f)
+        {
+            continue;
+        }
+
+        float ang = (2.f * 3.14159f * (float)i) / (float)segs;
+        ImVec2 apex_off(
+            apex_im.x + cosf(ang) * soft,
+            apex_im.y + sinf(ang) * soft);
+        dl->AddTriangleFilled(apex_off, base_s[i], base_s[next], fill);
+    }
+
+    if (all_ok)
+    {
+        dl->AddConvexPolyFilled(base_s, segs, base_col);
+    }
+
+    for (int i = 0; i < segs; ++i)
+    {
+        int next = (i + 1) % segs;
+        if (base_s[i].x < -9000.f || base_s[next].x < -9000.f)
+        {
+            continue;
+        }
+
+        dl->AddLine(base_s[i], base_s[next], outline, 1.2f);
+    }
+
+    dl->Flags = fl;
+}
+
 // есп каждый кадр оверлея
 void Cheat::Visuals::ESP::Render()
 {
     if (!Cheat::g_Settings.esp.enabled) return;
+    // flags вырезаны — старый конфиг не вернёт
+    Cheat::g_Settings.esp.flags = false;
+    Cheat::g_Settings.esp.bot_esp[Cheat::Settings::BOT_FLAGS] = false;
     if (!Cheat::Globals::Workspace || !Cheat::Globals::InstanceDataModel.address) return;
 
     auto camera_ptr = Cheat::Globals::Workspace->GetCurrentCamera();
@@ -687,7 +915,7 @@ void Cheat::Visuals::ESP::Render()
 
     // dx mesh: shader / occluded / gpu outline
     if (Cheat::g_Settings.esp.chams &&
-        Cheat::g_Settings.esp.chams_mode == 5 &&
+        Cheat::g_Settings.esp.chams_mode == 4 &&
         (Cheat::g_Settings.esp.mesh_chams_style == 1 ||
          Cheat::g_Settings.esp.mesh_chams_occlusion ||
          Cheat::g_Settings.esp.mesh_chams_outline))
@@ -700,6 +928,15 @@ void Cheat::Visuals::ESP::Render()
     if (Cheat::Globals::Players && g_Memory.IsValid(Cheat::Globals::Players->address))
         local_player_addr = g_Memory.Read<std::uint64_t>(
             Cheat::Globals::Players->address + Offsets::Player::LocalPlayer);
+
+    // дистанция от своего hrp, не от камеры
+    Vector3 dist_from = cam_pos;
+    if (local_player_addr)
+    {
+        PlayerCache loc = PlayerHandler::GetCachedPlayer(local_player_addr);
+        if (loc.humanoidRootPart && g_Memory.IsValid(loc.humanoidRootPart->address))
+            dist_from = BasePart(loc.humanoidRootPart->address).GetPosition();
+    }
 
     const std::uint64_t local_team_folder =
         Cheat::g_Settings.misc.teamcheck ? PlayerHandler::LocalTeamFolder() : 0;
@@ -733,7 +970,7 @@ void Cheat::Visuals::ESP::Render()
 
         // у ботов свои тогглы/цвета, не путать с игроками
         struct {
-            bool box, name, skeleton, chams, healthbar, health_text, distance, tool, flags;
+            bool box, name, skeleton, chams, healthbar, health_text, distance, tool;
             int  chams_mode, chams_shader;
             const float* box_color;
             const float* name_color;
@@ -755,7 +992,6 @@ void Cheat::Visuals::ESP::Render()
             st.health_text = be[Cheat::Settings::BOT_HEALTH_TEXT];
             st.distance = be[Cheat::Settings::BOT_DISTANCE];
             st.tool = be[Cheat::Settings::BOT_TOOL];
-            st.flags = be[Cheat::Settings::BOT_FLAGS];
             st.chams_mode = Cheat::g_Settings.esp.bot_chams_mode;
             st.chams_shader = Cheat::g_Settings.esp.bot_chams_shader;
             st.box_color = Cheat::g_Settings.esp.bot_box_color;
@@ -778,7 +1014,6 @@ void Cheat::Visuals::ESP::Render()
             st.health_text = Cheat::g_Settings.esp.health_text;
             st.distance = Cheat::g_Settings.esp.distance;
             st.tool = Cheat::g_Settings.esp.tool;
-            st.flags = Cheat::g_Settings.esp.flags;
             st.chams_mode = Cheat::g_Settings.esp.chams_mode;
             st.chams_shader = Cheat::g_Settings.esp.chams_shader;
             st.box_color = Cheat::g_Settings.esp.box_color;
@@ -817,13 +1052,45 @@ void Cheat::Visuals::ESP::Render()
 
         BasePart root(anchor->address);
         Vector3 root_pos = root.GetPosition();
-        float dist_studs = cam_pos.DistanceTo(root_pos);
 
-        // havoc: хардкап 400m + метры; иначе обычный distance check
+        // havoc: position attr на рендер-потоке (lua heartbeat в другом треде = мигание)
+        if (havoc && g_Memory.IsValid(cache.character))
+        {
+            Vector3 ap{};
+            if (HavocReadPosAttr(cache.character, ap))
+            {
+                const float dx = ap.x - root_pos.x;
+                const float dy = ap.y - root_pos.y;
+                const float dz = ap.z - root_pos.z;
+                if (dx * dx + dy * dy + dz * dz > 12.f * 12.f)
+                {
+                    if (cache.humanoidRootPart &&
+                        g_Memory.IsValid(cache.humanoidRootPart->address))
+                        BasePart(cache.humanoidRootPart->address).SetPosition(ap);
+                }
+                root_pos = ap;
+            }
+        }
+
+        float dist_studs = dist_from.DistanceTo(root_pos);
+
+        // havoc: люди 400m, боты — свой слайдер (метры)
         if (havoc)
         {
-            if (Visuals::HavocWorldEsp::BeyondRange(dist_studs))
+            float meters = Visuals::HavocWorldEsp::StudsToMeters(dist_studs);
+            if (is_bot)
+            {
+                float cap = Cheat::g_Settings.esp.bot_max_distance;
+                if (cap < 50.f) cap = 50.f;
+                if (cap > 400.f) cap = 400.f;
+                if (meters > cap)
+                    return;
+            }
+
+            else if (Visuals::HavocWorldEsp::BeyondRange(dist_studs))
+            {
                 return;
+            }
         }
 
         else if (Cheat::g_Settings.esp.distance_check)
@@ -959,12 +1226,16 @@ void Cheat::Visuals::ESP::Render()
                     pc.full = false;
             }
 
-            ExpandScreenFromObbCorners(vm, viewport, world,
-                                       min_x, max_x, min_y, max_y, any_visible);
+            // hrp в бокс не — на дистанции раздувает и хп уезжает вниз
+            if (!is_hrp)
+            {
+                ExpandScreenFromObbCorners(vm, viewport, world,
+                                           min_x, max_x, min_y, max_y, any_visible);
+            }
 
-            // overlay AABB chams; mesh=5 резолвит MeshData отдельно
+            // overlay AABB chams; mesh=4 резолвит MeshData отдельно
             if (want_chams && pc.full && !is_hrp &&
-                st.chams_mode != 4 && st.chams_mode != 5)
+                st.chams_mode != 4)
                 chams_parts.push_back(pc);
         }
 
@@ -983,6 +1254,87 @@ void Cheat::Visuals::ESP::Render()
                     g_esp_scale_x, g_esp_scale_y,
                     min_x, max_x, min_y, max_y, wmin, wmax))
                 any_visible = true;
+        }
+
+        // stab: тока подрезаем раздутый OBB к head/feet, не схлопываем
+        else if (!corpse_mode && any_visible)
+        {
+            vm = g_Memory.Read<Matrix4x4>(visual_engine + Offsets::VisualEngine::ViewMatrix);
+
+            float save_miny = min_y;
+            float save_maxy = max_y;
+            float top_y = min_y;
+            float bot_y = max_y;
+            bool got_top = false;
+            bool got_bot = false;
+
+            if (cache.head && g_Memory.IsValid(cache.head->address))
+            {
+                BasePart hp(cache.head->address);
+                Vector3 hs = hp.GetSize();
+                float hy = hs.y * 0.5f;
+                if (hy < 0.2f) hy = 0.5f;
+                Vector3 apex = head_pos;
+                apex.y += hy;
+                Vector2 sp{};
+                if (WorldToScreen(vm, viewport, apex, sp))
+                {
+                    top_y = sp.y;
+                    got_top = true;
+                }
+            }
+
+            float feet_y = root_pos.y - 3.f;
+            float feet_x = root_pos.x;
+            float feet_z = root_pos.z;
+
+            if (cache.leftFoot && g_Memory.IsValid(cache.leftFoot->address))
+            {
+                BasePart fp(cache.leftFoot->address);
+                Vector3 p = fp.GetPosition();
+                Vector3 s = fp.GetSize();
+                feet_y = p.y - s.y * 0.5f;
+                feet_x = p.x;
+                feet_z = p.z;
+            }
+
+            if (cache.rightFoot && g_Memory.IsValid(cache.rightFoot->address))
+            {
+                BasePart fp(cache.rightFoot->address);
+                Vector3 p = fp.GetPosition();
+                Vector3 s = fp.GetSize();
+                float bottom = p.y - s.y * 0.5f;
+                if (bottom < feet_y)
+                {
+                    feet_y = bottom;
+                    feet_x = p.x;
+                    feet_z = p.z;
+                }
+            }
+
+            Vector3 feet{ feet_x, feet_y, feet_z };
+            Vector2 fsp{};
+            if (WorldToScreen(vm, viewport, feet, fsp))
+            {
+                bot_y = fsp.y;
+                got_bot = true;
+            }
+
+            if (got_top && got_bot && bot_y > top_y + 8.f)
+            {
+                // низ уехал под ноги / верх над башкой — подрезать
+                if (max_y > bot_y + 2.f)
+                    max_y = bot_y;
+                if (min_y < top_y - 2.f)
+                    min_y = top_y;
+
+                // схлопнулось — откат
+                if (max_y - min_y < 14.f)
+                {
+                    min_y = save_miny;
+                    max_y = save_maxy;
+                }
+            }
         }
 
         if (!any_visible || min_x > 5000.0f) return;
@@ -1005,8 +1357,18 @@ void Cheat::Visuals::ESP::Render()
             draw_list->AddLine(from, to, tc, 1.0f);
         }
 
+        float hit_fade = 0.f;
+        if (!corpse_mode && Cheat::g_Settings.esp.hit_chams)
+        {
+            int cm = st.chams_mode;
+            if (cm == 2 || cm == 3 || cm == 4)
+            {
+                hit_fade = Cheat::Visuals::KillEffects::HitChamsFade(cache.address);
+            }
+        }
+
         // mesh chams: вершины/фейсы из MeshContentProvider
-        if (want_chams && st.chams_mode == 5 && g_Memory.IsValid(cache.character))
+        if (want_chams && st.chams_mode == 4 && g_Memory.IsValid(cache.character))
         {
             const float* fc_ptr = corpse_mode ? Cheat::g_Settings.esp.corpse_color : st.chams_fill;
             ImU32 fill_col = IM_COL32(
@@ -1014,6 +1376,20 @@ void Cheat::Visuals::ESP::Render()
                 corpse_mode ? (int)(fc_ptr[3] * 0.55f * 255) : (int)(fc_ptr[3] * 255));
             if (!corpse_mode && aim_target)
                 fill_col = aim_red_fill;
+
+            if (hit_fade > 0.001f)
+            {
+                const float* hc = Cheat::g_Settings.esp.hit_chams_color;
+                float inv = 1.f - hit_fade;
+                float rr = fc_ptr[0] * inv + hc[0] * hit_fade;
+                float gg = fc_ptr[1] * inv + hc[1] * hit_fade;
+                float bb = fc_ptr[2] * inv + hc[2] * hit_fade;
+                float aa = fc_ptr[3] * inv + hc[3] * hit_fade;
+                fill_col = IM_COL32(
+                    (int)(rr * 255), (int)(gg * 255),
+                    (int)(bb * 255), (int)(aa * 255));
+            }
+
             // свежая матрица на каждого персонажа (mesh долгий → старый vm = отставание)
             vm = g_Memory.Read<Matrix4x4>(visual_engine + Offsets::VisualEngine::ViewMatrix);
             Cheat::Visuals::MeshChams::Draw(
@@ -1021,9 +1397,9 @@ void Cheat::Visuals::ESP::Render()
                 g_esp_scale_x, g_esp_scale_y, fill_col);
         }
 
-        // overlay chams (не engine/mesh)
+        // overlay chams (не mesh)
         if (want_chams && !chams_parts.empty() &&
-            st.chams_mode != 4 && st.chams_mode != 5)
+            st.chams_mode != 4)
         {
             const float* oc_ptr = corpse_mode ? Cheat::g_Settings.esp.corpse_color : st.chams_outline;
             const float* fc_ptr = corpse_mode ? Cheat::g_Settings.esp.corpse_color : st.chams_fill;
@@ -1094,6 +1470,17 @@ void Cheat::Visuals::ESP::Render()
                     const int shader = st.chams_shader;
                     ShaderChams::DrawFill(draw_list, clipped, (float)ImGui::GetTime(),
                                           shader, aim_target && !corpse_mode, false, corpse_override);
+
+                    if (hit_fade > 0.001f)
+                    {
+                        const float* hc = Cheat::g_Settings.esp.hit_chams_color;
+                        float hit_ov[4] = {
+                            hc[0], hc[1], hc[2], hc[3] * hit_fade
+                        };
+                        ShaderChams::DrawFill(draw_list, clipped, (float)ImGui::GetTime(),
+                                              shader, false, false, hit_ov);
+                    }
+
                     const ImU32 shader_outline = corpse_override
                         ? ShaderChams::OutlineColor(shader, false, corpse_override)
                         : (aim_target ? aim_red : ShaderChams::OutlineColor(shader, false));
@@ -1116,6 +1503,17 @@ void Cheat::Visuals::ESP::Render()
                     for (const auto& piece : clipped)
                         draw_list->AddConvexPolyFilled(piece.data(), (int)piece.size(), fill_col);
 
+                    if (hit_fade > 0.001f && mode == 2)
+                    {
+                        const float* hc = Cheat::g_Settings.esp.hit_chams_color;
+                        ImU32 hit_col = IM_COL32(
+                            (int)(hc[0] * 255), (int)(hc[1] * 255),
+                            (int)(hc[2] * 255), (int)(hc[3] * hit_fade * 255));
+                        for (const auto& piece : clipped)
+                            draw_list->AddConvexPolyFilled(
+                                piece.data(), (int)piece.size(), hit_col);
+                    }
+
                     draw_list->Flags = fill_backup;
 
                     for (int i = 0; i < (int)hulls.size(); ++i) {
@@ -1129,6 +1527,13 @@ void Cheat::Visuals::ESP::Render()
                     }
                 }
             }
+        }
+
+        if (!corpse_mode && Cheat::g_Settings.esp.china_hat && cache.head)
+        {
+            DrawChinaHat(
+                draw_list, vm, viewport, overlay_w, overlay_h,
+                head_pos, Cheat::g_Settings.esp.china_hat_color);
         }
 
         // труп: чамсы уже нарисовали, имя x_x и выход
@@ -1149,7 +1554,7 @@ void Cheat::Visuals::ESP::Render()
             return;
         }
 
-        const bool want_health = st.healthbar || st.health_text || st.flags;
+        const bool want_health = st.healthbar || st.health_text;
         float hp = 0.0f, max_hp = 100.0f;
         if (want_health && cache.humanoid) {
             Humanoid hum(cache.humanoid->address);
@@ -1170,26 +1575,7 @@ void Cheat::Visuals::ESP::Render()
         float bx1, by1, bx2, by2;
         SnapEspBox(min_x, min_y, max_x, max_y, bx1, by1, bx2, by2);
 
-        // заливка бокса: color / image (только с bounding box)
-        if (Cheat::g_Settings.esp.box_fill && st.box) {
-            const auto& bf = Cheat::g_Settings.esp;
-            if (bf.box_fill_mode == 1) {
-                int img = bf.box_fill_image;
-                if (img < 0) img = 0;
-                if (img >= Cheat::Visuals::BoxFill::k_fill_image_count)
-                    img = Cheat::Visuals::BoxFill::k_fill_image_count - 1;
-                Cheat::Visuals::BoxFill::Draw(draw_list, img,
-                    ImVec2(bx1, by1), ImVec2(bx2, by2), bf.box_fill_image_alpha, false);
-            } else {
-                const float* fc = bf.box_fill_color;
-                const ImU32 fill_col = IM_COL32(
-                    (int)(fc[0] * 255), (int)(fc[1] * 255),
-                    (int)(fc[2] * 255), (int)(fc[3] * 255));
-                draw_list->AddRectFilled(ImVec2(bx1, by1), ImVec2(bx2, by2), fill_col);
-            }
-        }
-
-        // бокс: 2d / углы / 3d
+        // бокс: 2d / углы / 3d (fill рисуем после скелета — перекрывает визуалы)
         if (st.box) {
             const float* bc = st.box_color;
             ImU32 box_color = aim_target ? aim_red : IM_COL32(
@@ -1241,11 +1627,28 @@ void Cheat::Visuals::ESP::Render()
         }
 
         const EspLayout::Box ebox{ bx1, by1, bx2, by2 };
-        EspLayout::ResolveAllSides(Cheat::g_Settings, esp_fs, st.flags ? 2 : 1, -1);
+
+        // мелкий бокс — чуть жмём шрифт, не в кашу
+        float bh = by2 - by1;
+        float fs = esp_fs;
+        {
+            float s = 1.f;
+            if (bh < 40.f && bh > 1.f)
+                s = 0.75f + 0.25f * (bh / 40.f);
+            if (s < 0.75f) s = 0.75f;
+            if (s > 1.f) s = 1.f;
+            fs = fonts::snap_px(esp_fs * s);
+            if (fs < 10.f) fs = 10.f;
+        }
+
+        EspLayout::ResolveAllSides(Cheat::g_Settings, fs, 1, -1);
 
         float bar_w = 2.f;
+        if (bh < 36.f) bar_w = 1.f;
         float bar_gap = 3.f;
-        float pad = 2.f;
+        if (bh < 48.f) bar_gap = 2.f;
+        float pad = 2.f + (fs / esp_fs) * 2.f;
+        if (pad < 2.f) pad = 2.f;
         float pad_l = pad + 2.f;
         float pad_r = pad + 2.f;
 
@@ -1275,12 +1678,12 @@ void Cheat::Visuals::ESP::Render()
         }
 
         auto place_and_draw = [&](int side, float offset, const char* text, ImU32 col) {
-            const ImVec2 tsz = esp_font->CalcTextSizeA(esp_fs, FLT_MAX, 0.0f, text);
+            const ImVec2 tsz = esp_font->CalcTextSizeA(fs, FLT_MAX, 0.0f, text);
             const int sidx = (side < 0 || side > 3) ? 0 : side;
             float tx, ty;
             EspLayout::PlaceText(sidx, ebox, offset, tsz.x, tsz.y,
                                  pad_l, pad_r, pad, tx, ty);
-            DrawTextWithOutline(draw_list, esp_font, esp_fs,
+            DrawTextWithOutline(draw_list, esp_font, fs,
                 ImVec2(std::floor(tx), std::floor(ty)), col, text);
         };
 
@@ -1323,62 +1726,6 @@ void Cheat::Visuals::ESP::Render()
             place_and_draw(Cheat::g_Settings.esp.tool_side, Cheat::g_Settings.esp.tool_off,
                 tool_buf,
                 IM_COL32((int)(tc[0]*255),(int)(tc[1]*255),(int)(tc[2]*255),(int)(tc[3]*255)));
-        }
-
-        if (st.flags && cache.humanoid) {
-            struct Flag { char text[24]; ImU32 color; };
-            Flag flag_list[7];
-            int flag_count = 0;
-            auto add_flag = [&](const char* t, ImU32 c) {
-                if (flag_count >= 7) return;
-                std::snprintf(flag_list[flag_count].text, sizeof(flag_list[flag_count].text), "%s", t);
-                flag_list[flag_count].color = c;
-                ++flag_count;
-            };
-
-            if (is_bot)
-                add_flag("bot", IM_COL32(255, 150, 40, 255));
-
-            Humanoid hum(cache.humanoid->address);
-            const std::int32_t state = hum.GetStateId();
-            const bool dead = (state == 15) || (want_health && hp <= 0.0f);
-
-            if (dead) {
-                add_flag("dead", IM_COL32(237, 66, 69, 255));
-            }
-
-            else
-            {
-                switch (state) {
-                case 13: add_flag("sitting",  IM_COL32(255, 170, 60, 255));  break;
-                case 3:  add_flag("jumping",  IM_COL32(90, 200, 245, 255));  break;
-                case 5:  add_flag("falling",  IM_COL32(90, 200, 245, 255));  break;
-                case 4:  add_flag("swimming", IM_COL32(80, 150, 245, 255));  break;
-                case 12: add_flag("climbing", IM_COL32(80, 150, 245, 255));  break;
-                case 6:  add_flag("flying",   IM_COL32(190, 120, 245, 255)); break;
-                case 0:
-                case 1:  add_flag("ragdoll",  IM_COL32(255, 170, 60, 255));  break;
-                default: {
-
-                    const Vector3 vel = root.GetAssemblyLinearVelocity();
-                    const float h_speed = std::sqrt(vel.x * vel.x + vel.z * vel.z);
-                    if (h_speed > 1.0f) add_flag("moving",   IM_COL32(120, 220, 120, 255));
-                    else                add_flag("standing", IM_COL32(160, 160, 160, 255));
-                    break;
-                }
-                }
-
-                const float walkspeed = hum.GetWalkSpeed();
-                if (walkspeed > 16.5f)
-                    add_flag("speed", IM_COL32(245, 220, 80, 255));
-            }
-
-            const float flag_step = esp_fs + 2.0f;
-            for (int i = 0; i < flag_count; ++i) {
-                place_and_draw(Cheat::g_Settings.esp.flags_side,
-                               Cheat::g_Settings.esp.flags_off + i * flag_step,
-                               flag_list[i].text, flag_list[i].color);
-            }
         }
 
         if (st.health_text) {
@@ -1563,6 +1910,47 @@ void Cheat::Visuals::ESP::Render()
                 bone(cache.rightLowerLeg, cache.rightFoot);
             }
             } // funny skeleton (линии)
+        }
+
+        // fill поверх chams/skel/hat — рамку и текст не трогаем (уже выше по z нет, рамку дорисуем)
+        if (Cheat::g_Settings.esp.box_fill && st.box)
+        {
+            const auto& bf = Cheat::g_Settings.esp;
+            if (bf.box_fill_mode == 1)
+            {
+                int img = bf.box_fill_image;
+                if (img < 0) img = 0;
+                if (img >= Cheat::Visuals::BoxFill::k_fill_image_count)
+                    img = Cheat::Visuals::BoxFill::k_fill_image_count - 1;
+                Cheat::Visuals::BoxFill::Draw(draw_list, img,
+                    ImVec2(bx1, by1), ImVec2(bx2, by2), bf.box_fill_image_alpha, false);
+            }
+
+            else
+            {
+                const float* fc = bf.box_fill_color;
+                const ImU32 fill_col = IM_COL32(
+                    (int)(fc[0] * 255), (int)(fc[1] * 255),
+                    (int)(fc[2] * 255), (int)(fc[3] * 255));
+                draw_list->AddRectFilled(ImVec2(bx1, by1), ImVec2(bx2, by2), fill_col);
+            }
+
+            // рамка сверху fill (текст уже нарисован — он вне/сбоку бокса)
+            const float* bc = st.box_color;
+            ImU32 box_color = aim_target ? aim_red : IM_COL32(
+                (int)(bc[0] * 255), (int)(bc[1] * 255),
+                (int)(bc[2] * 255), (int)(bc[3] * 255));
+            const float box_t = Cheat::g_Settings.esp.box_thickness;
+            const bool box_ol = Cheat::g_Settings.esp.esp_outline[
+                Cheat::Settings::OUTLINE_BOX];
+            const int box_mode = Cheat::g_Settings.esp.box_mode;
+            if (box_mode == 1)
+                DrawCornerBox(draw_list, ImVec2(bx1, by1), ImVec2(bx2, by2),
+                              box_color, box_t, box_ol);
+
+            else if (box_mode != 2)
+                DrawBox(draw_list, ImVec2(bx1, by1), ImVec2(bx2, by2),
+                        box_color, box_t, box_ol);
         }
     });
 

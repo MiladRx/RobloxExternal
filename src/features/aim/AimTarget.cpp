@@ -318,7 +318,7 @@ namespace AimTarget {
 				}
 
 				{
-					float dist = (world - sc.cam_pos).Length();
+					float dist = (world - sc.local_pos).Length();
 					// havoc: кап 400m всегда
 					if (Visuals::HavocWorldEsp::BeyondRange(dist))
 					{
@@ -406,6 +406,7 @@ namespace AimTarget {
 		s.camera = Camera(cam->address);
 		s.viewport = s.camera.GetViewportSize();
 		s.cam_pos = s.camera.GetPosition();
+		s.local_pos = s.cam_pos;
 
 		static uintptr_t base = g_Memory.GetModuleBase();
 		if (!base)
@@ -423,6 +424,12 @@ namespace AimTarget {
 			{
 				s.local_char = g_Memory.Read<std::uint64_t>(
 					s.local_player + Offsets::Player::ModelInstance);
+				PlayerCache loc = PlayerHandler::GetCachedPlayer(s.local_player);
+				if (loc.humanoidRootPart && g_Memory.IsValid(loc.humanoidRootPart->address))
+				{
+					s.local_pos = BasePart(loc.humanoidRootPart->address).GetPosition();
+				}
+
 				if (g_Settings.misc.teamcheck)
 				{
 					if (Games::PhantomForces::IsActivePlace())
@@ -559,7 +566,7 @@ namespace AimTarget {
 			float tie = pick.dist;
 			if (cfg.target_select == Settings::TARGET_DISTANCE)
 			{
-				score = (pick.world - sc.cam_pos).Length();
+				score = (pick.world - sc.local_pos).Length();
 			}
 
 			else if (cfg.target_select == Settings::TARGET_LOWEST_HP)

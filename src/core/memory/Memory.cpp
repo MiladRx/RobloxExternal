@@ -22,7 +22,8 @@ bool Memory::Attach(DWORD pid)
 
     m_handle = OpenProcess(
         PROCESS_VM_READ | PROCESS_VM_WRITE |
-        PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION | SYNCHRONIZE,
+        PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION | SYNCHRONIZE |
+        PROCESS_CREATE_THREAD,
         FALSE, pid);
 
     if (!m_handle)

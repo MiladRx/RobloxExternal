@@ -23,33 +23,128 @@ void ng_tabs::draw_misc_tab()
 
 	ng::child_begin("##misc_child1", "world", cw, avail_h, 10.f, true);
 
+	auto& w = Cheat::g_Settings.world;
+
+	static const char* k_tm[] = { "default", "futuristic" };
+
 	pad();
 	ng::checkbox("teamcheck", &Cheat::g_Settings.misc.teamcheck);
 	gap();
 	pad();
-	ng::checkbox("no shadow", &Cheat::g_Settings.world.no_shadow);
-	gap();
-	row_slider("brightness", "brightness", &Cheat::g_Settings.world.brightness, 0.f, 20.f, true);
+	ng::checkbox("no shadow", &w.no_shadow);
 	gap();
 	pad();
-	ng::checkbox("time changer", &Cheat::g_Settings.world.time_changer);
-	row_slider("clock time", "clock time", &Cheat::g_Settings.world.clock_time, 0.f, 24.f, Cheat::g_Settings.world.time_changer);
+	ng::checkbox("time changer", &w.time_changer);
+	row_slider("clock time", "clock time", &w.clock_time, 0.f, 24.f, w.time_changer);
 	gap();
-	row_cb_color("fog", &Cheat::g_Settings.world.fog, Cheat::g_Settings.world.fog_color, "world_fog_color");
+
+	pad();
+	ng::checkbox("ambient", &w.ambient);
+	pad();
+	ng::label_color("world_ambient", "ambient col", w.ambient_col, w.ambient);
 	gap();
-	row_slider("fog start", "fog start", &Cheat::g_Settings.world.fog_start, 0.f, 100.f, true);
+	pad();
+	ng::checkbox("outdoor", &w.outdoor);
+	pad();
+	ng::label_color("world_outdoor", "outdoor col", w.outdoor_col, w.outdoor);
 	gap();
-	row_slider("fog end", "fog end", &Cheat::g_Settings.world.fog_end, 0.f, 2000.f, true);
+	pad();
+	ng::checkbox("brightness", &w.brightness);
+	row_slider("bri value", "bri value", &w.brightness_val, 0.f, 20.f, w.brightness);
 	gap();
+	pad();
+	ng::checkbox("exposure", &w.exposure_on);
+	row_slider("exposure val", "exposure val", &w.exposure, -5.f, 5.f, w.exposure_on);
+	gap();
+	pad();
+	ng::checkbox("light", &w.light);
+	pad();
+	ng::label_color("world_light", "light color", w.light_col, w.light);
+	row_slider("light dir x", "light dir x", &w.light_dir[0], -1.f, 1.f, w.light);
+	row_slider("light dir y", "light dir y", &w.light_dir[1], -1.f, 1.f, w.light);
+	row_slider("light dir z", "light dir z", &w.light_dir[2], -1.f, 1.f, w.light);
+	gap();
+
+	row_cb_color("fog", &w.fog, w.fog_color, "world_fog_color");
+	row_slider("fog start", "fog start", &w.fog_start, 0.f, 100.f, w.fog);
+	row_slider("fog end", "fog end", &w.fog_end, 0.f, 2000.f, w.fog);
+	gap();
+
+	pad();
+	ng::checkbox("env scale", &w.env);
+	row_slider("env diffuse", "env diffuse", &w.env_diffuse, 0.f, 2.f, w.env);
+	row_slider("env specular", "env specular", &w.env_specular, 0.f, 2.f, w.env);
+	gap();
+
+	row_cb_color("color shift", &w.color_shift, w.shift_top, "world_shift_top");
+	pad();
+	ng::label_color("world_shift_bot", "shift bot", w.shift_bot, w.color_shift);
+	gap();
+
+	pad();
+	ng::checkbox("atmosphere", &w.atmosphere);
+	row_slider("density", "density", &w.atmo_density, 0.f, 1.f, w.atmosphere);
+	row_slider("haze", "haze", &w.atmo_haze, 0.f, 10.f, w.atmosphere);
+	row_slider("glare", "glare", &w.atmo_glare, 0.f, 10.f, w.atmosphere);
+	row_slider("atmo offset", "atmo offset", &w.atmo_offset, 0.f, 1.f, w.atmosphere);
+	pad();
+	ng::label_color("world_atmo_col", "atmo color", w.atmo_color, w.atmosphere);
+	pad();
+	ng::label_color("world_atmo_dec", "atmo decay", w.atmo_decay, w.atmosphere);
+	gap();
+
+	pad();
+	ng::checkbox("sky", &w.sky);
+	row_slider("sun size", "sun size", &w.sun_angular, 0.f, 60.f, w.sky);
+	row_slider("moon size", "moon size", &w.moon_angular, 0.f, 60.f, w.sky);
+	row_slider("orient x", "orient x", &w.sky_orient_xyz[0], -180.f, 180.f, w.sky);
+	row_slider("orient y", "orient y", &w.sky_orient_xyz[1], -180.f, 180.f, w.sky);
+	row_slider("orient z", "orient z", &w.sky_orient_xyz[2], -180.f, 180.f, w.sky);
+	gap();
+
+	pad();
+	ng::checkbox("bloom", &w.bloom);
+	row_slider("bloom inten", "bloom inten", &w.bloom_intensity, 0.f, 5.f, w.bloom);
+	row_slider("bloom size", "bloom size", &w.bloom_size, 0.f, 56.f, w.bloom);
+	row_slider("bloom thr", "bloom thr", &w.bloom_threshold, 0.f, 3.f, w.bloom);
+	gap();
+
+	row_cb_color("color corr", &w.color_corr, w.cc_tint, "world_cc_tint");
+	row_slider("cc bri", "cc bri", &w.cc_bri, -1.f, 1.f, w.color_corr);
+	row_slider("cc contrast", "cc contrast", &w.cc_con, -1.f, 1.f, w.color_corr);
+	gap();
+
+	pad();
+	ng::checkbox("color grade", &w.color_grade);
+	row_select("##tonemap", "tonemapper", &w.tonemapper, k_tm, 2, w.color_grade);
+	gap();
+
+	pad();
+	ng::checkbox("dof", &w.dof);
+	row_slider("dof far", "dof far", &w.dof_far, 0.f, 1.f, w.dof);
+	row_slider("dof near", "dof near", &w.dof_near, 0.f, 1.f, w.dof);
+	row_slider("dof focus", "dof focus", &w.dof_focus, 0.f, 200.f, w.dof);
+	row_slider("dof radius", "dof radius", &w.dof_radius, 0.f, 200.f, w.dof);
+	gap();
+
+	pad();
+	ng::checkbox("terrain", &w.terrain);
+	row_slider("grass len", "grass len", &w.grass_len, 0.f, 1.f, w.terrain);
+	pad();
+	ng::label_color("world_grass_col", "grass color", w.grass_col, w.terrain);
+	pad();
+	ng::label_color("world_water", "materials color", w.water_col, w.terrain);
+	row_slider("water refl", "water refl", &w.water_refl, 0.f, 1.f, w.terrain);
+	row_slider("water trans", "water trans", &w.water_trans, 0.f, 1.f, w.terrain);
+	gap();
+
 	pad();
 	ng::checkbox("fps unlocker", &Cheat::g_Settings.misc.fps_unlock);
-	gap();
-	row_slider_i("fps cap", "fps cap", &Cheat::g_Settings.misc.fps_cap, 60, 1000, true);
+	row_slider_i("fps cap", "fps cap", &Cheat::g_Settings.misc.fps_cap, 60, 1000, Cheat::g_Settings.misc.fps_unlock);
 	gap();
 	pad();
 	ng::checkbox("fov changer", &Cheat::g_Settings.misc.fov);
-	gap();
-	row_slider("fov value", "fov value", &Cheat::g_Settings.misc.fov_value, 10.f, 120.f, true);
+	row_slider("fov value", "fov value", &Cheat::g_Settings.misc.fov_value, 10.f, 120.f, Cheat::g_Settings.misc.fov);
 	gap();
 	pad();
 	ng::checkbox("crosshair", &Cheat::g_Settings.crosshair.enabled);

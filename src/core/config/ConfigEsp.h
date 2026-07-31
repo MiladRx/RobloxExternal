@@ -24,6 +24,7 @@ inline void WriteEsp(std::ostringstream& out, const Settings& s)
     PutInt(out, "esp.skeleton_type", s.esp.skeleton_type);
     PutBool(out, "esp.chams", s.esp.chams);
     PutInt(out, "esp.chams_mode", s.esp.chams_mode);
+    PutBool(out, "esp.engine_chams", s.esp.engine_chams);
     PutInt(out, "esp.chams_shader", s.esp.chams_shader);
     PutInt(out, "esp.mesh_chams_style", s.esp.mesh_chams_style);
     PutInt(out, "esp.mesh_chams_dx_mode", s.esp.mesh_chams_dx_mode);
@@ -37,6 +38,7 @@ inline void WriteEsp(std::ostringstream& out, const Settings& s)
     PutF4(out, "esp.mesh_chams_outline_color", s.esp.mesh_chams_outline_color);
     PutInt(out, "esp.engine_chams_style", s.esp.engine_chams_style);
     PutInt(out, "esp.engine_ghost_color_idx", s.esp.engine_ghost_color_idx);
+    PutF4(out, "esp.engine_chams_color", s.esp.engine_chams_color);
     PutBool(out, "esp.healthbar", s.esp.healthbar);
     PutBool(out, "esp.health_text", s.esp.health_text);
     PutBool(out, "esp.distance", s.esp.distance);
@@ -44,6 +46,13 @@ inline void WriteEsp(std::ostringstream& out, const Settings& s)
     PutBool(out, "esp.flags", s.esp.flags);
     PutBool(out, "esp.tracer", s.esp.tracer);
     PutInt(out, "esp.tracer_origin", s.esp.tracer_origin);
+    PutBool(out, "esp.china_hat", s.esp.china_hat);
+    PutF4(out, "esp.china_hat_color", s.esp.china_hat_color);
+    PutFloat(out, "esp.china_hat_height", s.esp.china_hat_height);
+    PutFloat(out, "esp.china_hat_radius", s.esp.china_hat_radius);
+    PutBool(out, "esp.hit_chams", s.esp.hit_chams);
+    PutF4(out, "esp.hit_chams_color", s.esp.hit_chams_color);
+    PutFloat(out, "esp.hit_chams_duration", s.esp.hit_chams_duration);
     PutBool(out, "esp.offscreen_arrows", s.esp.offscreen_arrows);
     PutFloat(out, "esp.arrow_size", s.esp.arrow_size);
     PutFloat(out, "esp.arrow_radius", s.esp.arrow_radius);
@@ -71,6 +80,7 @@ inline void WriteEsp(std::ostringstream& out, const Settings& s)
     PutBool(out, "esp.body_corpse", s.esp.body_corpse);
     PutF4(out, "esp.corpse_color", s.esp.corpse_color);
     PutBool(out, "esp.bots", s.esp.bots);
+    PutFloat(out, "esp.bot_max_distance", s.esp.bot_max_distance);
     for (int i = 0; i < Settings::BOT_ESP_COUNT; ++i) {
         char key[48];
         std::snprintf(key, sizeof(key), "esp.bot_esp_%d", i);
@@ -142,6 +152,25 @@ inline void ReadEsp(const KV& kv, Settings& s)
     GetInt(kv, "esp.skeleton_type", s.esp.skeleton_type);
     GetBool(kv, "esp.chams", s.esp.chams);
     GetInt(kv, "esp.chams_mode", s.esp.chams_mode);
+    const bool has_engine_key = GetBool(kv, "esp.engine_chams", s.esp.engine_chams);
+    // legacy без ключа: mode4=engine, mode5=mesh
+    if (!has_engine_key && s.esp.chams_mode == 4)
+    {
+        s.esp.engine_chams = true;
+        s.esp.chams_mode = 0;
+    }
+    if (s.esp.chams_mode == 5)
+    {
+        s.esp.chams_mode = 4;
+    }
+    if (s.esp.chams_mode < 0)
+    {
+        s.esp.chams_mode = 0;
+    }
+    if (s.esp.chams_mode > 4)
+    {
+        s.esp.chams_mode = 4;
+    }
     GetInt(kv, "esp.chams_shader", s.esp.chams_shader);
     GetInt(kv, "esp.mesh_chams_style", s.esp.mesh_chams_style);
     GetInt(kv, "esp.mesh_chams_dx_mode", s.esp.mesh_chams_dx_mode);
@@ -155,19 +184,19 @@ inline void ReadEsp(const KV& kv, Settings& s)
     GetF4(kv, "esp.mesh_chams_outline_color", s.esp.mesh_chams_outline_color);
     GetInt(kv, "esp.engine_chams_style", s.esp.engine_chams_style);
     GetInt(kv, "esp.engine_ghost_color_idx", s.esp.engine_ghost_color_idx);
+    GetF4(kv, "esp.engine_chams_color", s.esp.engine_chams_color);
     if (s.esp.engine_ghost_color_idx < 0 || s.esp.engine_ghost_color_idx > 6)
     {
         s.esp.engine_ghost_color_idx = 6;
     }
-    // 0 default, 1 ghost, 2 wireframe, 3 mesh, 4 charwire
     if (s.esp.engine_chams_style < 0)
     {
         s.esp.engine_chams_style = 0;
     }
 
-    if (s.esp.engine_chams_style > 4)
+    if (s.esp.engine_chams_style > 7)
     {
-        s.esp.engine_chams_style = 4;
+        s.esp.engine_chams_style = 7;
     }
     GetBool(kv, "esp.healthbar", s.esp.healthbar);
     GetBool(kv, "esp.health_text", s.esp.health_text);
@@ -176,6 +205,13 @@ inline void ReadEsp(const KV& kv, Settings& s)
     GetBool(kv, "esp.flags", s.esp.flags);
     GetBool(kv, "esp.tracer", s.esp.tracer);
     GetInt(kv, "esp.tracer_origin", s.esp.tracer_origin);
+    GetBool(kv, "esp.china_hat", s.esp.china_hat);
+    GetF4(kv, "esp.china_hat_color", s.esp.china_hat_color);
+    GetFloat(kv, "esp.china_hat_height", s.esp.china_hat_height);
+    GetFloat(kv, "esp.china_hat_radius", s.esp.china_hat_radius);
+    GetBool(kv, "esp.hit_chams", s.esp.hit_chams);
+    GetF4(kv, "esp.hit_chams_color", s.esp.hit_chams_color);
+    GetFloat(kv, "esp.hit_chams_duration", s.esp.hit_chams_duration);
     GetBool(kv, "esp.offscreen_arrows", s.esp.offscreen_arrows);
     GetFloat(kv, "esp.arrow_size", s.esp.arrow_size);
     GetFloat(kv, "esp.arrow_radius", s.esp.arrow_radius);
@@ -204,6 +240,7 @@ inline void ReadEsp(const KV& kv, Settings& s)
     GetBool(kv, "esp.body_corpse", s.esp.body_corpse);
     GetF4(kv, "esp.corpse_color", s.esp.corpse_color);
     GetBool(kv, "esp.bots", s.esp.bots);
+    GetFloat(kv, "esp.bot_max_distance", s.esp.bot_max_distance);
     for (int i = 0; i < Settings::BOT_ESP_COUNT; ++i) {
         char key[48];
         std::snprintf(key, sizeof(key), "esp.bot_esp_%d", i);

@@ -29,7 +29,7 @@ namespace fonts {
             ImGuiFreeTypeLoaderFlags_MonoHinting |
             ImGuiFreeTypeLoaderFlags_Monochrome;
 
-		// дефолт гуи — Fredoka One (OFL)
+		// fredoka остаётся в списке шрифтов
         ImFontConfig fk{};
         fk.PixelSnapH = true;
         fk.OversampleH = 2;
@@ -94,11 +94,12 @@ namespace fonts {
                 verdana_path, 14.0f, &verdana_cfg, io.Fonts->GetGlyphRangesCyrillic());
         }
 
-        tahoma = fredoka_one ? fredoka_one : imgui;
-        esp = fredoka_one ? fredoka_one : imgui;
+        // гуи дефолт — verdana (кириллица), fredoka остаётся в списке
+        tahoma = verdana ? verdana : (fredoka_one ? fredoka_one : imgui);
+        esp = fredoka_one ? fredoka_one : tahoma;
         esp_bold = tahoma_bold ? tahoma_bold : tahoma;
 
-        io.FontDefault = fredoka_one ? fredoka_one : imgui;
+        io.FontDefault = verdana ? verdana : (fredoka_one ? fredoka_one : imgui);
         if (!io.FontDefault)
             io.FontDefault = io.Fonts->AddFontDefault();
     }

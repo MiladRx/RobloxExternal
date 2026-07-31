@@ -6,6 +6,8 @@
 #include "RaycastSilent.h"
 #include "core/memory/Memory.h"
 #include "core/roblox/offsets/Offsets.h"
+#include "core/roblox/classes/Classes.h"
+#include "core/globals/Globals.h"
 #include "core/console/Console.h"
 #include "app/Settings.h"
 #include <Windows.h>
@@ -36,12 +38,16 @@ namespace Cheat {
                     float target_z = 0.f;
                     float scale = 1.15f;
                     std::uint64_t calls = 0;
+                    float cam_x = 0.f; // 0x20 — skip wallbang если origin ~ cam
+                    float cam_y = 0.f;
+                    float cam_z = 0.f;
                 };
 #pragma pack(pop)
 
                 static_assert(offsetof(RaycastState, active) == 0x00, "active");
                 static_assert(offsetof(RaycastState, target_x) == 0x08, "target");
                 static_assert(offsetof(RaycastState, calls) == 0x18, "calls");
+                static_assert(offsetof(RaycastState, cam_x) == 0x20, "cam");
 
                 struct Hook {
                     std::uintptr_t thunk = 0;
@@ -361,6 +367,8 @@ namespace Cheat {
                     const std::size_t wallbang_jmp = c.size();
                     c.insert(c.end(), { 0, 0, 0, 0 });
 
+                    // dir-only (silent / camera-ray fallback)
+                    const std::size_t dir_only_off = c.size();
                     c.insert(c.end(), { 0x0F, 0x28, 0xEC });
                     c.insert(c.end(), { 0xF3, 0x0F, 0x5E, 0xEB });
                     c.insert(c.end(), { 0xF3, 0x0F, 0x59, 0xC5 });
@@ -376,6 +384,26 @@ namespace Cheat {
 
                     const std::size_t wallbang_off = c.size();
                     patch_rel32(c, wallbang_jmp, wallbang_off);
+
+                    // origin ~ cam: не двигаем origin, тока dir (камера)
+                    c.insert(c.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x20 });
+                    c.insert(c.end(), { 0xF3, 0x41, 0x0F, 0x5C, 0x62, 0x20 });
+                    c.insert(c.end(), { 0xF3, 0x0F, 0x59, 0xE4 });
+                    c.insert(c.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x68, 0x04 });
+                    c.insert(c.end(), { 0xF3, 0x41, 0x0F, 0x5C, 0x6A, 0x24 });
+                    c.insert(c.end(), { 0xF3, 0x0F, 0x59, 0xED });
+                    c.insert(c.end(), { 0xF3, 0x0F, 0x58, 0xE5 });
+                    c.insert(c.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x68, 0x08 });
+                    c.insert(c.end(), { 0xF3, 0x41, 0x0F, 0x5C, 0x6A, 0x28 });
+                    c.insert(c.end(), { 0xF3, 0x0F, 0x59, 0xED });
+                    c.insert(c.end(), { 0xF3, 0x0F, 0x58, 0xE5 });
+                    c.insert(c.end(), { 0xB8, 0x00, 0x00, 0x10, 0x41 }); // 9.f
+                    c.insert(c.end(), { 0x66, 0x0F, 0x6E, 0xE8 });
+                    c.insert(c.end(), { 0x0F, 0x2F, 0xE5 });
+                    c.insert(c.end(), { 0x0F, 0x82 }); // jb dir_only
+                    const std::size_t cam_jb = c.size();
+                    c.insert(c.end(), { 0, 0, 0, 0 });
+                    patch_rel32(c, cam_jb, dir_only_off);
 
                     c.insert(c.end(), { 0xF3, 0x0F, 0x5E, 0xC3 });
                     c.insert(c.end(), { 0xF3, 0x0F, 0x5E, 0xCB });
@@ -965,10 +993,26 @@ namespace Cheat {
                 }
                 float scale = 1.15f;
                 std::uint32_t one = 1;
+
+                float cam[3]{ 0.f, 0.f, 0.f };
+                if (Cheat::Globals::Workspace)
+                {
+                    auto c = Cheat::Globals::Workspace->GetCurrentCamera();
+                    if (c && g_Memory.IsValid(c->address))
+                    {
+                        Camera cam_obj(c->address);
+                        Vector3 cp = cam_obj.GetPosition();
+                        cam[0] = cp.x;
+                        cam[1] = cp.y;
+                        cam[2] = cp.z;
+                    }
+                }
+
                 // reserved бит = wallbang, active в конце чтобы stub сразу видел
                 w_mem(g_hook.state + offsetof(RaycastState, reserved), &flags, sizeof(flags));
                 w_mem(g_hook.state + offsetof(RaycastState, target_x), pos, sizeof(pos));
                 w_mem(g_hook.state + offsetof(RaycastState, scale), &scale, sizeof(scale));
+                w_mem(g_hook.state + offsetof(RaycastState, cam_x), cam, sizeof(cam));
                 w_mem(g_hook.state + offsetof(RaycastState, active), &one, sizeof(one));
                 g_hook.active = true;
                 g_wallbang = wallbang;

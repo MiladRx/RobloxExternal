@@ -26,6 +26,8 @@ namespace Cheat {
         std::vector<Instance> GetChildren() const;
         std::shared_ptr<Instance> FindFirstChild(std::string child) const;
         std::shared_ptr<Instance> GetParent() const;
+        // external parent: Children + Parent write
+        bool SetParent(std::uint64_t parent_addr) const;
     };
 
     class DataModel : public Instance
@@ -105,6 +107,9 @@ namespace Cheat {
         void SetSize(const Vector3& size) const;
         void SetAssemblyLinearVelocity(const Vector3& vel) const;
         void SetCanCollide(bool value) const;
+        void SetAnchored(bool value) const;
+        void SetTransparency(float value) const;
+        void SetColor(const Color3& value) const;
         Color3 GetColor() const;
         float GetTransparency() const;
         float GetReflectance() const;

@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstdint>
 #include <mutex>
+#include <string>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -39,12 +40,15 @@ struct LayerBackup {
 
 std::mutex g_mtx;
 std::unordered_map<uintptr_t, std::uint32_t> g_saved;
+std::unordered_map<uintptr_t, std::uint8_t> g_alpha;
 std::unordered_map<uintptr_t, LayerBackup> g_layers;
 std::unordered_map<uintptr_t, std::vector<uintptr_t>> g_ent_layers;
 std::unordered_map<uintptr_t, int> g_miss; // дохлый ent — не сразу дропаем
 uintptr_t g_vt = 0;
 int g_applied_style = -1;
 
+// фаза2 StyleQueue — alpha не пишем, ток queue+layers
+static constexpr int k_style_max = 7;
 // для записи: vtable + writable
 bool EntAlive(uintptr_t ent)
 {
@@ -138,11 +142,13 @@ void RestoreLayersLocked(uintptr_t ent)
 void RestoreAll()
 {
 	std::unordered_map<uintptr_t, std::uint32_t> saved;
+	std::unordered_map<uintptr_t, std::uint8_t> alpha;
 	std::unordered_map<uintptr_t, std::vector<uintptr_t>> ent_layers;
 	std::unordered_map<uintptr_t, LayerBackup> layers;
 	{
 		std::lock_guard<std::mutex> lk(g_mtx);
 		saved.swap(g_saved);
+		alpha.swap(g_alpha);
 		ent_layers.swap(g_ent_layers);
 		layers.swap(g_layers);
 		g_miss.clear();
@@ -157,6 +163,15 @@ void RestoreAll()
 		}
 
 		g_Memory.Write<std::uint32_t>(ent + Offsets::FastClusterEntity::RenderQueueId, id);
+		auto ait = alpha.find(ent);
+		if (ait != alpha.end())
+		{
+			uintptr_t ap = ent + Offsets::FastClusterEntity::AlphaByte;
+			if (g_Memory.IsWritable(ap, 1))
+			{
+				g_Memory.Write<std::uint8_t>(ap, ait->second);
+			}
+		}
 
 		auto lit = ent_layers.find(ent);
 		if (lit == ent_layers.end())
@@ -197,6 +212,7 @@ void RestoreOne(uintptr_t ent)
 	{
 		std::lock_guard<std::mutex> lk(g_mtx);
 		g_saved.erase(ent);
+		g_alpha.erase(ent);
 		DropLayersLocked(ent);
 		return;
 	}
@@ -207,6 +223,16 @@ void RestoreOne(uintptr_t ent)
 	{
 		g_Memory.Write<std::uint32_t>(ent + Offsets::FastClusterEntity::RenderQueueId, it->second);
 		g_saved.erase(it);
+	}
+	auto ait = g_alpha.find(ent);
+	if (ait != g_alpha.end())
+	{
+		uintptr_t ap = ent + Offsets::FastClusterEntity::AlphaByte;
+		if (g_Memory.IsWritable(ap, 1))
+		{
+			g_Memory.Write<std::uint8_t>(ap, ait->second);
+		}
+		g_alpha.erase(ait);
 	}
 	RestoreLayersLocked(ent);
 }
@@ -280,15 +306,14 @@ bool WorldCenter(uintptr_t ent, Vector3& out)
 	return std::isfinite(out.x) && std::isfinite(out.y) && std::isfinite(out.z);
 }
 
-bool PushPartPos(const std::shared_ptr<Instance>& part, std::vector<Vector3>& out)
+bool PushPartAddr(std::uint64_t part, std::vector<Vector3>& out)
 {
-	if (!part || !g_Memory.IsValid(part->address))
+	if (!g_Memory.IsValid(part))
 	{
 		return false;
 	}
 
-	uintptr_t prim = g_Memory.Read<uintptr_t>(
-		part->address + Offsets::BasePart::Primitive);
+	uintptr_t prim = g_Memory.Read<uintptr_t>(part + Offsets::BasePart::Primitive);
 	if (!g_Memory.IsValid(prim))
 	{
 		return false;
@@ -302,6 +327,58 @@ bool PushPartPos(const std::shared_ptr<Instance>& part, std::vector<Vector3>& ou
 
 	out.push_back(p);
 	return true;
+}
+
+bool PushPartPos(const std::shared_ptr<Instance>& part, std::vector<Vector3>& out)
+{
+	if (!part)
+	{
+		return false;
+	}
+
+	return PushPartAddr(part->address, out);
+}
+
+bool IsPartClass(const std::string& cls)
+{
+	if (cls == "Part") return true;
+	if (cls == "MeshPart") return true;
+	if (cls == "WedgePart") return true;
+	if (cls == "CornerWedgePart") return true;
+	if (cls == "TrussPart") return true;
+	if (cls == "UnionOperation") return true;
+	if (cls == "PartOperation") return true;
+	if (cls == "Handle") return true;
+	return false;
+}
+
+void PushKidsParts(const Instance& parent, std::vector<Vector3>& out, int depth)
+{
+	if (depth < 0 || !g_Memory.IsValid(parent.address))
+	{
+		return;
+	}
+
+	for (const auto& ch : parent.GetChildren())
+	{
+		if (!g_Memory.IsValid(ch.address))
+		{
+			continue;
+		}
+
+		const std::string cls = ch.GetClassName();
+		if (IsPartClass(cls))
+		{
+			PushPartAddr(ch.address, out);
+		}
+
+		else if (depth > 0 &&
+			(cls == "Model" || cls == "Folder" || cls == "Accessory" ||
+			 cls == "Tool" || cls == "Accoutrement"))
+		{
+			PushKidsParts(ch, out, depth - 1);
+		}
+	}
 }
 
 std::uint64_t LocalPlayerAddr()
@@ -321,7 +398,8 @@ std::uint64_t LocalPlayerAddr()
 	return lp;
 }
 
-bool GetLocalAnchors(std::vector<Vector3>& out)
+// все парты локал-чара — чамсы на мир, локал скипаем
+bool GetLocalPartCenters(std::vector<Vector3>& out)
 {
 	out.clear();
 
@@ -336,22 +414,31 @@ bool GetLocalAnchors(std::vector<Vector3>& out)
 	PushPartPos(c.humanoidRootPart, out);
 	PushPartPos(c.upperTorso, out);
 	PushPartPos(c.lowerTorso, out);
-	return !out.empty();
-}
+	PushPartPos(c.leftUpperArm, out);
+	PushPartPos(c.leftLowerArm, out);
+	PushPartPos(c.leftHand, out);
+	PushPartPos(c.rightUpperArm, out);
+	PushPartPos(c.rightLowerArm, out);
+	PushPartPos(c.rightHand, out);
+	PushPartPos(c.leftUpperLeg, out);
+	PushPartPos(c.leftLowerLeg, out);
+	PushPartPos(c.leftFoot, out);
+	PushPartPos(c.rightUpperLeg, out);
+	PushPartPos(c.rightLowerLeg, out);
+	PushPartPos(c.rightFoot, out);
 
-void GetOtherRoots(std::vector<Vector3>& out, std::uint64_t local_addr)
-{
-	out.clear();
-	PlayerHandler::ForEachPlayer([&](const PlayerCache& c)
+	std::uint64_t chara = c.character;
+	if (!g_Memory.IsValid(chara))
 	{
-		if (c.address == local_addr)
-		{
-			return;
-		}
+		chara = g_Memory.Read<std::uint64_t>(lp + Offsets::Player::ModelInstance);
+	}
 
-		PushPartPos(c.humanoidRootPart, out);
-		PushPartPos(c.head, out);
-	});
+	if (g_Memory.IsValid(chara))
+	{
+		PushKidsParts(Instance(chara), out, 2);
+	}
+
+	return !out.empty();
 }
 
 float MinDistSq(const Vector3& p, const std::vector<Vector3>& anchors)
@@ -368,7 +455,8 @@ float MinDistSq(const Vector3& p, const std::vector<Vector3>& anchors)
 	return best;
 }
 
-bool IsLocalEntity(uintptr_t ent, const std::vector<Vector3>& local_a, const std::vector<Vector3>& other_a)
+// центр entity рядом с партом локала — не весь мир в 6 stub
+bool IsLocalEntity(uintptr_t ent, const std::vector<Vector3>& local_a)
 {
 	if (local_a.empty())
 	{
@@ -381,25 +469,10 @@ bool IsLocalEntity(uintptr_t ent, const std::vector<Vector3>& local_a, const std
 		return false;
 	}
 
-	float dl = MinDistSq(p, local_a);
-	if (dl > 6.f * 6.f)
-	{
-		return false;
-	}
-
-	if (!other_a.empty())
-	{
-		float dout = MinDistSq(p, other_a);
-		if (dout + 0.35f < dl)
-		{
-			return false;
-		}
-	}
-
-	return true;
+	return MinDistSq(p, local_a) <= 1.35f * 1.35f;
 }
 
-// charm: Param = idx+1, ColorData white
+// charm: Param = idx+1
 std::uint32_t ColorParam(int idx)
 {
 	if (idx < 0)
@@ -413,6 +486,131 @@ std::uint32_t ColorParam(int idx)
 	}
 
 	return (std::uint32_t)(idx + 1);
+}
+
+bool StyleUsesPicker(int style)
+{
+	if (style == 1)
+	{
+		return true;
+	}
+
+	if (style == 2)
+	{
+		return true;
+	}
+
+	if (style == 5)
+	{
+		return true;
+	}
+
+	if (style == 6)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+// aarrggbb — a всегда ff, тока rgb из пикера
+std::uint32_t PackColorData(const float c[4])
+{
+	float r = c[0];
+	float g = c[1];
+	float b = c[2];
+
+	if (r < 0.f) r = 0.f;
+	if (r > 1.f) r = 1.f;
+	if (g < 0.f) g = 0.f;
+	if (g > 1.f) g = 1.f;
+	if (b < 0.f) b = 0.f;
+	if (b > 1.f) b = 1.f;
+
+	std::uint32_t rr = (std::uint32_t)(r * 255.f + 0.5f);
+	std::uint32_t gg = (std::uint32_t)(g * 255.f + 0.5f);
+	std::uint32_t bb = (std::uint32_t)(b * 255.f + 0.5f);
+	return (0xFFu << 24) | (rr << 16) | (gg << 8) | bb;
+}
+
+// ближайший из палитры под Param
+int NearestColorIdx(const float c[4])
+{
+	static const float tab[7][3] = {
+		{ 1.f, 0.f, 0.f },
+		{ 0.f, 1.f, 0.f },
+		{ 1.f, 0.50f, 0.f },
+		{ 0.f, 0.50f, 1.f },
+		{ 1.f, 0.f, 1.f },
+		{ 0.f, 1.f, 1.f },
+		{ 1.f, 1.f, 1.f },
+	};
+
+	float best = 1.0e30f;
+	int bi = 6;
+
+	for (int i = 0; i < 7; ++i)
+	{
+		float dr = c[0] - tab[i][0];
+		float dg = c[1] - tab[i][1];
+		float db = c[2] - tab[i][2];
+		float d = dr * dr + dg * dg + db * db;
+		if (d < best)
+		{
+			best = d;
+			bi = i;
+		}
+	}
+
+	return bi;
+}
+
+std::uint8_t PackAlphaByte(const float c[4])
+{
+	float a = c[3];
+	if (a < 0.f) a = 0.f;
+	if (a > 1.f) a = 1.f;
+
+	std::uint8_t v = (std::uint8_t)(a * 255.f + 0.5f);
+	// совсем тонкий — пропадает
+	if (v < 40)
+	{
+		v = 40;
+	}
+
+	return v;
+}
+
+std::uint32_t StyleQueue(int style)
+{
+	namespace RQ = Offsets::RenderQueue;
+
+	if (style == 4)
+	{
+		// colored (был glass)
+		return RQ::Glass;
+	}
+
+	if (style == 5)
+	{
+		// smoke no shadow (был glaze)
+		return RQ::GlassTint;
+	}
+
+	if (style == 6)
+	{
+		// smoke
+		return RQ::Transparent;
+	}
+
+	if (style == 7)
+	{
+		// invisible — OnTopWithDepth
+		return RQ::OnTopWithDepth;
+	}
+
+	// 0 default / 1 ghost / 2 wire / 3 colored frame
+	return RQ::AlwaysOnTop;
 }
 
 void ApplyLayers(uintptr_t ent, std::uint8_t fill, std::uint32_t param, std::uint32_t flags2, std::uint32_t color)
@@ -487,6 +685,63 @@ void ApplyLayers(uintptr_t ent, std::uint8_t fill, std::uint32_t param, std::uin
 	}
 }
 
+bool ApplyStyleLayers(uintptr_t ent, int style)
+{
+	const float* pc = Cheat::g_Settings.esp.engine_chams_color;
+	int dropdown_idx = Cheat::g_Settings.esp.engine_ghost_color_idx;
+
+	if (style == 1)
+	{
+		// ghost — цвет тока Param, ColorData white (rgb движок жрёт)
+		ApplyLayers(ent, 0, ColorParam(NearestColorIdx(pc)), 0u, 0xFFFFFFFFu);
+		return true;
+	}
+
+	if (style == 2)
+	{
+		// simple wireframe
+		ApplyLayers(ent, 1, ColorParam(NearestColorIdx(pc)), 0u, 0xFFFFFFFFu);
+		return true;
+	}
+
+	if (style == 3)
+	{
+		// colored frame — dropdown
+		ApplyLayers(ent, 1, ColorParam(dropdown_idx), 7u, 0xFFFFFFFFu);
+		return true;
+	}
+
+	if (style == 4)
+	{
+		// colored — dropdown
+		ApplyLayers(ent, 0, ColorParam(dropdown_idx), 15u, 0xFFFFFFFFu);
+		return true;
+	}
+
+	if (style == 5)
+	{
+		// smoke no shadow
+		ApplyLayers(ent, 0, ColorParam(NearestColorIdx(pc)), 0u, 0xFFFFFFFFu);
+		return true;
+	}
+
+	if (style == 6)
+	{
+		// smoke
+		ApplyLayers(ent, 0, ColorParam(NearestColorIdx(pc)), 0u, 0xFFFFFFFFu);
+		return true;
+	}
+
+	if (style == 7)
+	{
+		// invisible — без цвета, белый param
+		ApplyLayers(ent, 0, ColorParam(6), 0u, 0xFFFFFFFFu);
+		return true;
+	}
+
+	return false;
+}
+
 void ApplyEntity(uintptr_t ent)
 {
 	if (!EntKnown(ent))
@@ -495,6 +750,7 @@ void ApplyEntity(uintptr_t ent)
 	}
 
 	uintptr_t rq = ent + Offsets::FastClusterEntity::RenderQueueId;
+	uintptr_t ap = ent + Offsets::FastClusterEntity::AlphaByte;
 	if (!g_Memory.IsWritable(rq, sizeof(std::uint32_t)))
 	{
 		return;
@@ -505,23 +761,36 @@ void ApplyEntity(uintptr_t ent)
 		if (!g_saved.count(ent))
 		{
 			g_saved[ent] = g_Memory.Read<std::uint32_t>(rq);
+			g_alpha[ent] = g_Memory.Read<std::uint8_t>(ap);
 		}
 	}
 
-	// всегда пишем — движок сбрасывает queue
-	g_Memory.Write<std::uint32_t>(rq, 13);
-
 	int style = Cheat::g_Settings.esp.engine_chams_style;
-	if (style == 1)
+
+	if (style < 0)
 	{
-		ApplyLayers(ent, 0, ColorParam(Cheat::g_Settings.esp.engine_ghost_color_idx), 0u, 0xFFFFFFFFu);
-		return;
+		style = 0;
 	}
 
-	if (style == 2)
+	if (style > k_style_max)
 	{
-		// wireframe textured, белый (charm fill=1, param=7)
-		ApplyLayers(ent, 1, ColorParam(6), 0u, 0xFFFFFFFFu);
+		style = k_style_max;
+	}
+
+	// движок сбрасывает queue — пишем каждый тик. alpha не трогаем
+	g_Memory.Write<std::uint32_t>(rq, StyleQueue(style));
+
+	{
+		std::lock_guard<std::mutex> lk(g_mtx);
+		auto ait = g_alpha.find(ent);
+		if (ait != g_alpha.end() && g_Memory.IsWritable(ap, 1))
+		{
+			g_Memory.Write<std::uint8_t>(ap, ait->second);
+		}
+	}
+
+	if (ApplyStyleLayers(ent, style))
+	{
 		return;
 	}
 
@@ -536,6 +805,7 @@ void ApplyEntity(uintptr_t ent)
 void DropDeadLocked(uintptr_t ent)
 {
 	g_saved.erase(ent);
+	g_alpha.erase(ent);
 	DropLayersLocked(ent);
 	g_miss.erase(ent);
 }
@@ -543,7 +813,6 @@ void DropDeadLocked(uintptr_t ent)
 void RefreshKnown()
 {
 	int style = Cheat::g_Settings.esp.engine_chams_style;
-	int color_idx = Cheat::g_Settings.esp.engine_ghost_color_idx;
 
 	std::vector<uintptr_t> ents;
 	{
@@ -555,8 +824,8 @@ void RefreshKnown()
 		}
 	}
 
-	const bool had_layers = g_applied_style == 1 || g_applied_style == 2;
-	const bool want_layers = style == 1 || style == 2;
+	const bool had_layers = g_applied_style >= 1 && g_applied_style <= 7;
+	const bool want_layers = style >= 1 && style <= 7;
 	if (had_layers && !want_layers)
 	{
 		for (uintptr_t ent : ents)
@@ -569,6 +838,13 @@ void RefreshKnown()
 			std::lock_guard<std::mutex> lk(g_mtx);
 			RestoreLayersLocked(ent);
 		}
+	}
+
+	const bool skip_local = !Cheat::g_Settings.esp.draw_local;
+	std::vector<Vector3> local_a;
+	if (skip_local)
+	{
+		GetLocalPartCenters(local_a);
 	}
 
 	for (uintptr_t ent : ents)
@@ -591,24 +867,15 @@ void RefreshKnown()
 			g_miss[ent] = 0;
 		}
 
-		uintptr_t rq = ent + Offsets::FastClusterEntity::RenderQueueId;
-		if (!g_Memory.IsWritable(rq, sizeof(std::uint32_t)))
+		// локал без draw local — откат, мир красим
+		if (skip_local && IsLocalEntity(ent, local_a))
 		{
+			RestoreOne(ent);
 			continue;
 		}
 
-		// каждый тик заново — иначе пропадают
-		g_Memory.Write<std::uint32_t>(rq, 13);
-
-		if (style == 1)
-		{
-			ApplyLayers(ent, 0, ColorParam(color_idx), 0u, 0xFFFFFFFFu);
-		}
-
-		else if (style == 2)
-		{
-			ApplyLayers(ent, 1, ColorParam(6), 0u, 0xFFFFFFFFu);
-		}
+		// ApplyEntity сам queue+layers
+		ApplyEntity(ent);
 	}
 
 	g_applied_style = style;
@@ -624,13 +891,12 @@ void ScanOnce(uintptr_t vt)
 
 	g_vt = vt;
 
-	bool skip_local = !Cheat::g_Settings.esp.draw_local;
-	std::uint64_t lp = LocalPlayerAddr();
-
+	const bool skip_local = !Cheat::g_Settings.esp.draw_local;
 	std::vector<Vector3> local_a;
-	std::vector<Vector3> other_a;
-	bool have_local = GetLocalAnchors(local_a);
-	GetOtherRoots(other_a, lp);
+	if (skip_local)
+	{
+		GetLocalPartCenters(local_a);
+	}
 
 	SYSTEM_INFO si{};
 	GetSystemInfo(&si);
@@ -690,14 +956,8 @@ void ScanOnce(uintptr_t vt)
 
 					uintptr_t ent = base + i;
 
-					// локал не красим, но Restore не трогаем —
-					// иначе в упор чужие мигают (false local)
-					if (skip_local && have_local && IsLocalEntity(ent, local_a, other_a))
-					{
-						continue;
-					}
-
-					if (skip_local && !have_local)
+					// мир/чужие всегда; локал-парты тока с draw local
+					if (skip_local && IsLocalEntity(ent, local_a))
 					{
 						continue;
 					}
@@ -718,12 +978,7 @@ void ScanOnce(uintptr_t vt)
 
 bool Active()
 {
-	if (!Cheat::g_Settings.esp.chams)
-	{
-		return false;
-	}
-
-	if (Cheat::g_Settings.esp.chams_mode != 4)
+	if (!Cheat::g_Settings.esp.engine_chams)
 	{
 		return false;
 	}
