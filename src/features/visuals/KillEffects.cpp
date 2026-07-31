@@ -24,6 +24,91 @@
 namespace Cheat {
     namespace Visuals {
         namespace KillEffects {
+
+            namespace hit_chams_state {
+                struct HitChamFx {
+                    std::uint64_t addr = 0;
+                    float age = 0.f;
+                    float life = 0.55f;
+                };
+                std::vector<HitChamFx> list;
+            }
+
+            void NotifyHitChams(std::uint64_t player_addr)
+            {
+                if (!player_addr)
+                {
+                    return;
+                }
+
+                float life = g_Settings.esp.hit_chams_duration;
+                if (life < 0.1f)
+                {
+                    life = 0.1f;
+                }
+
+                if (life > 3.f)
+                {
+                    life = 3.f;
+                }
+
+                for (auto& h : hit_chams_state::list)
+                {
+                    if (h.addr == player_addr)
+                    {
+                        h.age = 0.f;
+                        h.life = life;
+                        return;
+                    }
+                }
+
+                hit_chams_state::HitChamFx hx{};
+                hx.addr = player_addr;
+                hx.age = 0.f;
+                hx.life = life;
+                hit_chams_state::list.push_back(hx);
+                if (hit_chams_state::list.size() > 48)
+                {
+                    hit_chams_state::list.erase(hit_chams_state::list.begin());
+                }
+            }
+
+            float HitChamsFade(std::uint64_t player_addr)
+            {
+                if (!player_addr || !g_Settings.esp.hit_chams)
+                {
+                    return 0.f;
+                }
+
+                for (const auto& h : hit_chams_state::list)
+                {
+                    if (h.addr != player_addr)
+                    {
+                        continue;
+                    }
+
+                    if (h.life <= 0.001f)
+                    {
+                        return 0.f;
+                    }
+
+                    float t = 1.f - (h.age / h.life);
+                    if (t < 0.f)
+                    {
+                        t = 0.f;
+                    }
+
+                    if (t > 1.f)
+                    {
+                        t = 1.f;
+                    }
+
+                    return t;
+                }
+
+                return 0.f;
+            }
+
             namespace {
 
                 static const char* k_fx_names[] = {
@@ -565,7 +650,8 @@ namespace Cheat {
                 bool any = g_Settings.killfx.enabled
                     || g_Settings.hitmarker.enabled
                     || g_Settings.hitdata.enabled
-                    || g_Settings.hitsound.enabled;
+                    || g_Settings.hitsound.enabled
+                    || g_Settings.esp.hit_chams;
 
                 if (!any)
                 {
@@ -573,6 +659,7 @@ namespace Cheat {
                     g_fx.clear();
                     g_markers.clear();
                     g_texts.clear();
+                    hit_chams_state::list.clear();
                     g_watch = {};
                     g_lmb_was = false;
                     g_lmb_at = -1.0;
@@ -596,7 +683,7 @@ namespace Cheat {
                 Vector3 aim_point = Features::Aim::CurrentAimPoint();
 
                 if (g_Settings.hitmarker.enabled || g_Settings.hitdata.enabled
-                    || g_Settings.hitsound.enabled)
+                    || g_Settings.hitsound.enabled || g_Settings.esp.hit_chams)
                 {
                     if (target)
                     {
@@ -650,6 +737,8 @@ namespace Cheat {
                                         SpawnHitTexts(hit_pos, part, drop, hp, dist);
                                     if (g_Settings.hitsound.enabled)
                                         Features::HitSounds::PlayCurrent();
+                                    if (g_Settings.esp.hit_chams)
+                                        NotifyHitChams(g_watch.addr);
 
                                     g_watch.last_fx = now;
                                 }
@@ -744,6 +833,7 @@ namespace Cheat {
                 for (auto& fx : g_fx) fx.age += dt;
                 for (auto& m : g_markers) m.age += dt;
                 for (auto& t : g_texts) t.age += dt;
+                for (auto& h : hit_chams_state::list) h.age += dt;
 
                 g_fx.erase(std::remove_if(g_fx.begin(), g_fx.end(),
                     [](const KillFx& f) { return f.age >= f.life; }), g_fx.end());
@@ -751,8 +841,13 @@ namespace Cheat {
                     [](const Marker& m) { return m.age >= m.life; }), g_markers.end());
                 g_texts.erase(std::remove_if(g_texts.begin(), g_texts.end(),
                     [](const HitText& t) { return t.age >= t.life; }), g_texts.end());
+                hit_chams_state::list.erase(std::remove_if(
+                    hit_chams_state::list.begin(), hit_chams_state::list.end(),
+                    [](const hit_chams_state::HitChamFx& h) { return h.age >= h.life; }),
+                    hit_chams_state::list.end());
 
-                if (g_fx.empty() && g_markers.empty() && g_texts.empty())
+                if (g_fx.empty() && g_markers.empty() && g_texts.empty() &&
+                    hit_chams_state::list.empty())
                     return;
 
                 auto cam_ptr = Globals::Workspace->GetCurrentCamera();

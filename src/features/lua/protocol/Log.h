@@ -45,10 +45,14 @@ inline void PushOutput(LogLevel level, const char* text)
 	OutputLine line;
 	line.level = level;
 	line.text = text;
-	g_output.push_back(std::move(line));
 
-	if (g_output.size() > 2000)
-		g_output.erase(g_output.begin(), g_output.begin() + (g_output.size() - 2000));
+	{
+		std::lock_guard<std::mutex> lock(g_output_mu);
+		g_output.push_back(std::move(line));
+
+		if (g_output.size() > 2000)
+			g_output.erase(g_output.begin(), g_output.begin() + (g_output.size() - 2000));
+	}
 
 	if (g_out_auto_scroll)
 		g_scroll_out = true;

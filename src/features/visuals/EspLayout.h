@@ -183,7 +183,7 @@ namespace EspLayout {
                                  std::vector<StackItem>& out)
     {
         out.clear();
-        const float gap_line = 2.f;
+        (void)flags_lines;
         auto add = [&](int id, bool enabled, int el_side, float* off, float extent) {
             if (!enabled || el_side != side || !off) return;
             out.push_back({ id, off, extent });
@@ -192,12 +192,6 @@ namespace EspLayout {
         add(IdName, s.esp.name, s.esp.name_side, &s.esp.name_off, line_h);
         add(IdDistance, s.esp.distance, s.esp.distance_side, &s.esp.distance_off, line_h);
         add(IdTool, s.esp.tool, s.esp.tool_side, &s.esp.tool_off, line_h);
-
-        int fl = flags_lines;
-        if (fl < 1) fl = 1;
-        float flags_ext = line_h * fl + gap_line * (float)(fl - 1);
-        add(IdFlags, s.esp.flags, s.esp.flags_side, &s.esp.flags_off, flags_ext);
-
         add(IdHealthText, s.esp.health_text, s.esp.health_text_side, &s.esp.health_text_off, line_h);
     }
 

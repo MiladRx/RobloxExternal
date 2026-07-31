@@ -481,9 +481,17 @@ namespace
 						if (g_bc_bytes.empty() || g_bc_for != g_detail.address)
 							DumpBytecode(g_detail);
 						std::vector<std::uint8_t> raw(g_bc_bytes.begin(), g_bc_bytes.end());
+						g_bc_status = "decompile...";
 						g_decompiled = Cheat::Features::ScriptBytecode::Decompile(raw, g_detail.name.c_str());
 						g_show_decompiled = true;
-						g_bc_status = "decompiled";
+						if (g_decompiled.find("via Fission") != std::string::npos)
+							g_bc_status = "fission ok";
+						else if (g_decompiled.find("built-in lifter") != std::string::npos)
+							g_bc_status = "lifter (no fission)";
+						else if (g_decompiled.find("not Luau") != std::string::npos)
+							g_bc_status = "no luau bytecode";
+						else
+							g_bc_status = "decompiled";
 					}
 				}
 				ng::child_end();
@@ -507,10 +515,37 @@ namespace
 
 					if (g_show_decompiled && !g_decompiled.empty())
 					{
-						ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x);
-						ImGui::TextUnformatted(g_decompiled.c_str());
-						ImGui::PopTextWrapPos();
-						ImGui::Dummy(ImVec2(0.f, 12.f));
+						// readonly multiline — выделить и ctrl+c как в браузере
+						{
+							const size_t n = g_decompiled.size();
+							g_decompiled.resize(n + 1, '\0');
+							g_decompiled.resize(n);
+						}
+
+						ImVec2 av = ImGui::GetContentRegionAvail();
+						float box_h = av.y - 44.f;
+						if (box_h < 80.f) box_h = 80.f;
+						float box_w = av.x;
+						if (box_w < 40.f) box_w = 40.f;
+
+						ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.f, 0.f, 0.f, 0.f));
+						ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.f, 0.f, 0.f, 0.f));
+						ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.f, 0.f, 0.f, 0.f));
+						ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4.f, 4.f));
+						ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);
+
+						ImGui::InputTextMultiline(
+							"##dec_src",
+							g_decompiled.data(),
+							g_decompiled.size() + 1,
+							ImVec2(box_w, box_h),
+							ImGuiInputTextFlags_ReadOnly
+						);
+
+						ImGui::PopStyleVar(2);
+						ImGui::PopStyleColor(3);
+
+						ImGui::Dummy(ImVec2(0.f, 8.f));
 						if (ng::btn("##cpy", "copy source", 120.f, 32.f))
 							ImGui::SetClipboardText(g_decompiled.c_str());
 						ImGui::Dummy(ImVec2(0.f, 6.f));

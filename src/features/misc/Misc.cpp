@@ -6,7 +6,7 @@
 #include "core/memory/Memory.h"
 #include "core/roblox/offsets/Offsets.h"
 #include "core/roblox/classes/Classes.h"
-#include "features/world/WorldVisuals.h"
+#include "features/world/WorldEdit.h"
 #include "features/local/LocalMods.h"
 #include "features/local/ThirdPerson.h"
 #include "features/misc/HitboxExpander.h"
@@ -86,7 +86,7 @@ void refresh_cache()
 		g_cache.lighting = 0;
 	}
 
-	if (!g_Memory.IsValid(g_cache.lighting) || Cheat::g_Settings.world.time_changer)
+	if (!g_Memory.IsValid(g_cache.lighting))
 		g_cache.lighting = find_svc("Lighting");
 
 	std::uint64_t chara = local_chara();
@@ -158,7 +158,13 @@ void freecam_tick(float dt)
 	int key = m.freecam_key;
 
 	bool want = false;
-	if (key != 0)
+	if (m.freecam_mode == 2)
+	{
+		want = true;
+		s_prev = false;
+	}
+
+	else if (key != 0)
 	{
 		bool down = (GetAsyncKeyState(key) & 0x8000) != 0;
 		if (m.freecam_mode == 1)
@@ -383,7 +389,6 @@ void Cheat::Features::Misc::Tick(float dt)
 	freecam_tick(dt);
 	ThirdPerson::Tick();
 
-	WorldVisuals::Apply(g_cache.lighting);
 	LocalMods::Noclip(g_cache.character, m.noclip);
 	LocalMods::InfiniteJump(g_cache.humanoid, m.inf_jump);
 	HitboxExpander::Tick();
@@ -411,11 +416,9 @@ namespace {
 				dt = 0.002f;
 
 			const auto& m = Cheat::g_Settings.misc;
-			const auto& w = Cheat::g_Settings.world;
 			bool busy =
 				m.jump || m.noclip || m.inf_jump || m.fps_unlock || m.fov ||
 				m.freecam_key != 0 || Cheat::Features::ThirdPerson::NeedsTick() ||
-				w.no_shadow || w.fog || w.time_changer ||
 				Cheat::g_Settings.hitbox.enabled;
 
 			static bool s_was = false;
@@ -439,11 +442,13 @@ void Cheat::Features::Misc::Start()
 	g_misc_th = std::thread(misc_loop);
 	Speed::Start();
 	Fly::Start();
+	WorldEdit::Start();
 }
 
 void Cheat::Features::Misc::Stop()
 {
 	g_misc_run.store(false);
+	WorldEdit::Stop();
 	Speed::Stop();
 	Fly::Stop();
 	if (g_misc_th.joinable())

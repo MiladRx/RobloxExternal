@@ -114,13 +114,14 @@ namespace Cheat {
 		}
 
 		HWND fg = GetForegroundWindow();
-		bool menu_open = GUI::Menu::IsVisible();
+		// меню открыто ок тока если фокус на игре или на оверлее
+		// иначе Win+Shift+S / чужое окно — гуй в скрине
 		bool focused =
 			(fg == m_GameHwnd) ||
 			IsChild(m_GameHwnd, fg) ||
-			(menu_open && (fg == m_Hwnd || fg == nullptr));
+			(fg == m_Hwnd);
 
-		if (!focused && !menu_open)
+		if (!focused)
 		{
 			if (IsWindowVisible(m_Hwnd))
 			{
@@ -132,7 +133,7 @@ namespace Cheat {
 		RECT cr{};
 		if (!GetClientRect(m_GameHwnd, &cr))
 		{
-			if (!menu_open)
+			if (IsWindowVisible(m_Hwnd))
 			{
 				ShowWindow(m_Hwnd, SW_HIDE);
 			}
@@ -148,7 +149,7 @@ namespace Cheat {
 		int h = br.y - tl.y;
 		if (w < 64 || h < 64)
 		{
-			if (!menu_open)
+			if (IsWindowVisible(m_Hwnd))
 			{
 				ShowWindow(m_Hwnd, SW_HIDE);
 			}

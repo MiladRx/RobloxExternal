@@ -14,6 +14,7 @@ namespace AimTarget {
 		Vector2 viewport{};
 		Camera camera{ 0 };
 		Vector3 cam_pos{};
+		Vector3 local_pos{}; // hrp, для дистанции
 		std::uint64_t local_player = 0;
 		std::uint64_t local_char = 0;
 		std::uint64_t local_team_folder = 0;

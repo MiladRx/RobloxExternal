@@ -20,7 +20,8 @@ namespace Visuals {
 namespace MeshDxShader {
 namespace {
 
-constexpr char k_hlsl[] = R"HLSL(
+constexpr char k_hlsl[] =
+R"HLSL(
 cbuffer Constants : register(b0)
 {
     row_major float4x4 view;
@@ -59,6 +60,7 @@ struct PSIn
     float3 wpos   : TEXCOORD0;
     float3 normal : NORMAL;
     float2 uv     : TEXCOORD1;
+    float3 lpos   : TEXCOORD2; // mesh local — аним не едет при ходьбе
 };
 
 PSIn vs_main(VSIn i)
@@ -71,6 +73,7 @@ PSIn vs_main(VSIn i)
     o.pos.z   = saturate(dist / 5000.0) * o.pos.w;
 
     o.wpos = wp.xyz;
+    o.lpos = i.pos;
     // non-uniform scale ломает обычный mul — для chams хватает face-normal из экрана
     o.normal = mul((float3x3)world, i.normal);
     o.uv = i.uv;
@@ -147,7 +150,7 @@ float4 ps_main(PSIn i) : SV_TARGET
     }
     else if (m == 2) // rainbow
     {
-        float3 rainbow = 0.5 + 0.5 * cos(time * 2.0 + i.wpos * 0.35 + float3(0.0, 2.0, 4.0));
+        float3 rainbow = 0.5 + 0.5 * cos(time * 2.0 + i.lpos * 0.35 + float3(0.0, 2.0, 4.0));
         result.rgb     = rainbow * lambert;
         result.a       = 1.0;
     }
@@ -168,7 +171,7 @@ float4 ps_main(PSIn i) : SV_TARGET
     }
     else if (m == 5) // holographic
     {
-        float3 holo = 0.5 + 0.5 * cos(time * 3.0 + i.wpos.y * 2.0 + ndv * 8.0 + float3(0.0, 2.0, 4.0));
+        float3 holo = 0.5 + 0.5 * cos(time * 3.0 + i.lpos.y * 2.0 + ndv * 8.0 + float3(0.0, 2.0, 4.0));
         float spec = pow(ndh, 80.0) * 0.9;
         result.rgb = bc.rgb * lambert * 0.55 + holo * (fres * 0.9 + 0.15) + fc.rgb * fres * 0.25 + spec.xxx;
         result.a   = 1.0;
@@ -177,7 +180,7 @@ float4 ps_main(PSIn i) : SV_TARGET
     {
         float t = time * 0.45;
         // крупные мягкие волны по телу (без frac-тайлинга → нет швов)
-        float3 p = i.wpos * 0.07;
+        float3 p = i.lpos * 0.07;
         float n1 = sin(p.x * 1.3 + p.y * 0.9 + t);
         float n2 = sin(p.y * 1.1 - p.z * 1.0 + t * 0.85 + 2.1);
         float n3 = sin(p.z * 1.2 + p.x * 0.8 - t * 0.7 + 4.2);
@@ -216,7 +219,7 @@ float4 ps_main(PSIn i) : SV_TARGET
     }
     else if (m == 9) // ropes — copper diamond lattice, scrolls over body
     {
-        float2 wp = float2(i.wpos.x + i.wpos.y, i.wpos.y + i.wpos.z) * 2.8
+        float2 wp = float2(i.lpos.x + i.lpos.y, i.lpos.y + i.lpos.z) * 2.8
                   + float2(time * 1.35, time * 0.95);
         // fallback if uv broken — mix in mesh uv
         wp += i.uv * 6.0;
@@ -234,7 +237,7 @@ float4 ps_main(PSIn i) : SV_TARGET
     }
     else if (m == 10) // liquid metal — animated mercury
     {
-        float3 p = i.wpos * 0.9;
+        float3 p = i.lpos * 0.9;
         float t = time;
         // бегущие волны по поверхности
         float wA = sin(p.x * 3.4 + p.y * 2.1 - t * 2.4);
@@ -258,6 +261,148 @@ float4 ps_main(PSIn i) : SV_TARGET
         metal += envW * 0.22 * (0.5 + ripple * 0.5);
         result.rgb = saturate(metal);
         result.a   = 1.0;
+    })HLSL"
+R"HLSL(
+    else if (m == 11) // soft glass — тоньше glass, fill
+    {
+        float f = saturate(fres * 1.2 + 0.05);
+        float3 tint = lerp(bc.rgb * 0.55, float3(0.78, 0.88, 1.0), 0.4);
+        result.rgb = lerp(tint, saturate(bc.rgb + 0.25), f * 0.85) + pow(ndh, 90.0) * 0.35;
+        result.a   = saturate(0.12 + f * 0.48) * max(bc.a, 0.25);
+    }
+    else if (m == 12) // ice — холодное стекло без аним
+    {
+        float f = saturate(fres * 1.6 + 0.1);
+        float3 ice = lerp(float3(0.55, 0.75, 0.95), float3(0.9, 0.97, 1.0), f);
+        ice = lerp(ice, bc.rgb, 0.35);
+        result.rgb = ice + pow(ndh, 64.0) * 0.55;
+        result.a   = saturate(0.2 + f * 0.55) * max(bc.a, 0.3);
+    }
+    else if (m == 13) // ghost pulse — alpha дышит
+    {
+        float pulse = 0.55 + 0.45 * sin(time * 2.4);
+        float rim = pow(saturate(1.0 - ndv), 1.8);
+        result.rgb = bc.rgb * (0.4 + rim * 0.6) + fc.rgb * fres * 0.3;
+        result.a   = saturate((0.14 + rim * 0.5) * pulse) * max(bc.a, 0.28);
+    }
+    else if (m == 14) // aurora soft — полупроз радуга
+    {
+        float3 p = i.lpos * 0.12;
+        float t = time * 0.7;
+        float3 band = 0.5 + 0.5 * cos(t + p.y * 3.0 + p.x * 1.2 + float3(0.0, 2.1, 4.2));
+        float veil = 0.35 + 0.45 * sin(p.y * 2.0 + t * 1.3);
+        result.rgb = lerp(bc.rgb * 0.5, band, 0.65) * (0.55 + fres * 0.55);
+        result.a   = saturate(0.16 + veil * 0.4 + fres * 0.25) * max(bc.a, 0.25);
+    }
+    else if (m == 15) // bubble — иридесцент пузыри
+    {
+        float2 q = i.uv * 8.0 + float2(time * 0.6, time * 0.35);
+        float2 cell = frac(q) - 0.5;
+        float d = length(cell);
+        float bubble = 1.0 - smoothstep(0.18, 0.42, d);
+        float ring = smoothstep(0.28, 0.34, d) * (1.0 - smoothstep(0.34, 0.42, d));
+        float3 iri = 0.5 + 0.5 * cos(d * 18.0 + time * 2.0 + float3(0.0, 2.0, 4.0));
+        result.rgb = lerp(bc.rgb * 0.45, iri, saturate(bubble * 0.7 + ring)) + fres * 0.2;
+        result.a   = saturate(0.12 + bubble * 0.35 + ring * 0.55 + fres * 0.2) * max(bc.a, 0.25);
+    }
+    else if (m == 16) // jelly — дрожащий гель
+    {
+        float3 p = i.lpos * 1.4;
+        float wob = sin(p.x * 4.0 + time * 3.2) * cos(p.y * 3.5 - time * 2.6);
+        float blob = 0.5 + 0.5 * wob;
+        float3 gel = lerp(bc.rgb * 0.55, bc.rgb + float3(0.15, 0.25, 0.2), blob);
+        gel += pow(ndh, 40.0) * 0.4;
+        result.rgb = saturate(gel);
+        result.a   = saturate(0.22 + blob * 0.28 + fres * 0.35) * max(bc.a, 0.3);
+    }
+    else if (m == 17) // mercury soft — ртуть полупроз
+    {
+        float3 p = i.lpos * 1.1;
+        float t = time;
+        float wA = sin(p.x * 3.2 + p.y * 2.0 - t * 2.2);
+        float wB = cos(p.y * 3.6 + p.z * 2.4 + t * 1.7);
+        float flow = wA + wB * 0.8;
+        float ripple = 0.5 + 0.5 * sin(flow * 2.8 + ndv * 7.0 + t * 1.4);
+        float streak = pow(saturate(0.5 + 0.5 * sin(p.y * 12.0 - t * 5.5 + flow)), 5.5);
+        float3 dark = float3(0.22, 0.24, 0.28);
+        float3 mid  = float3(0.55, 0.58, 0.62);
+        float3 hi   = float3(0.95, 0.97, 1.0);
+        float3 iri  = 0.5 + 0.5 * cos(flow * 2.0 + t + ndv * 9.0 + float3(0.0, 2.1, 4.2));
+        float3 merc = lerp(dark, mid, saturate(0.4 + lambert * 0.35 + flow * 0.07));
+        merc = lerp(merc, hi, pow(ndh, 42.0) * 0.9 + streak * 0.5);
+        merc = lerp(merc, bc.rgb, 0.28);
+        merc += iri * fres * (0.22 + ripple * 0.25);
+        result.rgb = saturate(merc);
+        result.a   = saturate(0.2 + fres * 0.45 + ripple * 0.12) * max(bc.a, 0.3);
+    }
+    else if (m == 18) // water glass — вода + каустики
+    {
+        float3 p = i.lpos * 0.55;
+        float t = time * 1.15;
+        float c1 = sin(p.x * 4.0 + p.z * 3.0 + t * 2.0);
+        float c2 = cos(p.y * 3.5 - p.x * 2.5 + t * 1.6);
+        float cau = saturate(0.55 + 0.45 * (c1 * c2));
+        float spark = pow(saturate(cau), 8.0);
+        float3 water = lerp(float3(0.15, 0.45, 0.75), float3(0.55, 0.85, 1.0), cau);
+        water = lerp(water, bc.rgb, 0.4);
+        water += spark * float3(0.85, 0.95, 1.0) * 0.55;
+        water += pow(ndh, 70.0) * 0.4;
+        result.rgb = saturate(water);
+        result.a   = saturate(0.16 + fres * 0.5 + cau * 0.15) * max(bc.a, 0.28);
+    }
+    else if (m == 19) // deep ocean — тёмная вода
+    {
+        float3 p = i.lpos * 0.2;
+        float t = time * 0.55;
+        float wave = sin(p.x * 2.0 + t) * cos(p.z * 1.7 - t * 0.8);
+        float depth = saturate(0.35 + wave * 0.2 + fres * 0.45);
+        float3 deep = float3(0.02, 0.12, 0.28);
+        float3 shallow = float3(0.12, 0.45, 0.7);
+        float3 col = lerp(deep, shallow, depth);
+        col = lerp(col, bc.rgb * 0.7, 0.35);
+        col += pow(ndh, 90.0) * 0.35;
+        result.rgb = saturate(col);
+        result.a   = saturate(0.22 + depth * 0.35 + fres * 0.25) * max(bc.a, 0.32);
+    }
+    else if (m == 20) // quicksilver — блестящая ртуть
+    {
+        float3 p = i.lpos * 1.6;
+        float t = time * 1.8;
+        float drip = sin(p.y * 6.0 - t * 4.0 + sin(p.x * 3.0 + t) * 1.5);
+        float blob = saturate(0.5 + 0.5 * drip);
+        float bead = pow(saturate(abs(drip)), 3.0);
+        float3 silv = lerp(float3(0.35, 0.38, 0.42), float3(0.92, 0.94, 0.98), blob);
+        silv = lerp(silv, bc.rgb, 0.25);
+        silv += bead * 0.65 + pow(ndh, 28.0) * 0.85;
+        silv += fres * float3(0.7, 0.85, 1.0) * 0.35;
+        result.rgb = saturate(silv);
+        result.a   = saturate(0.18 + blob * 0.35 + fres * 0.4) * max(bc.a, 0.28);
+    }
+    else if (m == 21) // ripple — кольца по воде
+    {
+        float2 q = float2(i.lpos.x, i.lpos.z) * 0.9;
+        float t = time * 2.2;
+        float d0 = length(q + float2(sin(t * 0.3), cos(t * 0.25)) * 0.4);
+        float d1 = length(q - float2(0.7, -0.3));
+        float rings = sin(d0 * 14.0 - t * 5.0) * 0.5 + sin(d1 * 11.0 - t * 3.8) * 0.35;
+        rings = saturate(0.5 + rings * 0.5);
+        float crest = pow(rings, 4.0);
+        float3 col = lerp(bc.rgb * 0.45, float3(0.4, 0.75, 1.0), rings);
+        col += crest * 0.55 + fres * 0.25;
+        result.rgb = saturate(col);
+        result.a   = saturate(0.14 + rings * 0.35 + fres * 0.4) * max(bc.a, 0.26);
+    }
+    else if (m == 22) // oil slick — плёнка на воде
+    {
+        float3 p = i.lpos * 0.85;
+        float t = time * 0.9;
+        float flow = sin(p.x * 2.5 + t) + cos(p.y * 3.0 - t * 1.2);
+        float3 film = 0.5 + 0.5 * cos(flow * 3.5 + ndv * 12.0 + t * 1.5 + float3(0.0, 2.2, 4.4));
+        float wet = saturate(0.4 + fres * 0.7);
+        float3 col = lerp(bc.rgb * 0.4, film, 0.75);
+        col += pow(ndh, 55.0) * 0.45;
+        result.rgb = saturate(col);
+        result.a   = saturate(0.15 + wet * 0.45 + abs(flow) * 0.05) * max(bc.a, 0.28);
     }
 
     return result;
@@ -466,13 +611,25 @@ Vector3  g_camera{};
 
 const char* k_mode_names[] = {
 	"flat", "chrome", "rainbow", "pearl", "glossy", "holographic",
-	"fade", "wireframe", "glass", "ropes", "liquid metal"
+	"fade", "wireframe", "glass", "ropes", "liquid metal",
+	"soft glass", "ice", "ghost pulse", "aurora soft", "bubble", "jelly",
+	"mercury soft", "water glass", "deep ocean", "quicksilver", "ripple", "oil slick"
 };
 
 bool ModeUsesFillColor(int m)
 {
-	// flat / wireframe / glass — юзер-цвет
-	return m == 0 || m == 7 || m == 8;
+	// flat / wire / glass + полупроз с tint
+	if (m == 0 || m == 7 || m == 8)
+	{
+		return true;
+	}
+
+	if (m >= 11 && m <= 22)
+	{
+		return true;
+	}
+
+	return false;
 }
 
 void ReleaseMesh(GpuMesh& mesh)
@@ -930,10 +1087,10 @@ void BeginFrame(const Matrix4x4& view, const Vector3& camera, float time)
 	const auto& st = g_Settings.esp;
 	g_cbdata.mode = (st.mesh_chams_style == 1) ? st.mesh_chams_dx_mode : 0;
 	if (g_cbdata.mode < 0) g_cbdata.mode = 0;
-	if (g_cbdata.mode > 10) g_cbdata.mode = 10;
+	if (g_cbdata.mode > 22) g_cbdata.mode = 22;
 	g_cbdata.occluded_mode = st.mesh_chams_occluded_dx_mode;
 	if (g_cbdata.occluded_mode < 0) g_cbdata.occluded_mode = 0;
-	if (g_cbdata.occluded_mode > 10) g_cbdata.occluded_mode = 10;
+	if (g_cbdata.occluded_mode > 22) g_cbdata.occluded_mode = 22;
 
 	static const float k_white[4] = { 1.f, 1.f, 1.f, 1.f };
 	const float* fill = ModeUsesFillColor(g_cbdata.mode) ? st.chams_fill_color : k_white;

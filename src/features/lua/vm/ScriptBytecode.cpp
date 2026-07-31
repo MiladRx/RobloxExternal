@@ -1,14 +1,14 @@
 #include "pch.h"
 #include "ScriptBytecode.h"
+#include "FissionEmbed.h"
 
 #include "core/memory/Memory.h"
 #include "core/roblox/offsets/Offsets.h"
 
 #include "zstd.h"
+#include "common/xxhash.h" // XXH32 -> ZSTD_XXH32
 
 #include <Windows.h>
-#include <winhttp.h>
-#pragma comment(lib, "winhttp.lib")
 
 #include <cstdio>
 #include <cstring>
@@ -137,6 +137,54 @@ bool TryRsb1(const std::uint8_t* data, size_t n, std::vector<std::uint8_t>& out)
 	}
 	out.resize(got);
 	return !out.empty() && IsLuauVersion(out[0]);
+}
+
+// roblox signed blob: XOR key from first4^RSB1, потом RSB1+zstd (despair/IDA)
+bool TryRobloxSigned(const std::uint8_t* data, size_t n, std::vector<std::uint8_t>& out)
+{
+	if (n < 8)
+		return false;
+
+	std::uint64_t mag = 0;
+	std::memcpy(&mag, data, 8);
+	// другой контейнер — просто срезать 8
+	if (mag == 0xE009325B4A107A52ull)
+	{
+		out.assign(data + 8, data + n);
+		return !out.empty() && IsLuauVersion(out[0]);
+	}
+
+	static const std::uint8_t sig[4] = { 'R', 'S', 'B', '1' };
+	std::vector<std::uint8_t> buf(data, data + n);
+	std::uint8_t key[4]{};
+	for (int i = 0; i < 4; ++i)
+		key[i] = static_cast<std::uint8_t>((buf[static_cast<size_t>(i)] ^ sig[i]) - static_cast<std::uint8_t>(i * 41));
+
+	for (size_t i = 0; i < buf.size(); ++i)
+		buf[i] ^= static_cast<std::uint8_t>(key[i % 4] + static_cast<std::uint8_t>(i * 41));
+
+	std::uint32_t expect = 0;
+	std::memcpy(&expect, key, 4);
+	const std::uint32_t got = XXH32(buf.data(), buf.size(), 42u);
+	if (got != expect)
+		return false;
+
+	if (TryRsb1(buf.data(), buf.size(), out))
+		return true;
+
+	// size==0 путь в IDA: сырой luau после 8 байт
+	if (buf.size() > 8 && std::memcmp(buf.data(), "RSB1", 4) == 0)
+	{
+		std::uint32_t sz = 0;
+		std::memcpy(&sz, buf.data() + 4, 4);
+		if (sz == 0)
+		{
+			out.assign(buf.begin() + 8, buf.end());
+			return !out.empty() && IsLuauVersion(out[0]);
+		}
+	}
+
+	return false;
 }
 
 bool TryZstdAt(const std::uint8_t* data, size_t n, std::vector<std::uint8_t>& out)
@@ -768,14 +816,21 @@ bool Normalize(const std::vector<std::uint8_t>& raw, std::vector<std::uint8_t>& 
 		return true;
 	}
 
-	// 2) RSB1 at start
+	// 2) roblox signed (XOR) -> RSB1+zstd
+	if (TryRobloxSigned(raw.data(), raw.size(), out))
+	{
+		if (status) *status = "roblox-sign + RSB1+zstd";
+		return true;
+	}
+
+	// 3) plain RSB1 at start
 	if (TryRsb1(raw.data(), raw.size(), out))
 	{
 		if (status) *status = "RSB1+zstd";
 		return true;
 	}
 
-	// 3) scan for RSB1
+	// scan for RSB1 / zstd (редко)
 	for (size_t i = 1; i + 8 < raw.size(); ++i)
 	{
 		if (raw[i] == 'R' && raw[i + 1] == 'S' && raw[i + 2] == 'B' && raw[i + 3] == '1')
@@ -788,7 +843,6 @@ bool Normalize(const std::vector<std::uint8_t>& raw, std::vector<std::uint8_t>& 
 		}
 	}
 
-	// 4) scan zstd magic
 	for (size_t i = 0; i + 4 < raw.size(); ++i)
 	{
 		if (raw[i] == 0x28 && raw[i + 1] == 0xB5 && raw[i + 2] == 0x2F && raw[i + 3] == 0xFD)
@@ -801,7 +855,7 @@ bool Normalize(const std::vector<std::uint8_t>& raw, std::vector<std::uint8_t>& 
 		}
 	}
 
-	// 5) header u32 size + zstd body (some dumps)
+	// header u32 size + zstd body (some dumps)
 	if (raw.size() > 8)
 	{
 		std::uint32_t maybe = 0;
@@ -838,72 +892,6 @@ bool ReadDecompressed(std::uint64_t script_addr, const std::string& class_name, 
 	return Normalize(raw, out, nullptr);
 }
 
-std::string DecompileViaFission(const std::vector<std::uint8_t>& luau_bc)
-{
-	if (luau_bc.empty() || !LooksLikeLuau(luau_bc))
-		return {};
-
-	const std::string b64 = Base64Encode(luau_bc.data(), luau_bc.size());
-	HINTERNET session = WinHttpOpen(L"jewsploit/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-		WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-	if (!session) return {};
-
-	HINTERNET conn = WinHttpConnect(session, L"127.0.0.1", 3001, 0);
-	if (!conn)
-	{
-		WinHttpCloseHandle(session);
-		return {};
-	}
-
-	HINTERNET req = WinHttpOpenRequest(conn, L"POST", L"/", nullptr,
-		WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, 0);
-	if (!req)
-	{
-		WinHttpCloseHandle(conn);
-		WinHttpCloseHandle(session);
-		return {};
-	}
-
-	BOOL ok = WinHttpSendRequest(req,
-		L"Content-Type: text/plain\r\n", (DWORD)-1L,
-		(LPVOID)b64.data(), (DWORD)b64.size(), (DWORD)b64.size(), 0);
-	if (!ok || !WinHttpReceiveResponse(req, nullptr))
-	{
-		WinHttpCloseHandle(req);
-		WinHttpCloseHandle(conn);
-		WinHttpCloseHandle(session);
-		return {};
-	}
-
-	std::string body;
-	for (;;)
-	{
-		DWORD avail = 0;
-		if (!WinHttpQueryDataAvailable(req, &avail) || avail == 0)
-			break;
-		std::string chunk(avail, '\0');
-		DWORD read = 0;
-		if (!WinHttpReadData(req, chunk.data(), avail, &read))
-			break;
-		chunk.resize(read);
-		body += chunk;
-		if (body.size() > (8u << 20))
-			break;
-	}
-
-	WinHttpCloseHandle(req);
-	WinHttpCloseHandle(conn);
-	WinHttpCloseHandle(session);
-
-	if (body.empty() || body.rfind("--", 0) == std::string::npos && body.find("local") == std::string::npos)
-	{
-		// still accept any non-empty success body from Fission
-		if (body.size() < 8)
-			return {};
-	}
-	return body;
-}
-
 std::string Decompile(const std::vector<std::uint8_t>& raw_or_luau, const char* chunk_name)
 {
 	std::string norm_status;
@@ -917,19 +905,22 @@ std::string Decompile(const std::vector<std::uint8_t>& raw_or_luau, const char* 
 	{
 		hdr << DecompileLuau(raw_or_luau, chunk_name);
 		hdr << "\n-- also tried normalize; blob not Luau yet.\n";
-		hdr << "-- run Fission.Server on :3001 after you have raw bytecode for full AST.\n";
 		return hdr.str();
 	}
 
-	if (auto fission = DecompileViaFission(bc); !fission.empty())
+	// fission в процессе, без Server.exe
 	{
-		hdr << "-- via Fission.Server :3001\n\n";
-		hdr << fission;
-		return hdr.str();
+		std::string fission = FissionEmbed::DecompileLuauBytecode(bc.data(), bc.size());
+		if (!fission.empty())
+		{
+			hdr << "-- via Fission (in-process)\n\n";
+			hdr << fission;
+			return hdr.str();
+		}
 	}
 
 	hdr << DecompileLuau(bc, chunk_name);
-	hdr << "\n-- (built-in lifter; start Fission.Server on 127.0.0.1:3001 for fuller AST)\n";
+	hdr << "\n-- (built-in lifter; fission embed failed)\n";
 	return hdr.str();
 }
 

@@ -5,6 +5,7 @@
 #include "core/globals/Globals.h"
 #include "core/player/PlayerHandler.h"
 #include "features/visuals/RaycastEngine.h"
+#include "features/misc/PlayerAvatars.h"
 #include "renderer/Renderer.h"
 #include <thread>
 #include <chrono>
@@ -82,6 +83,7 @@ int main()
 
             Cheat::PlayerHandler::StopCacheThread();
             Cheat::PlayerHandler::ClearCache();
+            Cheat::Features::PlayerAvatars::Clear();
             Cheat::Features::RaycastEngine::Reset();
             ResetGlobals();
 

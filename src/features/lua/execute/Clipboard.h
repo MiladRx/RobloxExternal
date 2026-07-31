@@ -4,6 +4,7 @@
 
 #include <Windows.h>
 #include <cstring>
+#include <mutex>
 #include <string>
 
 namespace Cheat {
@@ -61,10 +62,28 @@ inline std::string GetClipboardText()
 
 inline std::string BuildOutputText(bool selected_only)
 {
+	std::lock_guard<std::mutex> lock(g_output_mu);
 	std::string out;
 	if (selected_only && g_out_sel >= 0 && g_out_sel < (int)g_output.size())
 	{
-		out = g_output[g_out_sel].text;
+		int a = g_out_sel;
+		int b = g_out_sel_end;
+		if (b < 0 || b >= (int)g_output.size())
+			b = a;
+		if (a > b)
+		{
+			int t = a;
+			a = b;
+			b = t;
+		}
+
+		out.reserve((size_t)(b - a + 1) * 48);
+		for (int i = a; i <= b; ++i)
+		{
+			if (i > a)
+				out.push_back('\n');
+			out += g_output[i].text;
+		}
 		return out;
 	}
 

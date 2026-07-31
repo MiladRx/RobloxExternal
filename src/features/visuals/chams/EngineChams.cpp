@@ -248,8 +248,8 @@ void RefreshKnown()
 		}
 	}
 
-	const bool had_layers = g_applied_style >= 1 && g_applied_style <= 4;
-	const bool want_layers = style >= 1 && style <= 4;
+	const bool had_layers = g_applied_style >= 1 && g_applied_style <= 9;
+	const bool want_layers = style >= 1 && style <= 9;
 	if (had_layers && !want_layers)
 	{
 		for (uintptr_t ent : ents)
@@ -291,7 +291,7 @@ void RefreshKnown()
 		}
 
 		// каждый тик заново — иначе пропадают
-		g_Memory.Write<std::uint32_t>(rq, 13);
+		g_Memory.Write<std::uint32_t>(rq, StyleQueue(style));
 
 		ApplyStyleLayers(ent, style, color_idx);
 	}
@@ -403,12 +403,7 @@ void ScanOnce(uintptr_t vt)
 
 bool Active()
 {
-	if (!Cheat::g_Settings.esp.chams)
-	{
-		return false;
-	}
-
-	if (Cheat::g_Settings.esp.chams_mode != 4)
+	if (!Cheat::g_Settings.esp.engine_chams)
 	{
 		return false;
 	}

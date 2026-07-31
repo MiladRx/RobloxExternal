@@ -179,6 +179,53 @@ void Cheat::BasePart::SetCanCollide(bool value) const
 	}
 }
 
+void Cheat::BasePart::SetAnchored(bool value) const
+{
+	if (!g_Memory.IsValid(address))
+	{
+		return;
+	}
+
+	std::uint64_t prim = GetPrimitive(address);
+	if (!g_Memory.IsValid(prim))
+	{
+		return;
+	}
+
+	std::uint8_t flags = g_Memory.Read<std::uint8_t>(prim + Offsets::Primitive::Flags);
+	std::uint8_t bit = Offsets::PrimitiveFlags::Anchored;
+	std::uint8_t next = flags;
+
+	if (value)
+		next = flags | bit;
+
+	else
+		next = flags & ~bit;
+
+	if (next != flags)
+		g_Memory.Write<std::uint8_t>(prim + Offsets::Primitive::Flags, next);
+}
+
+void Cheat::BasePart::SetTransparency(float value) const
+{
+	if (!g_Memory.IsValid(address))
+	{
+		return;
+	}
+
+	g_Memory.Write<float>(address + Offsets::BasePart::Transparency, value);
+}
+
+void Cheat::BasePart::SetColor(const Color3& value) const
+{
+	if (!g_Memory.IsValid(address))
+	{
+		return;
+	}
+
+	g_Memory.Write<Color3>(address + Offsets::BasePart::Color3, value);
+}
+
 Color3 Cheat::BasePart::GetColor() const
 {
 	if (!g_Memory.IsValid(address))

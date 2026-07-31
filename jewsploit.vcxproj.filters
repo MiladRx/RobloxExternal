@@ -252,6 +252,15 @@
     <ClInclude Include="src\features\world\WorldVisuals.h">
       <Filter>src\features\world</Filter>
     </ClInclude>
+    <ClInclude Include="src\features\world\WorldOwn.h">
+      <Filter>src\features\world</Filter>
+    </ClInclude>
+    <ClInclude Include="src\features\world\WorldSlots.h">
+      <Filter>src\features\world</Filter>
+    </ClInclude>
+    <ClInclude Include="src\features\world\WorldEdit.h">
+      <Filter>src\features\world</Filter>
+    </ClInclude>
     <ClInclude Include="src\features\local\LocalMods.h">
       <Filter>src\features\local</Filter>
     </ClInclude>
@@ -480,6 +489,15 @@
       <Filter>src\features\aim</Filter>
     </ClCompile>
     <ClCompile Include="src\features\world\WorldVisuals.cpp">
+      <Filter>src\features\world</Filter>
+    </ClCompile>
+    <ClCompile Include="src\features\world\WorldOwn.cpp">
+      <Filter>src\features\world</Filter>
+    </ClCompile>
+    <ClCompile Include="src\features\world\WorldSlots.cpp">
+      <Filter>src\features\world</Filter>
+    </ClCompile>
+    <ClCompile Include="src\features\world\WorldEdit.cpp">
       <Filter>src\features\world</Filter>
     </ClCompile>
     <ClCompile Include="src\features\local\LocalMods.cpp">

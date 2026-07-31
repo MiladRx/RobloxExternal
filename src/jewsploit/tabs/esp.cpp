@@ -3,6 +3,7 @@
 #include "../widgets/child.h"
 #include "../widgets/checkbox.h"
 #include "../widgets/colorpicker.h"
+#include "../widgets/color_presets.h"
 #include "app/Settings.h"
 #include "app/Graphics.h"
 #include "features/visuals/boxfill/BoxFill.h"
@@ -16,6 +17,10 @@
 void ng_tabs::draw_esp_tab()
 {
 	using namespace Cheat;
+
+	// flags вырезаны
+	g_Settings.esp.flags = false;
+	g_Settings.esp.bot_esp[Settings::BOT_FLAGS] = false;
 
 	float side_gap = 10.f;
 	float avail_w = ImGui::GetContentRegionAvail().x;
@@ -34,11 +39,12 @@ void ng_tabs::draw_esp_tab()
 
 		row_cb_color("bounding box", &g_Settings.esp.box,
 		             g_Settings.esp.box_color, "esp_box_color");
-		if (g_Settings.esp.box)
+		// fill тока вместе с боксом
+		if (!g_Settings.esp.box)
 			g_Settings.esp.box_fill = false;
 		gap();
 
-		if (!g_Settings.esp.box)
+		if (g_Settings.esp.box)
 		{
 			if (g_Settings.esp.box_fill_mode == 1)
 			{
@@ -123,6 +129,7 @@ void ng_tabs::draw_esp_tab()
 			gap();
 		}
 
+		// overlay chams (box/shader/mesh)
 		if (g_Settings.esp.chams_mode != 3 && g_Settings.esp.chams_mode != 4)
 		{
 			row_cb_color2(
@@ -145,115 +152,147 @@ void ng_tabs::draw_esp_tab()
 		}
 		gap();
 
+		if (g_Settings.esp.chams)
 		{
-			static const char* k_chams_modes[] = {
-				"box", "box filled", "clipper", "shader", "engine", "mesh"
-			};
-			row_select("##chams_mode", "chams mode", &g_Settings.esp.chams_mode,
-			           k_chams_modes, 6);
+			{
+				static const char* k_chams_modes[] = {
+					"box", "box filled", "clipper", "shader", "mesh"
+				};
+				row_select("##chams_mode", "chams mode", &g_Settings.esp.chams_mode,
+				           k_chams_modes, 5);
+				if (g_Settings.esp.chams_mode < 0)
+					g_Settings.esp.chams_mode = 0;
+				if (g_Settings.esp.chams_mode > 4)
+					g_Settings.esp.chams_mode = 4;
+			}
+			gap();
+
+			if (g_Settings.esp.chams_mode == 3)
+			{
+				row_select("##chams_shader", "shader", &g_Settings.esp.chams_shader,
+				           Visuals::ShaderChams::StyleNames(),
+				           Visuals::ShaderChams::StyleNameCount(), true, false);
+				gap();
+			}
+
+			if (g_Settings.esp.chams_mode == 4)
+			{
+				{
+					static const char* k_mesh_style[] = { "flat", "shader" };
+					row_select("##mesh_style", "mesh style",
+					           &g_Settings.esp.mesh_chams_style,
+					           k_mesh_style, 2);
+				}
+				if (g_Settings.esp.mesh_chams_style < 0)
+					g_Settings.esp.mesh_chams_style = 0;
+				if (g_Settings.esp.mesh_chams_style > 1)
+					g_Settings.esp.mesh_chams_style = 1;
+				gap();
+
+				if (g_Settings.esp.mesh_chams_style == 1)
+				{
+					// не закрываем — гонять шейдеры подряд
+					row_select("##mesh_shader", "mesh shader",
+					           &g_Settings.esp.mesh_chams_dx_mode,
+					           Visuals::MeshDxShader::ModeNames(),
+					           Visuals::MeshDxShader::ModeNameCount(), true, false);
+					if (g_Settings.esp.mesh_chams_dx_mode < 0)
+						g_Settings.esp.mesh_chams_dx_mode = 0;
+					if (g_Settings.esp.mesh_chams_dx_mode > 22)
+						g_Settings.esp.mesh_chams_dx_mode = 22;
+					gap();
+				}
+
+				row_cb_color("mesh outline", &g_Settings.esp.mesh_chams_outline,
+				             g_Settings.esp.mesh_chams_outline_color,
+				             "esp_mesh_outline_color");
+				gap();
+
+				if (g_Settings.esp.mesh_chams_outline)
+				{
+					row_select("##outline_shader", "outline shader",
+					           &g_Settings.esp.mesh_chams_outline_style,
+					           Visuals::MeshChams::OutlineStyleNames(),
+					           Visuals::MeshChams::OutlineStyleNameCount(), true, false);
+					if (g_Settings.esp.mesh_chams_outline_style < 0)
+						g_Settings.esp.mesh_chams_outline_style = 0;
+					if (g_Settings.esp.mesh_chams_outline_style >
+					    Visuals::MeshChams::OutlineStyleNameCount() - 1)
+						g_Settings.esp.mesh_chams_outline_style =
+							Visuals::MeshChams::OutlineStyleNameCount() - 1;
+					gap();
+
+					row_slider("##outline_fade", "outline fade",
+					           &g_Settings.esp.mesh_chams_outline_fade, 0.35f, 3.0f);
+					gap();
+				}
+
+				row_cb_color("occluded", &g_Settings.esp.mesh_chams_occlusion,
+				             g_Settings.esp.mesh_chams_occluded_color,
+				             "esp_mesh_occluded_color");
+				gap();
+
+				if (g_Settings.esp.mesh_chams_occlusion)
+				{
+					row_select("##occluded_shader", "occluded shader",
+					           &g_Settings.esp.mesh_chams_occluded_dx_mode,
+					           Visuals::MeshDxShader::ModeNames(),
+					           Visuals::MeshDxShader::ModeNameCount(), true, false);
+					if (g_Settings.esp.mesh_chams_occluded_dx_mode < 0)
+						g_Settings.esp.mesh_chams_occluded_dx_mode = 0;
+					if (g_Settings.esp.mesh_chams_occluded_dx_mode > 22)
+						g_Settings.esp.mesh_chams_occluded_dx_mode = 22;
+					gap();
+				}
+			}
 		}
+
+		// engine — отдельно, комбо с mesh/shader
+		pad();
+		ng::checkbox("engine chams", &g_Settings.esp.engine_chams);
 		gap();
 
-		if (g_Settings.esp.chams_mode == 3)
-		{
-			row_select("##chams_shader", "shader", &g_Settings.esp.chams_shader,
-			           Visuals::ShaderChams::StyleNames(),
-			           Visuals::ShaderChams::StyleNameCount());
-			gap();
-		}
-
-		if (g_Settings.esp.chams_mode == 5)
-		{
-			{
-				static const char* k_mesh_style[] = { "flat", "shader" };
-				row_select("##mesh_style", "mesh style",
-				           &g_Settings.esp.mesh_chams_style,
-				           k_mesh_style, 2);
-			}
-			if (g_Settings.esp.mesh_chams_style < 0)
-				g_Settings.esp.mesh_chams_style = 0;
-			if (g_Settings.esp.mesh_chams_style > 1)
-				g_Settings.esp.mesh_chams_style = 1;
-			gap();
-
-			if (g_Settings.esp.mesh_chams_style == 1)
-			{
-				row_select("##mesh_shader", "mesh shader",
-				           &g_Settings.esp.mesh_chams_dx_mode,
-				           Visuals::MeshDxShader::ModeNames(),
-				           Visuals::MeshDxShader::ModeNameCount());
-				if (g_Settings.esp.mesh_chams_dx_mode < 0)
-					g_Settings.esp.mesh_chams_dx_mode = 0;
-				if (g_Settings.esp.mesh_chams_dx_mode > 13)
-					g_Settings.esp.mesh_chams_dx_mode = 13;
-				gap();
-			}
-
-			row_cb_color("mesh outline", &g_Settings.esp.mesh_chams_outline,
-			             g_Settings.esp.mesh_chams_outline_color,
-			             "esp_mesh_outline_color");
-			gap();
-
-			if (g_Settings.esp.mesh_chams_outline)
-			{
-				row_select("##outline_shader", "outline shader",
-				           &g_Settings.esp.mesh_chams_outline_style,
-				           Visuals::MeshChams::OutlineStyleNames(),
-				           Visuals::MeshChams::OutlineStyleNameCount());
-				if (g_Settings.esp.mesh_chams_outline_style < 0)
-					g_Settings.esp.mesh_chams_outline_style = 0;
-				if (g_Settings.esp.mesh_chams_outline_style >
-				    Visuals::MeshChams::OutlineStyleNameCount() - 1)
-					g_Settings.esp.mesh_chams_outline_style =
-						Visuals::MeshChams::OutlineStyleNameCount() - 1;
-				gap();
-
-				row_slider("##outline_fade", "outline fade",
-				           &g_Settings.esp.mesh_chams_outline_fade, 0.35f, 3.0f);
-				gap();
-			}
-
-			row_cb_color("occluded", &g_Settings.esp.mesh_chams_occlusion,
-			             g_Settings.esp.mesh_chams_occluded_color,
-			             "esp_mesh_occluded_color");
-			gap();
-
-			if (g_Settings.esp.mesh_chams_occlusion)
-			{
-				row_select("##occluded_shader", "occluded shader",
-				           &g_Settings.esp.mesh_chams_occluded_dx_mode,
-				           Visuals::MeshDxShader::ModeNames(),
-				           Visuals::MeshDxShader::ModeNameCount());
-				if (g_Settings.esp.mesh_chams_occluded_dx_mode < 0)
-					g_Settings.esp.mesh_chams_occluded_dx_mode = 0;
-				if (g_Settings.esp.mesh_chams_occluded_dx_mode > 13)
-					g_Settings.esp.mesh_chams_occluded_dx_mode = 13;
-				gap();
-			}
-		}
-
-		if (g_Settings.esp.chams_mode == 4)
+		if (g_Settings.esp.engine_chams)
 		{
 			{
 				static const char* engine_styles[] = {
-					"default", "ghost", "wireframe", "mesh", "charwire"
+					"default", "ghost", "simple wireframe", "colored frame",
+					"colored", "smoke no shadow", "smoke", "invisible",
 				};
+				// не закрываем — чтобы гонять стили подряд
 				row_select("##engine_style", "engine style",
 				           &g_Settings.esp.engine_chams_style,
-				           engine_styles, 5);
+				           engine_styles, 8, true, false);
+				if (g_Settings.esp.engine_chams_style < 0)
+					g_Settings.esp.engine_chams_style = 0;
+				if (g_Settings.esp.engine_chams_style > 7)
+					g_Settings.esp.engine_chams_style = 7;
 			}
 			gap();
 
-			const int est = g_Settings.esp.engine_chams_style;
-			if (est == 1 || est == 3 || est == 4)
 			{
-				static const char* engine_colors[] = {
-					"red", "green", "orange", "blue", "pink", "cyan", "white"
-				};
-				row_select("##engine_color", "engine color",
-				           &g_Settings.esp.engine_ghost_color_idx,
-				           engine_colors, 7);
-				gap();
+				int st = g_Settings.esp.engine_chams_style;
+				const bool use_picker = (st == 1 || st == 2 || st == 5 || st == 6);
+
+				if (use_picker)
+				{
+					g_Settings.esp.engine_chams_color[3] = 1.f;
+					// тока кружки, без кисти/колорпикера
+					ng::color_presets("##engine_chams_col", "engine color", nullptr,
+					                  g_Settings.esp.engine_chams_color, true, false);
+					gap();
+				}
+
+				else if (st == 3 || st == 4)
+				{
+					static const char* engine_colors[] = {
+						"red", "green", "orange", "blue", "pink", "cyan", "white"
+					};
+					row_select("##engine_color", "engine color",
+					           &g_Settings.esp.engine_ghost_color_idx,
+					           engine_colors, 7);
+					gap();
+				}
 			}
 		}
 
@@ -289,9 +328,7 @@ void ng_tabs::draw_esp_tab()
 			             g_Settings.esp.tool_color, "esp_tool_color");
 			gap();
 
-			pad();
-			ng::checkbox("flags", &g_Settings.esp.flags);
-			gap();
+			g_Settings.esp.flags = false;
 		}
 
 		if (havoc_place)
@@ -304,9 +341,20 @@ void ng_tabs::draw_esp_tab()
 
 			pad();
 			ng::checkbox("bots", &g_Settings.esp.bots);
+			gap();
 			if (g_Settings.esp.bots)
 			{
 				auto& be = g_Settings.esp.bot_esp;
+
+				{
+					float d = g_Settings.esp.bot_max_distance;
+					if (d < 50.f) d = 50.f;
+					if (d > 400.f) d = 400.f;
+					g_Settings.esp.bot_max_distance = d;
+					row_slider("##bot_max_dist", "bot max distance (m)",
+					           &g_Settings.esp.bot_max_distance, 50.f, 400.f);
+				}
+				gap();
 
 				row_cb_color("bot box", &be[Settings::BOT_BOX],
 				             g_Settings.esp.bot_box_color, "esp_bot_box_color");
@@ -382,9 +430,7 @@ void ng_tabs::draw_esp_tab()
 				             g_Settings.esp.bot_tool_color, "esp_bot_tool_color");
 				gap();
 
-				pad();
-				ng::checkbox("bot flags", &be[Settings::BOT_FLAGS]);
-				gap();
+				be[Settings::BOT_FLAGS] = false;
 			}
 
 			row_cb_color("corpses", &g_Settings.esp.corpses,
@@ -487,6 +533,31 @@ void ng_tabs::draw_esp_tab()
 			};
 			row_select("##tracer_origin", "tracer origin",
 			           &g_Settings.esp.tracer_origin, k_tracer_origin, 4);
+			gap();
+		}
+
+		row_cb_color("china hat", &g_Settings.esp.china_hat,
+		             g_Settings.esp.china_hat_color, "esp_china_hat_color");
+		gap();
+
+		if (g_Settings.esp.china_hat)
+		{
+			row_slider("##china_hat_h", "hat height",
+			           &g_Settings.esp.china_hat_height, 0.3f, 3.0f);
+			gap();
+			row_slider("##china_hat_r", "hat radius",
+			           &g_Settings.esp.china_hat_radius, 0.4f, 3.5f);
+			gap();
+		}
+
+		row_cb_color("hit chams", &g_Settings.esp.hit_chams,
+		             g_Settings.esp.hit_chams_color, "esp_hit_chams_color");
+		gap();
+
+		if (g_Settings.esp.hit_chams)
+		{
+			row_slider("##hit_chams_dur", "hit fade",
+			           &g_Settings.esp.hit_chams_duration, 0.1f, 3.0f);
 			gap();
 		}
 

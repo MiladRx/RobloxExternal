@@ -449,6 +449,7 @@ namespace Cheat {
                 Vector2 viewport{};
                 Camera camera{ 0 };
                 Vector3 cam_pos{};
+                Vector3 local_pos{}; // hrp, для дистанции
                 std::uint64_t local_player = 0;
                 std::uint64_t local_char = 0;
                 std::uint64_t local_team_folder = 0;
@@ -522,6 +523,7 @@ namespace Cheat {
                 s.camera = Camera(cam->address);
                 s.viewport = s.camera.GetViewportSize();
                 s.cam_pos = s.camera.GetPosition();
+                s.local_pos = s.cam_pos;
 
                 static uintptr_t base = g_Memory.GetModuleBase();
                 if (!base)
@@ -539,6 +541,12 @@ namespace Cheat {
                     {
                         s.local_char = g_Memory.Read<std::uint64_t>(
                             s.local_player + Offsets::Player::ModelInstance);
+                        PlayerCache loc = PlayerHandler::GetCachedPlayer(s.local_player);
+                        if (loc.humanoidRootPart && g_Memory.IsValid(loc.humanoidRootPart->address))
+                        {
+                            s.local_pos = BasePart(loc.humanoidRootPart->address).GetPosition();
+                        }
+
                         if (g_Settings.misc.teamcheck)
                         {
                             if (Games::PhantomForces::IsActivePlace())
@@ -617,7 +625,7 @@ namespace Cheat {
                     }
 
                     {
-                        float dist = (world - sc.cam_pos).Length();
+                        float dist = (world - sc.local_pos).Length();
                         // havoc: кап 400m всегда
                         if (Visuals::HavocWorldEsp::BeyondRange(dist))
                         {
@@ -783,7 +791,7 @@ namespace Cheat {
                     float tie = pick.dist;
                     if (cfg.target_select == Settings::TARGET_DISTANCE)
                     {
-                        score = (pick.world - sc.cam_pos).Length();
+                        score = (pick.world - sc.local_pos).Length();
                     }
 
                     else if (cfg.target_select == Settings::TARGET_LOWEST_HP)
@@ -1012,21 +1020,36 @@ namespace Cheat {
 
 			// aim key
 			bool aim_on = false;
-			if (g_Settings.aim.type != 2 && g_Settings.aim.bind != 0)
+			if (g_Settings.aim.type != 2)
 			{
-				bool pressed = (GetAsyncKeyState(g_Settings.aim.bind) & 0x8000) != 0;
-				if (g_Settings.aim.bind_mode == 1)
+				if (g_Settings.aim.bind_mode == 2)
 				{
-					if (pressed && !s_was_pressed)
-						s_toggled = !s_toggled;
-					aim_on = s_toggled;
+					aim_on = true;
+					s_was_pressed = false;
+				}
+
+				else if (g_Settings.aim.bind != 0)
+				{
+					bool pressed = (GetAsyncKeyState(g_Settings.aim.bind) & 0x8000) != 0;
+					if (g_Settings.aim.bind_mode == 1)
+					{
+						if (pressed && !s_was_pressed)
+							s_toggled = !s_toggled;
+						aim_on = s_toggled;
+					}
+
+					else
+					{
+						aim_on = pressed;
+					}
+					s_was_pressed = pressed;
 				}
 
 				else
 				{
-					aim_on = pressed;
+					s_was_pressed = false;
+					s_toggled = false;
 				}
-				s_was_pressed = pressed;
 			}
 
 			else
@@ -1053,6 +1076,12 @@ namespace Cheat {
 					silent_on = aim_on;
 					s_silent_was = s_was_pressed;
 					s_silent_tog = s_toggled;
+				}
+
+				else if (sm == 2)
+				{
+					silent_on = true;
+					s_silent_was = false;
 				}
 
 				else if (sk != 0)
@@ -1177,7 +1206,14 @@ namespace Cheat {
                 // force magic поверх raycast
                 bool force_mb = false;
                 int fk = g_Settings.aim.force_magic_key;
-                if (fk != 0)
+                if (g_Settings.aim.force_magic_mode == 2)
+                {
+                    force_mb = true;
+                    s_force_mb_was = false;
+                    g_Settings.aim.force_magic_bullet = true;
+                }
+
+                else if (fk != 0)
                 {
                     bool fdown = (GetAsyncKeyState(fk) & 0x8000) != 0;
                     if (g_Settings.aim.force_magic_mode == 1)
@@ -1221,7 +1257,7 @@ namespace Cheat {
                 MouseSilent::SetActive(false);
                 PhantomSilent::SetActive(false);
                 MagicBullet::SetActive(false);
-                // wallbang на том же RaycastSilent-хуке, без второго Install
+                // wallbang, camera-ray stub скипает (origin ~ cam)
                 RaycastSilent::SetActive(true, world, true);
             }
 

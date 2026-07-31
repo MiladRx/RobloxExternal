@@ -23,6 +23,7 @@ namespace
 	const char* mode_name(int mode)
 	{
 		if (mode == 1) return "toggle";
+		if (mode == 2) return "always";
 		return "hold";
 	}
 
@@ -54,7 +55,7 @@ bool ng::keybind(const char* id, int* vk, int* mode, bool shown)
 	}
 
 	if (*mode < 0) *mode = 0;
-	if (*mode > 1) *mode = 1;
+	if (*mode > 2) *mode = 2;
 
 	ImGuiIO& io = ImGui::GetIO();
 	ImGuiStorage* st = ImGui::GetStateStorage();
@@ -270,7 +271,8 @@ bool ng::keybind(const char* id, int* vk, int* mode, bool shown)
 
 	if (md_hit)
 	{
-		*mode = (*mode == 0) ? 1 : 0;
+		*mode = *mode + 1;
+		if (*mode > 2) *mode = 0;
 		ch = true;
 	}
 

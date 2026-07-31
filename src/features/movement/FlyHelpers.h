@@ -156,7 +156,8 @@ inline Vector3 cam_right(const mat3& r)
 
 inline bool key_gate(int key, int mode, bool& tog, bool& was)
 {
-	if (key == 0)
+	// always / нет бинда — всегда on
+	if (mode == 2 || key == 0)
 		return true;
 
 	bool down = (GetAsyncKeyState(key) & 0x8000) != 0;

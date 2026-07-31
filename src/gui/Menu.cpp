@@ -4,6 +4,7 @@
 #include "resources/fonts/fonts.h"
 #include "widgets/widgets.h"
 #include "jewsploit_shell.h"
+#include "jewsploit/players_ui.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "backends/imgui_impl_dx11.h"
@@ -34,6 +35,7 @@
 #include "features/misc/Misc.h"
 #include "features/misc/HitSounds.h"
 #include "features/misc/HitboxExpander.h"
+#include "features/misc/PlayerAvatars.h"
 #include "features/explorer/Explorer.h"
 #include "features/mcp/McpBridge.h"
 #include "core/config/Config.h"
@@ -112,15 +114,15 @@ void Menu::Render()
         {
             Features::LuaExecutor::Initialize();
             if (Features::LuaVM::Ready())
-            {
-                Features::LuaVM::Tick(ImGui::GetIO().DeltaTime);
                 Features::LuaDrawing::Render();
-            }
         }
         DrawMenu();
         // всегда тикаем — float_panel сам анимирует close когда меню/тумблер выкл
+        // баннеры тянем сразу, не ждать открытия players
+        Features::PlayerAvatars::Tick();
         Features::Explorer::Render(1.f);
         Features::LuaExecutor::Render(1.f);
+        ng_players::draw(1.f);
         // mcp тумблер из конфига / меню
         if (g_Settings.misc.mcp && !Features::McpBridge::Running())
             Features::McpBridge::Start();
@@ -215,6 +217,31 @@ float Menu::DrawMenu()
         else
         {
             Renderer::SetTextInputFocus(false);
+
+            // после open курсор free — вернуть клип/фокус в игру
+            HWND game = Renderer::GetGameHwnd();
+            if (game && IsWindow(game))
+            {
+                RECT cr{};
+                if (GetClientRect(game, &cr))
+                {
+                    POINT tl{ cr.left, cr.top };
+                    POINT br{ cr.right, cr.bottom };
+                    ClientToScreen(game, &tl);
+                    ClientToScreen(game, &br);
+                    RECT clip{ tl.x, tl.y, br.x, br.y };
+                    ClipCursor(&clip);
+                }
+
+                SetForegroundWindow(game);
+            }
+
+            // open делал ShowCursor(TRUE) — откат
+            for (int i = 0; i < 8; ++i)
+            {
+                if (ShowCursor(FALSE) < 0)
+                    break;
+            }
         }
     }
 

@@ -17,7 +17,9 @@ namespace {
     //constexpr ImU32 k_outline = IM_COL32(0, 0, 0, 255);
 
     const char* mode_name(int mode) {
-        return mode == 1 ? "toggle" : "hold";
+        if (mode == 1) return "toggle";
+        if (mode == 2) return "always";
+        return "hold";
     }
 
     void key_name(int vk, char* out, int out_size)
@@ -179,7 +181,7 @@ namespace {
         bool held = false;
         bool pressed = ImGui::ButtonBehavior(bb, imgui_id, &hovered, &held);
         if (pressed)
-            *mode = (*mode + 1) % 2;
+            *mode = (*mode + 1) % 3;
 
         dl->AddRectFilled(
             ImVec2(bb.Min.x + 1.f, bb.Min.y + 1.f),

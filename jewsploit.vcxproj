@@ -86,7 +86,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;dwmapi.lib;freetype.lib;winmm.lib;msacm32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;dwmapi.lib;freetype.lib;winmm.lib;msacm32.lib;ws2_32.lib;winhttp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)third_party\freetype\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Manifest>
@@ -113,7 +113,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
-      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;dwmapi.lib;freetype.lib;winmm.lib;msacm32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;dwmapi.lib;freetype.lib;winmm.lib;msacm32.lib;ws2_32.lib;winhttp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)third_party\freetype\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Manifest>
@@ -136,8 +136,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;dwmapi.lib;freetype.lib;winmm.lib;msacm32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(ProjectDir)third_party\freetype\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;dwmapi.lib;freetype.lib;winmm.lib;msacm32.lib;ws2_32.lib;winhttp.lib;Fission.Decompiler.lib;Fission.Common.lib;Luau.Compiler.lib;Luau.Ast.lib;Luau.Bytecode.lib;Luau.VM.lib;Luau.Common.lib;assert.lib;cpptrace.lib;dbghelp.lib;libboost_container-vc143-mt-x64-1_86.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)third_party\freetype\lib\x64;$(ProjectDir)tools\fission_src\build\Release;$(ProjectDir)tools\fission_src\build\_deps\luau-build\Release;$(ProjectDir)tools\fission_src\build\_deps\libassert-build\Release;$(ProjectDir)tools\fission_src\build\_deps\cpptrace-build\Release;$(ProjectDir)tools\fission_src\build\_deps\boost-build\libs\container\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -163,8 +163,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
-      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;dwmapi.lib;freetype.lib;winmm.lib;msacm32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(ProjectDir)third_party\freetype\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d3d11.lib;d3dcompiler.lib;dwmapi.lib;freetype.lib;winmm.lib;msacm32.lib;ws2_32.lib;winhttp.lib;Fission.Decompiler.lib;Fission.Common.lib;Luau.Compiler.lib;Luau.Ast.lib;Luau.Bytecode.lib;Luau.VM.lib;Luau.Common.lib;assert.lib;cpptrace.lib;dbghelp.lib;libboost_container-vc143-mt-x64-1_86.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)third_party\freetype\lib\x64;$(ProjectDir)tools\fission_src\build\Release;$(ProjectDir)tools\fission_src\build\_deps\luau-build\Release;$(ProjectDir)tools\fission_src\build\_deps\libassert-build\Release;$(ProjectDir)tools\fission_src\build\_deps\cpptrace-build\Release;$(ProjectDir)tools\fission_src\build\_deps\boost-build\libs\container\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -211,6 +211,11 @@
     <ClInclude Include="src\features\aim\MouseSilent.h" />
     <ClInclude Include="src\features\aim\PhantomSilent.h" />
     <ClInclude Include="src\features\world\WorldVisuals.h" />
+    <ClInclude Include="src\features\world\LightingInvalidate.h" />
+    <ClInclude Include="src\features\world\WorldExtras.h" />
+    <ClInclude Include="src\features\world\WorldOwn.h" />
+    <ClInclude Include="src\features\world\WorldSlots.h" />
+    <ClInclude Include="src\features\world\WorldEdit.h" />
     <ClInclude Include="src\features\local\LocalMods.h" />
     <ClInclude Include="src\features\local\ThirdPerson.h" />
     <ClInclude Include="src\features\misc\Misc.h" />
@@ -306,11 +311,17 @@
     <ClCompile Include="src\features\aim\MouseSilent.cpp" />
     <ClCompile Include="src\features\aim\PhantomSilent.cpp" />
     <ClCompile Include="src\features\world\WorldVisuals.cpp" />
+    <ClCompile Include="src\features\world\LightingInvalidate.cpp" />
+    <ClCompile Include="src\features\world\WorldExtras.cpp" />
+    <ClCompile Include="src\features\world\WorldOwn.cpp" />
+    <ClCompile Include="src\features\world\WorldSlots.cpp" />
+    <ClCompile Include="src\features\world\WorldEdit.cpp" />
     <ClCompile Include="src\features\local\LocalMods.cpp" />
     <ClCompile Include="src\features\local\ThirdPerson.cpp" />
     <ClCompile Include="src\features\misc\Misc.cpp" />
     <ClCompile Include="src\features\misc\HitboxExpander.cpp" />
     <ClCompile Include="src\features\misc\HitSounds.cpp" />
+    <ClCompile Include="src\features\misc\PlayerAvatars.cpp" />
     <ClCompile Include="assets\hitsounds\hitsounds_data.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
@@ -321,7 +332,9 @@
     <ClCompile Include="src\features\explorer\Explorer.cpp" />
     <ClCompile Include="src\features\mcp\McpBridge.cpp" />
     <ClInclude Include="src\features\lua\vm\LuaVM.h" />
+    <ClInclude Include="src\features\lua\vm\InstanceCreate.h" />
     <ClInclude Include="src\features\lua\vm\LuaBridge.h" />
+    <ClInclude Include="src\features\lua\vm\LuaGc.h" />
     <ClCompile Include="src\features\lua\LuaExecutor.cpp" />
     <ClCompile Include="third_party\lua\lapi.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -517,11 +530,22 @@
     </ClCompile>
 
     <ClCompile Include="src\features\lua\vm\LuaVM.cpp" />
+    <ClCompile Include="src\features\lua\vm\InstanceCreate.cpp" />
     <ClCompile Include="src\features\lua\vm\LuaBridge.cpp" />
     <ClCompile Include="src\features\lua\vm\LuaTypes.cpp" />
     <ClCompile Include="src\features\lua\vm\LuaDrawing.cpp" />
     <ClCompile Include="src\features\lua\vm\LuaScripts.cpp" />
+    <ClCompile Include="src\features\lua\vm\LuaGc.cpp" />
     <ClCompile Include="src\features\lua\vm\ScriptBytecode.cpp" />
+    <ClInclude Include="src\features\lua\vm\FissionEmbed.h" />
+    <ClCompile Include="src\features\lua\vm\FissionEmbed.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <PreprocessorDefinitions>LIBASSERT_STATIC_DEFINE;LIBASSERT_USE_MAGIC_ENUM;CPPTRACE_STATIC_DEFINE;BOOST_CONTAINER_NO_LIB;BOOST_CONTAINER_STATIC_LINK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)tools\fission_src\Fission.Decompiler\include;$(ProjectDir)tools\fission_src\Fission.Common\include;$(ProjectDir)tools\fission_src\build\_deps\magic_enum-src\include;$(ProjectDir)tools\fission_src\build\_deps\luau-src\Ast\include;$(ProjectDir)tools\fission_src\build\_deps\luau-src\Common\include;$(ProjectDir)tools\fission_src\build\_deps\luau-src\Compiler\include;$(ProjectDir)tools\fission_src\build\_deps\luau-src\Bytecode\include;$(ProjectDir)tools\fission_src\build\_deps\luau-src\VM\include;$(ProjectDir)tools\fission_src\build\_deps\luau-src\VM\src;$(ProjectDir)tools\fission_src\build\_deps\boost-src\libs\container\include;$(ProjectDir)tools\fission_src\build\_deps\boost-src\libs\assert\include;$(ProjectDir)tools\fission_src\build\_deps\boost-src\libs\config\include;$(ProjectDir)tools\fission_src\build\_deps\boost-src\libs\intrusive\include;$(ProjectDir)tools\fission_src\build\_deps\boost-src\libs\move\include;$(ProjectDir)tools\fission_src\build\_deps\libassert-src\include;$(ProjectDir)tools\fission_src\build\_deps\libassert-build\include;$(ProjectDir)tools\fission_src\build\_deps\cpptrace-src\include;$(ProjectDir)tools\fission_src\build\_deps\cpptrace-build\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
 
     <ClCompile Include="third_party\zstd\lib\common\debug.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -711,6 +735,10 @@
       <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
     </ClCompile>
     <ClCompile Include="src\jewsploit\explorer_ui.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="src\jewsploit\players_ui.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
     </ClCompile>

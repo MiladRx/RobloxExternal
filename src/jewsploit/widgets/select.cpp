@@ -20,7 +20,7 @@ namespace
 	}
 }
 
-bool ng::select(const char* id, int* cur, const char* const items[], int count)
+bool ng::select(const char* id, int* cur, const char* const items[], int count, bool shown, bool close_on_pick)
 {
 	if (!cur || !items || count <= 0)
 	{
@@ -35,24 +35,43 @@ bool ng::select(const char* id, int* cur, const char* const items[], int count)
 
 	ImGui::PushID(id);
 
+	ImGuiID oid = ImGui::GetID("open");
 	ImGuiID lid = ImGui::GetID("list");
 	ImGuiID wid = ImGui::GetID("want");
 
+	float open = st->GetFloat(oid, shown ? 1.f : 0.f);
+	open = anim::approach(open, shown ? 1.f : 0.f, 7.f, io.DeltaTime);
+	st->SetFloat(oid, open);
+	float e = anim::ease_out_cubic(open);
+
 	int want = st->GetInt(wid, 0);
+	if (!shown)
+	{
+		want = 0;
+		st->SetInt(wid, 0);
+	}
+
 	float list = st->GetFloat(lid, 0.f);
+
+	if (e < 0.001f)
+	{
+		st->SetFloat(lid, 0.f);
+		ImGui::PopID();
+		return false;
+	}
 
 	float pad_r = 12.f;
 	float avail = ImGui::GetContentRegionAvail().x;
 	float box_w = avail - pad_r;
 	if (box_w < 40.f) box_w = 40.f;
 
-	float head_h = 30.f;
+	float head_h = 30.f * e;
 	float item_h = 28.f;
 	float gap = 6.f;
 	float rnd = 10.f;
-	float top_pad = item_gap;
+	float top_pad = item_gap * e;
 
-	float list_e = anim::ease_out_cubic(list);
+	float list_e = anim::ease_out_cubic(list) * e;
 	float list_h = (float)count * item_h * list_e;
 	float body = head_h + (list_h > 0.5f ? gap + list_h : 0.f);
 	float total_h = top_pad + body;
@@ -78,7 +97,7 @@ bool ng::select(const char* id, int* cur, const char* const items[], int count)
 
 	list = anim::approach(list, want ? 1.f : 0.f, 7.f, io.DeltaTime);
 	st->SetFloat(lid, list);
-	list_e = anim::ease_out_cubic(list);
+	list_e = anim::ease_out_cubic(list) * e;
 	list_h = (float)count * item_h * list_e;
 
 	const char* preview = items[*cur];
@@ -174,8 +193,11 @@ bool ng::select(const char* id, int* cur, const char* const items[], int count)
 			{
 				*cur = i;
 				ch = true;
-				want = 0;
-				st->SetInt(wid, 0);
+				if (close_on_pick)
+				{
+					want = 0;
+					st->SetInt(wid, 0);
+				}
 			}
 
 			if (ImGui::IsItemHovered())
