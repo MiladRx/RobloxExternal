@@ -37,10 +37,12 @@ node_modules/
 .vscode/
 .cursor/
 
-# Local tool scratch (tracked: tools/ida only)
+# tools: fission + ida only (no dumper / offsets site)
 tools/*
 !tools/ida/
 !tools/ida/**
+!tools/fission_src/
+!tools/fission_src/**
 
 # FreeType libs
 !third_party/freetype/lib/**
