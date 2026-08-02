@@ -15,8 +15,13 @@ extern "C" {
 #include <cstdint>
 #include <cstdio>
 #include <algorithm>
-#include <functional>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -25,6 +30,19 @@ namespace Cheat {
 namespace Features {
 namespace LuaGc {
 namespace {
+
+constexpr int k_gco_chain_max = 80000;
+constexpr int k_page_chain_max = 200000;
+constexpr int k_page_blocks_max = 20000;
+constexpr int k_sizeclass_count = 48;
+constexpr int k_strt_chain_max = 100000;
+constexpr std::size_t k_snapshot_max = 1u << 20;
+constexpr int k_result_max = 100000;
+constexpr int k_result_default = 20000;
+constexpr int k_keys_per_key_default = 400;
+constexpr int k_hits_max = 4096;
+constexpr std::chrono::milliseconds k_snapshot_ttl{ 1500 };
+constexpr std::chrono::milliseconds k_strt_ttl{ 3000 };
 
 bool LooksLikeLuaState(std::uint64_t L)
 {
@@ -165,11 +183,37 @@ std::uint64_t GameGlobal()
 	return G;
 }
 
+int SetGcByKey(lua_State* L);
+
+bool IsGcOpt(const char* opt)
+{
+	static const char* const opts[] = {
+		"stop", "restart", "count", "isrunning",
+		"pause", "setpause", "stepmul", "setstepmul",
+		"collect", "step",
+	};
+
+	for (const char* o : opts)
+	{
+		if (std::strcmp(opt, o) == 0)
+			return true;
+	}
+
+	return false;
+}
+
+// setgc("stop") — GC, setgc("ShootCooldown", 0) — запись по ключу во всех таблицах
 int l_setgc(lua_State* L)
 {
+	if (lua_istable(L, 1))
+		return SetGcByKey(L);
+
 	const char* opt = luaL_checkstring(L, 1);
 	if (!opt)
 		return 0;
+
+	if (!IsGcOpt(opt))
+		return SetGcByKey(L);
 
 	const std::uint64_t G = GameGlobal();
 	if (!G)
@@ -284,18 +328,36 @@ std::uint64_t GcoNext(std::uint64_t obj, int tt)
 	return g_Memory.Read<std::uint64_t>(obj + 8);
 }
 
-int WalkGcoList(std::uint64_t head, int* by_tt, int by_n, int& total, std::uint64_t* samples, int* sample_tt, int& nsample, int sample_cap)
+template <class F>
+void WalkGcoChain(std::uint64_t head, F&& fn)
 {
-	int n = 0;
 	std::uint64_t cur = head;
-	for (int i = 0; i < 80000; ++i)
+	for (int i = 0; i < k_gco_chain_max; ++i)
 	{
-		if (!g_Memory.IsValid(cur) || (cur & 0x7))
+		if (!cur || (cur & 0x7))
 			break;
 
 		const int tt = (int)g_Memory.Read<std::uint8_t>(cur + 1);
-		if (tt < 0 || tt >= by_n)
+		if (tt <= 0 || tt > 15)
 			break;
+
+		if (!fn(cur, tt))
+			break;
+
+		const std::uint64_t nxt = GcoNext(cur, tt);
+		if (nxt == cur)
+			break;
+		cur = nxt;
+	}
+}
+
+int WalkGcoList(std::uint64_t head, int* by_tt, int by_n, int& total, std::uint64_t* samples, int* sample_tt, int& nsample, int sample_cap)
+{
+	int n = 0;
+	WalkGcoChain(head, [&](std::uint64_t cur, int tt)
+	{
+		if (tt >= by_n)
+			return false;
 
 		++by_tt[tt];
 		++total;
@@ -308,52 +370,163 @@ int WalkGcoList(std::uint64_t head, int* by_tt, int by_n, int& total, std::uint6
 			++nsample;
 		}
 
-		const std::uint64_t nxt = GcoNext(cur, tt);
-		if (nxt == cur)
-			break;
-		cur = nxt;
-	}
+		return true;
+	});
 	return n;
 }
 
-int CountPageChain(std::uint64_t head, std::uint64_t sentinel, int lim, int next_off)
+// luaH_dummynode в образе: пустая таблица показывает node сюда, кандидатом её не считаем
+std::uint64_t EmptyNode()
 {
-	int n = 0;
+	return (std::uint64_t)g_Memory.GetModuleBase() + Offsets::LuauGlobal::dummynode;
+}
+
+struct PageBuf
+{
+	std::vector<unsigned char> blocks;
+	std::uint64_t base = 0;
+	int block = 0;
+	int count = 0;
+};
+
+bool ReadPage(std::uint64_t p, int min_block, PageBuf& out)
+{
+	unsigned char hdr[64];
+	if (g_Memory.ReadRaw((uintptr_t)p, hdr, sizeof(hdr)) != sizeof(hdr))
+		return false;
+
+	std::int32_t page_size = 0;
+	std::int32_t block_size = 0;
+	std::memcpy(&page_size, hdr + 32, 4);
+	std::memcpy(&block_size, hdr + 36, 4);
+
+	if (block_size < min_block || block_size > 512)
+		return false;
+	if (page_size < 128 || page_size > 65536)
+		return false;
+
+	const int count = (page_size - 64) / block_size;
+	if (count <= 0 || count > k_page_blocks_max)
+		return false;
+
+	const std::size_t bytes = (std::size_t)count * (std::size_t)block_size;
+	out.blocks.resize(bytes);
+	if (g_Memory.ReadRaw((uintptr_t)(p + 64), out.blocks.data(), bytes) != bytes)
+		return false;
+
+	out.base = p + 64;
+	out.block = block_size;
+	out.count = count;
+	return true;
+}
+
+// после unlink next может смотреть назад — без visited цепь крутится до упора лимита
+template <class F>
+void WalkPageChain(std::uint64_t head, std::uint64_t sentinel, uintptr_t next_off, F&& fn)
+{
+	std::unordered_set<std::uint64_t> visited;
 	std::uint64_t p = head;
-	for (int i = 0; i < lim; ++i)
+
+	for (int i = 0; i < k_page_chain_max; ++i)
 	{
-		if (!p || p == sentinel)
+		if (!p || p == sentinel || (p & 0x7))
 			break;
-		if (!g_Memory.IsValid(p))
+		if (!visited.insert(p).second)
 			break;
-		++n;
-		const std::uint64_t nxt = g_Memory.Read<std::uint64_t>(p + (std::uint64_t)next_off);
-		if (nxt == p)
+		if (!fn(p))
 			break;
-		p = nxt;
+
+		p = g_Memory.Read<std::uint64_t>(p + (std::uint64_t)next_off);
 	}
-	return n;
+}
+
+template <class F>
+void WalkAllPages(std::uint64_t G, F&& fn)
+{
+	WalkPageChain(g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::gcopages),
+		G + Offsets::LuauGlobal::gcopages_end, Offsets::LuauGlobal::page_next_free, fn);
+
+	// all pages — next @+8, тут и полные page после unlink с freelist
+	WalkPageChain(g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::gcopages_large),
+		0, Offsets::LuauGlobal::page_next_all, fn);
+
+	for (int sc = 0; sc < k_sizeclass_count; ++sc)
+	{
+		WalkPageChain(g_Memory.Read<std::uint64_t>(
+			G + Offsets::LuauGlobal::gcopages_sizeclass + (std::uint64_t)sc * 8ull),
+			0, Offsets::LuauGlobal::page_next_free, fn);
+	}
+}
+
+bool BlockIsTable(const unsigned char* b, std::uint64_t empty_node)
+{
+	if (b[1] != 7)
+		return false;
+
+	// без hash — мусор с page walk, ammo всё равно с ключами
+	const std::uint8_t lsz = b[3];
+	if (lsz == 0 || lsz > 18)
+		return false;
+
+	std::int32_t sizearray = 0;
+	std::memcpy(&sizearray, b + 8, 4);
+	if (sizearray < 0 || sizearray > 1000000)
+		return false;
+
+	std::uint64_t node = 0;
+	std::memcpy(&node, b + 24, 8);
+	return node && (node & 0x7) == 0 && node != empty_node;
+}
+
+bool BlockIsStr(const unsigned char* b, int block, const char* s, std::size_t len)
+{
+	if (b[1] != 6)
+		return false;
+
+	std::uint32_t slen = 0;
+	std::memcpy(&slen, b + 20, 4);
+	if (slen != (std::uint32_t)len)
+		return false;
+
+	if ((std::size_t)block < 24 + len)
+		return false;
+
+	return std::memcmp(b + 24, s, len) == 0;
+}
+
+// один ReadRaw вместо пяти — заголовок Table целиком лежит в первых 40 байтах
+bool ReadTableHdr(std::uint64_t o, std::uint8_t& lsz, std::uint64_t& node)
+{
+	if (!o || (o & 0x7))
+		return false;
+
+	unsigned char b[40];
+	if (g_Memory.ReadRaw((uintptr_t)o, b, sizeof(b)) != sizeof(b))
+		return false;
+
+	if (!BlockIsTable(b, EmptyNode()))
+		return false;
+
+	lsz = b[3];
+	std::memcpy(&node, b + 24, 8);
+	return true;
+}
+
+bool LooksLikeTable(std::uint64_t o)
+{
+	std::uint8_t lsz = 0;
+	std::uint64_t node = 0;
+	return ReadTableHdr(o, lsz, node);
 }
 
 int CountPages(std::uint64_t G)
 {
-	const std::uint64_t end = G + Offsets::LuauGlobal::gcopages_end;
-	int n = CountPageChain(
-		g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::gcopages),
-		end, 200000, (int)Offsets::LuauGlobal::page_next_free);
-
-	// all pages — next @+8, тут и полные page после unlink с freelist
-	n += CountPageChain(
-		g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::gcopages_large),
-		0, 200000, (int)Offsets::LuauGlobal::page_next_all);
-
-	for (int sc = 0; sc < 48; ++sc)
+	int n = 0;
+	WalkAllPages(G, [&](std::uint64_t)
 	{
-		const std::uint64_t head = g_Memory.Read<std::uint64_t>(
-			G + Offsets::LuauGlobal::gcopages_sizeclass + (std::uint64_t)sc * 8ull);
-		n += CountPageChain(head, 0, 20000, (int)Offsets::LuauGlobal::page_next_free);
-	}
-
+		++n;
+		return true;
+	});
 	return n;
 }
 
@@ -466,20 +639,21 @@ const char* g_fkey = nullptr;
 const char* g_fval = nullptr;
 // findgc(nil, "jewsploit_ammo_test") / режим value-only
 bool g_fval_only = false;
-std::uint64_t g_cached_find = 0;
 // interned TString* из strt — быстрее чем memcmp каждого ключа
 std::uint64_t g_fkey_ts = 0;
 std::uint64_t g_fval_ts = 0;
 // TString.hash @+16 (наш layout: next@+8 len@+20 data@+24)
 unsigned int g_fkey_hash = 0;
 
-// LooksLikeTable -> TableFindStr на том же obj
-std::uint64_t g_hdr_tbl = 0;
-std::uint8_t g_hdr_lsz = 0;
-std::uint64_t g_hdr_node = 0;
+// proxy write: tbl+key -> node, ключ хранится целиком, иначе коллизия PcId = запись не туда
+struct PcEnt
+{
+	std::uint64_t node = 0;
+	std::uint64_t ts = 0;
+	std::string key;
+};
 
-// proxy write: tbl+keyhash -> node
-std::unordered_map<std::uint64_t, std::uint64_t> g_pc;
+std::unordered_map<std::uint64_t, PcEnt> g_pc;
 
 unsigned int LuauStrHash(const char* str, std::size_t len);
 
@@ -525,7 +699,7 @@ std::uint64_t StrtChainFind(
 	std::uint64_t ts = g_Memory.Read<std::uint64_t>(
 		hash_base + (std::uint64_t)bucket * 8ull);
 
-	for (int k = 0; k < 100000 && ts; ++k)
+	for (int k = 0; k < k_strt_chain_max && ts; ++k)
 	{
 		if (!g_Memory.IsValid(ts) || (ts & 7))
 			break;
@@ -573,6 +747,74 @@ std::uint64_t FindStrtFirst(std::uint64_t G, const char* needle)
 	return 0;
 }
 
+struct StrtEnt
+{
+	std::uint64_t ts = 0;
+	unsigned int hash = 0;
+	std::chrono::steady_clock::time_point at{};
+};
+
+std::mutex g_strt_mx;
+std::unordered_map<std::uint64_t, std::unordered_map<std::string, StrtEnt>> g_strt;
+
+// промах FindStrtFirst = линейный скан всей strt, а lock-поток дёргает это раз в 2с
+std::uint64_t FindStrtCached(std::uint64_t G, const char* needle, unsigned int* out_hash)
+{
+	if (!needle || !*needle || !G)
+		return 0;
+
+	const auto now = std::chrono::steady_clock::now();
+	StrtEnt cached{};
+	bool have = false;
+
+	{
+		std::lock_guard<std::mutex> g(g_strt_mx);
+		auto vit = g_strt.find(G);
+		if (vit != g_strt.end())
+		{
+			auto it = vit->second.find(needle);
+			if (it != vit->second.end() && now - it->second.at < k_strt_ttl)
+			{
+				cached = it->second;
+				have = true;
+			}
+		}
+	}
+
+	if (have)
+	{
+		if (!cached.ts || TsEq(cached.ts, needle, std::strlen(needle)))
+		{
+			if (out_hash)
+				*out_hash = cached.hash;
+			return cached.ts;
+		}
+	}
+
+	const std::uint64_t ts = FindStrtFirst(G, needle);
+	const unsigned int h = ts ? g_Memory.Read<unsigned int>(ts + 16) : 0;
+
+	{
+		std::lock_guard<std::mutex> g(g_strt_mx);
+		if (g_strt.size() > 8)
+			g_strt.clear();
+
+		auto& m = g_strt[G];
+		if (m.size() > 512)
+			m.clear();
+
+		StrtEnt e{};
+		e.ts = ts;
+		e.hash = h;
+		e.at = now;
+		m[needle] = e;
+	}
+
+	if (out_hash)
+		*out_hash = h;
+	return ts;
+}
+
 bool TableValStrEq(std::uint64_t val_node, const char* s, std::size_t len)
 {
 	const int tt = g_Memory.Read<std::int32_t>(val_node + 12) & 0xF;
@@ -586,72 +828,73 @@ bool TableValStrEq(std::uint64_t val_node, const char* s, std::size_t len)
 	return TsEq(ts, s, len);
 }
 
-bool LooksLikeTable(std::uint64_t o);
-
 // любая string-value == needle (для ammo без точного _tag)
 bool TableHasStrVal(std::uint64_t tbl, const char* needle, std::size_t nlen)
 {
-	if (!LooksLikeTable(tbl))
+	std::uint8_t lsz = 0;
+	std::uint64_t node = 0;
+	if (!ReadTableHdr(tbl, lsz, node))
 		return false;
 
-	const std::uint8_t lsz = g_Memory.Read<std::uint8_t>(tbl + 3);
-	const std::uint64_t node = g_Memory.Read<std::uint64_t>(tbl + 24);
 	const int n = 1 << lsz;
+	unsigned char buf[32 * 64];
+	int off = 0;
 
-	for (int i = 0; i < n; ++i)
+	while (off < n)
 	{
-		const std::uint64_t nd = node + (std::uint64_t)i * 32ull;
-		if (!TableValStrEq(nd, needle, nlen))
-			continue;
-		return true;
+		int chunk = n - off;
+		if (chunk > 64)
+			chunk = 64;
+
+		const std::size_t bytes = (std::size_t)chunk * 32ull;
+		if (g_Memory.ReadRaw((uintptr_t)(node + (std::uint64_t)off * 32ull), buf, bytes) != bytes)
+			return false;
+
+		for (int i = 0; i < chunk; ++i)
+		{
+			const unsigned char* nd = buf + (std::size_t)i * 32ull;
+			std::int32_t vtt = 0;
+			std::memcpy(&vtt, nd + 12, 4);
+			if ((vtt & 0xF) != 6)
+				continue;
+
+			std::uint64_t ts = 0;
+			std::memcpy(&ts, nd, 8);
+
+			if (g_fval_ts)
+			{
+				if (ts == g_fval_ts)
+					return true;
+				continue;
+			}
+
+			if (TsEq(ts, needle, nlen))
+				return true;
+		}
+
+		off += chunk;
 	}
 
 	return false;
 }
 
 // node val @0, key ptr @16, key tt:4|next:28 @28; TValue tt @12
-bool TableFindStr(std::uint64_t tbl, const char* key, std::uint64_t& val_node)
+bool TableFindStr(std::uint64_t tbl, const char* key, std::uint64_t key_ts, unsigned int key_hash, std::uint64_t& val_node)
 {
-	if (!g_Memory.IsValid(tbl))
-		return false;
-
 	std::uint8_t lsz = 0;
 	std::uint64_t node = 0;
-
-	if (g_hdr_tbl == tbl)
-	{
-		lsz = g_hdr_lsz;
-		node = g_hdr_node;
-	}
-
-	else
-	{
-		lsz = g_Memory.Read<std::uint8_t>(tbl + 3);
-		if (lsz == 0 || lsz > 18)
-			return false;
-
-		node = g_Memory.Read<std::uint64_t>(tbl + 24);
-		if (!g_Memory.IsValid(node))
-			return false;
-
-		const std::uint64_t empty = (std::uint64_t)g_Memory.GetModuleBase() + 0x6bc02c8ull;
-		if (node == empty)
-			return false;
-
-		g_hdr_tbl = tbl;
-		g_hdr_lsz = lsz;
-		g_hdr_node = node;
-	}
+	if (!ReadTableHdr(tbl, lsz, node))
+		return false;
 
 	const int n = 1 << lsz;
 	const std::size_t klen = key ? std::strlen(key) : 0;
 
 	// luau mainposition + next chain — не жрать весь node[]
-	if (g_fkey_ts && n > 0)
+	if (key_ts)
 	{
-		unsigned int h = g_fkey_hash;
+		unsigned int h = key_hash;
 		if (!h)
-			h = g_Memory.Read<unsigned int>(g_fkey_ts + 16);
+			h = g_Memory.Read<unsigned int>(key_ts + 16);
 
 		int i = (int)(h & (unsigned int)(n - 1));
 		unsigned char nb[32];
@@ -670,7 +913,7 @@ bool TableFindStr(std::uint64_t tbl, const char* key, std::uint64_t& val_node)
 			{
 				std::uint64_t ts = 0;
 				std::memcpy(&ts, nb + 16, 8);
-				if (ts == g_fkey_ts)
+				if (ts == key_ts)
 				{
 					val_node = nd;
 					return true;
@@ -711,9 +954,9 @@ bool TableFindStr(std::uint64_t tbl, const char* key, std::uint64_t& val_node)
 			std::uint64_t ts = 0;
 			std::memcpy(&ts, nd + 16, 8);
 
-			if (g_fkey_ts)
+			if (key_ts)
 			{
-				if (ts != g_fkey_ts)
+				if (ts != key_ts)
 					continue;
 			}
 
@@ -730,40 +973,6 @@ bool TableFindStr(std::uint64_t tbl, const char* key, std::uint64_t& val_node)
 	}
 
 	return false;
-}
-
-bool LooksLikeTable(std::uint64_t o)
-{
-	if (!g_Memory.IsValid(o) || (o & 0x7))
-		return false;
-
-	if (g_Memory.Read<std::uint8_t>(o + 1) != 7)
-		return false;
-
-	// без hash — мусор с page walk, ammo всё равно с ключами
-	const std::uint8_t lsz = g_Memory.Read<std::uint8_t>(o + 3);
-	if (lsz == 0 || lsz > 18)
-		return false;
-
-	const std::int32_t sz = g_Memory.Read<std::int32_t>(o + 8);
-	if (sz < 0 || sz > 1000000)
-		return false;
-
-	const std::uint64_t arr = g_Memory.Read<std::uint64_t>(o + 32);
-	const std::uint64_t node = g_Memory.Read<std::uint64_t>(o + 24);
-	if (arr && !g_Memory.IsValid(arr))
-		return false;
-	if (!g_Memory.IsValid(node))
-		return false;
-
-	const std::uint64_t empty = (std::uint64_t)g_Memory.GetModuleBase() + 0x6bc02c8ull;
-	if (node == empty)
-		return false;
-
-	g_hdr_tbl = o;
-	g_hdr_lsz = lsz;
-	g_hdr_node = node;
-	return true;
 }
 
 std::uint64_t ProxyAddr(lua_State* L, int idx)
@@ -786,6 +995,12 @@ void PushGameTValue(lua_State* L, std::uint64_t tv);
 
 void PushTableProxy(lua_State* L, std::uint64_t addr)
 {
+	if (!lua_checkstack(L, 5))
+	{
+		lua_pushnil(L);
+		return;
+	}
+
 	lua_newtable(L);
 
 	luaL_getmetatable(L, "jp.luau_table");
@@ -886,6 +1101,74 @@ void PushGameTValue(lua_State* L, std::uint64_t tv)
 	lua_pushnil(L);
 }
 
+struct GcValue
+{
+	int tt = 0; // 1 bool, 3 number
+	double num = 0.0;
+	bool b = false;
+};
+
+bool ReadGcValue(lua_State* L, int idx, GcValue& out)
+{
+	if (lua_type(L, idx) == LUA_TNUMBER)
+	{
+		out.tt = 3;
+		out.num = lua_tonumber(L, idx);
+		return true;
+	}
+
+	if (lua_type(L, idx) == LUA_TBOOLEAN)
+	{
+		out.tt = 1;
+		out.b = lua_toboolean(L, idx) != 0;
+		return true;
+	}
+
+	return false;
+}
+
+void WriteGcNode(std::uint64_t node, const GcValue& v)
+{
+	if (v.tt == 3)
+	{
+		g_Memory.Write<double>(node + 0, v.num);
+		g_Memory.Write<std::int32_t>(node + 12, 3);
+		return;
+	}
+
+	if (v.tt == 1)
+	{
+		g_Memory.Write<std::int32_t>(node + 0, v.b ? 1 : 0);
+		g_Memory.Write<std::int32_t>(node + 12, 1);
+	}
+}
+
+// узел мог уехать после rehash — ключ обязан совпадать перед записью, want_tt < 0 = любой
+bool NodeStillHasKey(std::uint64_t node, std::uint64_t ts, int want_tt)
+{
+	if (!node || (node & 0x7))
+		return false;
+
+	unsigned char nb[32];
+	if (g_Memory.ReadRaw((uintptr_t)node, nb, 32) != 32)
+		return false;
+
+	if ((std::uint8_t)(nb[28] & 0xF) != 6)
+		return false;
+
+	std::uint64_t cur = 0;
+	std::memcpy(&cur, nb + 16, 8);
+	if (cur != ts)
+		return false;
+
+	if (want_tt < 0)
+		return true;
+
+	std::int32_t vtt = 0;
+	std::memcpy(&vtt, nb + 12, 4);
+	return (vtt & 0xF) == want_tt;
+}
+
 int proxy_index(lua_State* L)
 {
 	const std::uint64_t tbl = ProxyAddr(L, 1);
@@ -903,7 +1186,7 @@ int proxy_index(lua_State* L)
 	}
 
 	std::uint64_t nd = 0;
-	if (!TableFindStr(tbl, key, nd))
+	if (!TableFindStr(tbl, key, 0, 0, nd))
 	{
 		lua_pushnil(L);
 		return 1;
@@ -923,40 +1206,36 @@ int proxy_newindex(lua_State* L)
 	if (!key)
 		return 0;
 
+	// пока number / bool, хватит для ammo
+	GcValue v{};
+	if (!ReadGcValue(L, 3, v))
+		return 0;
+
 	const std::size_t klen = std::strlen(key);
 	const std::uint64_t id = PcId(tbl, key, klen);
-	std::uint64_t nd = 0;
 
 	auto it = g_pc.find(id);
-	if (it != g_pc.end())
-		nd = it->second;
-
-	else
+	if (it != g_pc.end() && it->second.key == key &&
+		NodeStillHasKey(it->second.node, it->second.ts, -1))
 	{
-		if (!TableFindStr(tbl, key, nd))
-			return 0;
-
-		if (g_pc.size() > 4096)
-			g_pc.clear();
-		g_pc[id] = nd;
-	}
-
-	// пока number / bool, хватит для ammo
-	if (lua_type(L, 3) == LUA_TNUMBER)
-	{
-		const double n = lua_tonumber(L, 3);
-		g_Memory.Write<double>(nd + 0, n);
-		g_Memory.Write<std::int32_t>(nd + 12, 3);
+		WriteGcNode(it->second.node, v);
 		return 0;
 	}
 
-	if (lua_type(L, 3) == LUA_TBOOLEAN)
-	{
-		g_Memory.Write<std::int32_t>(nd + 0, lua_toboolean(L, 3) ? 1 : 0);
-		g_Memory.Write<std::int32_t>(nd + 12, 1);
+	std::uint64_t nd = 0;
+	if (!TableFindStr(tbl, key, 0, 0, nd))
 		return 0;
-	}
 
+	if (g_pc.size() > 4096)
+		g_pc.clear();
+
+	PcEnt e{};
+	e.node = nd;
+	e.ts = g_Memory.Read<std::uint64_t>(nd + 16);
+	e.key = key;
+	g_pc[id] = std::move(e);
+
+	WriteGcNode(nd, v);
 	return 0;
 }
 
@@ -970,7 +1249,7 @@ int l_rawget_proxy(lua_State* L)
 		const std::uint64_t tbl = ProxyAddr(L, 1);
 		const char* key = lua_tostring(L, 2);
 		std::uint64_t nd = 0;
-		if (key && TableFindStr(tbl, key, nd))
+		if (key && TableFindStr(tbl, key, 0, 0, nd))
 		{
 			PushGameTValue(L, nd);
 			return 1;
@@ -1000,143 +1279,246 @@ int getgc_iter(lua_State* L)
 	return 2;
 }
 
-bool TryAddTable(
-	lua_State* L,
-	std::uint64_t obj,
-	int& n,
-	int maxn,
-	std::unordered_set<std::uint64_t>& seen)
-{
-	if (n >= maxn)
-		return false;
-	if (!LooksLikeTable(obj))
-		return false;
+// ---- heap snapshot ----
 
-	if (g_fval_only && g_fval)
+struct Snapshot
+{
+	std::uint64_t G = 0;
+	std::uint64_t tb = 0;
+	std::vector<std::uint64_t> tables;
+	bool truncated = false;
+	std::chrono::steady_clock::time_point at{};
+};
+
+std::mutex g_snap_mx;
+std::mutex g_walk_mx;
+std::unordered_map<std::uint64_t, std::shared_ptr<const Snapshot>> g_snaps;
+
+std::shared_ptr<const Snapshot> BuildSnapshot(std::uint64_t G)
+{
+	auto s = std::make_shared<Snapshot>();
+	s->G = G;
+	s->tb = g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::totalbytes);
+
+	std::unordered_set<std::uint64_t> seen;
+	seen.reserve(1u << 16);
+
+	auto add = [&](std::uint64_t o)
 	{
-		if (!TableHasStrVal(obj, g_fval, std::strlen(g_fval)))
+		if (s->tables.size() >= k_snapshot_max)
+		{
+			s->truncated = true;
 			return false;
+		}
+
+		if (seen.insert(o).second)
+			s->tables.push_back(o);
+		return true;
+	};
+
+	const uintptr_t lists[3] = {
+		Offsets::LuauGlobal::gray,
+		Offsets::LuauGlobal::grayagain,
+		Offsets::LuauGlobal::weak,
+	};
+
+	for (uintptr_t off : lists)
+	{
+		if (s->truncated)
+			break;
+
+		WalkGcoChain(g_Memory.Read<std::uint64_t>(G + off), [&](std::uint64_t cur, int tt)
+		{
+			if (tt != 7)
+				return true;
+			return add(cur);
+		});
 	}
 
-	else if (g_fkey)
+	const std::uint64_t empty = EmptyNode();
+	PageBuf pb;
+
+	WalkAllPages(G, [&](std::uint64_t p)
+	{
+		if (s->truncated)
+			return false;
+		if (!ReadPage(p, 40, pb))
+			return true;
+
+		for (int i = 0; i < pb.count; ++i)
+		{
+			const unsigned char* b = pb.blocks.data() + (std::size_t)i * (std::size_t)pb.block;
+			if (!BlockIsTable(b, empty))
+				continue;
+
+			if (!add(pb.base + (std::uint64_t)i * (std::uint64_t)pb.block))
+				return false;
+		}
+
+		return true;
+	});
+
+	s->at = std::chrono::steady_clock::now();
+	return s;
+}
+
+bool SnapshotFresh(const Snapshot& s)
+{
+	if (std::chrono::steady_clock::now() - s.at > k_snapshot_ttl)
+		return false;
+
+	// куча заметно двинулась — старые адреса уже не описывают её состав
+	const std::uint64_t tb = g_Memory.Read<std::uint64_t>(s.G + Offsets::LuauGlobal::totalbytes);
+	if (!tb || !s.tb)
+		return false;
+
+	const std::uint64_t d = (tb > s.tb) ? (tb - s.tb) : (s.tb - tb);
+	return d <= (s.tb >> 3);
+}
+
+std::shared_ptr<const Snapshot> CachedSnapshot(std::uint64_t G)
+{
+	std::lock_guard<std::mutex> g(g_snap_mx);
+	auto it = g_snaps.find(G);
+	if (it == g_snaps.end())
+		return nullptr;
+	return it->second;
+}
+
+std::shared_ptr<const Snapshot> GetSnapshot(std::uint64_t G)
+{
+	auto cur = CachedSnapshot(G);
+	if (cur && SnapshotFresh(*cur))
+		return cur;
+
+	// один тяжёлый проход за раз: скрипт и lock-поток не должны дублировать RPM
+	std::lock_guard<std::mutex> w(g_walk_mx);
+
+	cur = CachedSnapshot(G);
+	if (cur && SnapshotFresh(*cur))
+		return cur;
+
+	auto s = BuildSnapshot(G);
+	{
+		std::lock_guard<std::mutex> g(g_snap_mx);
+		if (g_snaps.size() > 8)
+			g_snaps.clear();
+		g_snaps[G] = s;
+	}
+	return s;
+}
+
+void FlushCaches()
+{
+	{
+		std::lock_guard<std::mutex> g(g_snap_mx);
+		g_snaps.clear();
+	}
+
+	std::lock_guard<std::mutex> g(g_strt_mx);
+	g_strt.clear();
+}
+
+// ---- paged collection ----
+
+struct Collect
+{
+	std::int64_t offset = 0;
+	std::int64_t limit = k_result_default;
+	std::int64_t matched = 0;
+	int n = 0;
+	bool truncated = false;
+};
+
+void ReadRange(lua_State* L, int idx, Collect& c)
+{
+	if (lua_type(L, idx) == LUA_TTABLE)
+	{
+		lua_getfield(L, idx, "offset");
+		if (lua_isnumber(L, -1))
+			c.offset = (std::int64_t)lua_tonumber(L, -1);
+		lua_pop(L, 1);
+
+		lua_getfield(L, idx, "limit");
+		if (lua_isnumber(L, -1))
+			c.limit = (std::int64_t)lua_tonumber(L, -1);
+		lua_pop(L, 1);
+	}
+
+	else if (lua_type(L, idx) == LUA_TNUMBER)
+	{
+		c.limit = (std::int64_t)lua_tonumber(L, idx);
+		if (lua_type(L, idx + 1) == LUA_TNUMBER)
+			c.offset = (std::int64_t)lua_tonumber(L, idx + 1);
+	}
+
+	if (c.offset < 0)
+		c.offset = 0;
+	if (c.limit <= 0 || c.limit > k_result_max)
+		c.limit = k_result_max;
+}
+
+void PushRangeInfo(lua_State* L, const Collect& c)
+{
+	lua_pushinteger(L, c.n);
+	lua_setfield(L, -2, "count");
+	lua_pushinteger(L, (lua_Integer)c.offset);
+	lua_setfield(L, -2, "offset");
+	lua_pushinteger(L, (lua_Integer)c.limit);
+	lua_setfield(L, -2, "limit");
+	lua_pushboolean(L, c.truncated ? 1 : 0);
+	lua_setfield(L, -2, "truncated");
+	lua_pushinteger(L, (lua_Integer)(c.truncated ? c.offset + c.n : 0));
+	lua_setfield(L, -2, "next_offset");
+}
+
+bool MatchTable(std::uint64_t obj)
+{
+	if (g_fval_only && g_fval)
+		return TableHasStrVal(obj, g_fval, std::strlen(g_fval));
+
+	if (g_fkey)
 	{
 		std::uint64_t nd = 0;
-		if (!TableFindStr(obj, g_fkey, nd))
+		if (!TableFindStr(obj, g_fkey, g_fkey_ts, g_fkey_hash, nd))
 			return false;
 
 		if (g_fval)
-		{
-			if (!TableValStrEq(nd, g_fval, std::strlen(g_fval)))
-				return false;
-		}
+			return TableValStrEq(nd, g_fval, std::strlen(g_fval));
+
+		return true;
 	}
 
-	if (!seen.insert(obj).second)
-		return false;
-
-	if (g_fkey || g_fval_only)
-		g_cached_find = obj;
-
-	PushTableProxy(L, obj);
-	lua_rawseti(L, -2, ++n);
-	return true;
+	return LooksLikeTable(obj);
 }
 
-void CollectTablesFromGcoList(
-	lua_State* L,
-	std::uint64_t head,
-	int& n,
-	int maxn,
-	std::unordered_set<std::uint64_t>& seen)
+void CollectFromSnapshot(lua_State* L, const Snapshot& s, Collect& c, std::int64_t stop_at)
 {
-	std::uint64_t cur = head;
-	for (int i = 0; i < 80000 && n < maxn; ++i)
+	for (std::uint64_t obj : s.tables)
 	{
-		if (!g_Memory.IsValid(cur) || (cur & 0x7))
-			break;
-
-		const int tt = (int)g_Memory.Read<std::uint8_t>(cur + 1);
-		if (tt < 0 || tt > 15)
-			break;
-
-		if (tt == 7)
-			TryAddTable(L, cur, n, maxn, seen);
-
-		const std::uint64_t nxt = GcoNext(cur, tt);
-		if (nxt == cur)
-			break;
-		cur = nxt;
-	}
-}
-
-void CollectTablesFromPageChain(
-	lua_State* L,
-	std::uint64_t head,
-	std::uint64_t sentinel,
-	int& n,
-	int maxn,
-	std::unordered_set<std::uint64_t>& seen,
-	int lim,
-	int next_off)
-{
-	std::uint64_t p = head;
-	for (int pi = 0; pi < lim && n < maxn; ++pi)
-	{
-		if (!p || p == sentinel)
-			break;
-		if (!g_Memory.IsValid(p))
-			break;
-
-		const std::int32_t pageSize = g_Memory.Read<std::int32_t>(p + 32);
-		const std::int32_t blockSize = g_Memory.Read<std::int32_t>(p + 36);
-
-		if (blockSize >= 40 && blockSize <= 512 && pageSize >= 128 && pageSize <= 65536)
+		if (c.n >= stop_at)
 		{
-			const int cap = (pageSize - 64) / blockSize;
-			if (cap > 0 && cap < 20000)
-			{
-				for (int i = 0; i < cap && n < maxn; ++i)
-				{
-					const std::uint64_t obj = p + 64ull + (std::uint64_t)i * (std::uint64_t)blockSize;
-					TryAddTable(L, obj, n, maxn, seen);
-				}
-			}
+			c.truncated = true;
+			return;
 		}
 
-		const std::uint64_t nxt = g_Memory.Read<std::uint64_t>(p + (std::uint64_t)next_off);
-		if (nxt == p)
-			break;
-		p = nxt;
+		// адрес из кэша, объект мог освободиться — Match перечитывает заголовок
+		if (!MatchTable(obj))
+			continue;
+
+		++c.matched;
+		if (c.matched <= c.offset)
+			continue;
+
+		PushTableProxy(L, obj);
+		lua_rawseti(L, -2, ++c.n);
 	}
+
+	if (s.truncated)
+		c.truncated = true;
 }
 
-int CollectGameTables(
-	lua_State* L,
-	std::uint64_t G,
-	int maxn,
-	int& n,
-	std::unordered_set<std::uint64_t>& seen)
-{
-	if (g_cached_find && n < maxn)
-		TryAddTable(L, g_cached_find, n, maxn, seen);
-
-	// gray тёплый, потом один полный page list — freelist+sizeclass дубли и жрут RPM
-	CollectTablesFromGcoList(L, g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::gray), n, maxn, seen);
-	CollectTablesFromGcoList(L, g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::grayagain), n, maxn, seen);
-	CollectTablesFromGcoList(L, g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::weak), n, maxn, seen);
-
-	if (n >= maxn)
-		return n;
-
-	CollectTablesFromPageChain(
-		L,
-		g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::gcopages_large),
-		0, n, maxn, seen, 200000, (int)Offsets::LuauGlobal::page_next_all);
-
-	return n;
-}
-
-// getgc(true) -> for _,v in getgc(true) do  (iter, arr, 0)
+// getgc(true [, {offset=,limit=}]) -> for _,v in getgc(true) do  (iter, arr, 0)
 // getgc() / false -> getgc_info stats
 int l_getgc(lua_State* L)
 {
@@ -1155,14 +1537,26 @@ int l_getgc(lua_State* L)
 		return 2;
 	}
 
+	Collect c{};
+	ReadRange(L, 2, c);
+
 	g_fkey = nullptr;
 	g_fval = nullptr;
-	lua_createtable(L, 256, 0);
-	int n = 0;
-	std::unordered_set<std::uint64_t> seen;
-	seen.reserve(8192);
+	g_fval_only = false;
+	g_fkey_ts = 0;
+	g_fval_ts = 0;
+	g_fkey_hash = 0;
+
+	lua_createtable(L, (int)std::min<std::int64_t>(c.limit, 1024), 8);
+
 	for (const auto& vm : vms)
-		CollectGameTables(L, vm.G, 120000, n, seen);
+	{
+		CollectFromSnapshot(L, *GetSnapshot(vm.G), c, c.limit);
+		if (c.n >= c.limit)
+			break;
+	}
+
+	PushRangeInfo(L, c);
 
 	lua_pushcfunction(L, getgc_iter);
 	lua_insert(L, -2);
@@ -1181,7 +1575,6 @@ int l_findgc_keys(lua_State* L)
 		const char* s;
 		std::size_t len;
 		std::uint64_t ts;
-		unsigned int hash;
 		int n; // hits
 	};
 
@@ -1197,7 +1590,6 @@ int l_findgc_keys(lua_State* L)
 			e.s = lua_tostring(L, -1);
 			e.len = e.s ? std::strlen(e.s) : 0;
 			e.ts = 0;
-			e.hash = 0;
 			e.n = 0;
 			if (e.s && e.len)
 				keys.push_back(e);
@@ -1208,8 +1600,14 @@ int l_findgc_keys(lua_State* L)
 	if (keys.empty())
 	{
 		lua_createtable(L, 0, 0);
-		return 1;
+		lua_pushboolean(L, 0);
+		return 2;
 	}
+
+	Collect c{};
+	c.limit = k_keys_per_key_default;
+	ReadRange(L, 2, c);
+	const int per_key = (int)c.limit;
 
 	std::vector<GameVm> vms;
 	CollectGameVms(vms);
@@ -1234,36 +1632,30 @@ int l_findgc_keys(lua_State* L)
 		lua_setfield(L, out, keys[ki].s);
 	}
 
-	const int per_key = 400;
-	std::unordered_set<std::uint64_t> seen;
-	seen.reserve(8192);
-	const std::uint64_t empty_node =
-		(std::uint64_t)g_Memory.GetModuleBase() + 0x6bc02c8ull;
+	bool truncated = false;
 
 	// одна таблица = один скан node[], все ключи сразу
 	auto try_one = [&](std::uint64_t obj)
 	{
-		if (!LooksLikeTable(obj))
-			return;
-		if (!seen.insert(obj).second)
-			return;
-
 		int left = 0;
 		for (std::size_t ki = 0; ki < keys.size(); ++ki)
 		{
 			if (keys[ki].ts && keys[ki].n < per_key)
 				++left;
+
+			else if (keys[ki].ts)
+				truncated = true;
 		}
 
 		if (!left)
 			return;
 
-		const std::uint8_t lsz = g_Memory.Read<std::uint8_t>(obj + 3);
-		if (lsz == 0 || lsz > 18)
+		std::uint8_t lsz = 0;
+		std::uint64_t node = 0;
+		if (!ReadTableHdr(obj, lsz, node))
 			return;
 
-		const std::uint64_t node = g_Memory.Read<std::uint64_t>(obj + 24);
-		if (!g_Memory.IsValid(node) || node == empty_node)
+		if (!lua_checkstack(L, 8))
 			return;
 
 		const int nn = 1 << lsz;
@@ -1307,65 +1699,10 @@ int l_findgc_keys(lua_State* L)
 					PushTableProxy(L, obj);
 					lua_rawseti(L, -2, ++e.n);
 					lua_pop(L, 1);
-					g_cached_find = obj;
 				}
 			}
 
 			off += chunk;
-		}
-	};
-
-	auto walk_gco = [&](std::uint64_t head)
-	{
-		std::uint64_t cur = head;
-		for (int i = 0; i < 80000; ++i)
-		{
-			if (!g_Memory.IsValid(cur) || (cur & 0x7))
-				break;
-
-			const int tt = (int)g_Memory.Read<std::uint8_t>(cur + 1);
-			if (tt < 0 || tt > 15)
-				break;
-
-			if (tt == 7)
-				try_one(cur);
-
-			const std::uint64_t nxt = GcoNext(cur, tt);
-			if (nxt == cur)
-				break;
-			cur = nxt;
-		}
-	};
-
-	auto walk_pages = [&](std::uint64_t head)
-	{
-		std::uint64_t p = head;
-		for (int pi = 0; pi < 200000; ++pi)
-		{
-			if (!p || !g_Memory.IsValid(p))
-				break;
-
-			const std::int32_t pageSize = g_Memory.Read<std::int32_t>(p + 32);
-			const std::int32_t blockSize = g_Memory.Read<std::int32_t>(p + 36);
-			if (blockSize >= 40 && blockSize <= 512 && pageSize >= 128 && pageSize <= 65536)
-			{
-				const int cap = (pageSize - 64) / blockSize;
-				if (cap > 0 && cap < 20000)
-				{
-					for (int i = 0; i < cap; ++i)
-					{
-						const std::uint64_t obj =
-							p + 64ull + (std::uint64_t)i * (std::uint64_t)blockSize;
-						try_one(obj);
-					}
-				}
-			}
-
-			const std::uint64_t nxt =
-				g_Memory.Read<std::uint64_t>(p + Offsets::LuauGlobal::page_next_all);
-			if (nxt == p)
-				break;
-			p = nxt;
 		}
 	};
 
@@ -1374,33 +1711,24 @@ int l_findgc_keys(lua_State* L)
 		int alive = 0;
 		for (std::size_t ki = 0; ki < keys.size(); ++ki)
 		{
-			keys[ki].ts = FindStrtFirst(vm.G, keys[ki].s);
+			keys[ki].ts = FindStrtCached(vm.G, keys[ki].s, nullptr);
 			if (keys[ki].ts)
-			{
-				keys[ki].hash = g_Memory.Read<unsigned int>(keys[ki].ts + 16);
 				++alive;
-			}
 		}
 
 		if (!alive)
 			continue;
 
-		seen.clear();
-		if (g_cached_find)
-			try_one(g_cached_find);
+		auto snap = GetSnapshot(vm.G);
+		if (snap->truncated)
+			truncated = true;
 
-		walk_gco(g_Memory.Read<std::uint64_t>(vm.G + Offsets::LuauGlobal::gray));
-		walk_gco(g_Memory.Read<std::uint64_t>(vm.G + Offsets::LuauGlobal::grayagain));
-		walk_gco(g_Memory.Read<std::uint64_t>(vm.G + Offsets::LuauGlobal::weak));
-		walk_pages(g_Memory.Read<std::uint64_t>(vm.G + Offsets::LuauGlobal::gcopages_large));
+		for (std::uint64_t obj : snap->tables)
+			try_one(obj);
 	}
 
-	g_fkey = nullptr;
-	g_fkey_ts = 0;
-	g_fkey_hash = 0;
-	g_fval = nullptr;
-	g_fval_only = false;
-	return 1;
+	lua_pushboolean(L, truncated ? 1 : 0);
+	return 2;
 }
 
 int l_findgc(lua_State* L)
@@ -1426,6 +1754,9 @@ int l_findgc(lua_State* L)
 
 	if (!val_only && lua_gettop(L) >= 2 && lua_type(L, 2) == LUA_TSTRING)
 		val = lua_tostring(L, 2);
+
+	Collect c{};
+	ReadRange(L, (lua_type(L, 2) == LUA_TTABLE) ? 2 : 3, c);
 
 	std::vector<GameVm> vms;
 	CollectGameVms(vms);
@@ -1458,12 +1789,10 @@ int l_findgc(lua_State* L)
 	g_fval = val;
 	g_fval_only = val_only;
 	g_fkey_hash = 0;
-	lua_createtable(L, 8, 0);
-	int n = 0;
-	std::unordered_set<std::uint64_t> seen;
-	// кап общий + бюджет на VM — мелкий не сожрёт всё до большого
-	const int cap = (val || val_only) ? 8000 : 5000;
-	const int per_vm = (val || val_only) ? 4000 : 2500;
+	lua_createtable(L, (int)std::min<std::int64_t>(c.limit, 1024), 8);
+
+	// бюджет на VM — мелкий не сожрёт всю страницу до большого
+	const std::int64_t per_vm = (vms.size() > 1) ? (c.limit / 2 + 1) : c.limit;
 
 	for (const auto& vm : vms)
 	{
@@ -1473,25 +1802,24 @@ int l_findgc(lua_State* L)
 
 		if (key)
 		{
-			g_fkey_ts = FindStrtFirst(vm.G, key);
+			g_fkey_ts = FindStrtCached(vm.G, key, &g_fkey_hash);
 			if (!g_fkey_ts)
 				continue;
-
-			g_fkey_hash = g_Memory.Read<unsigned int>(g_fkey_ts + 16);
 		}
 
 		if (val)
 		{
-			g_fval_ts = FindStrtFirst(vm.G, val);
+			g_fval_ts = FindStrtCached(vm.G, val, nullptr);
 			if (!g_fval_ts)
 				continue;
 		}
 
-		int local_cap = n + per_vm;
-		if (local_cap > cap)
-			local_cap = cap;
-		CollectGameTables(L, vm.G, local_cap, n, seen);
-		if (n >= cap)
+		std::int64_t stop_at = c.n + per_vm;
+		if (stop_at > c.limit)
+			stop_at = c.limit;
+
+		CollectFromSnapshot(L, *GetSnapshot(vm.G), c, stop_at);
+		if (c.n >= c.limit)
 			break;
 	}
 
@@ -1501,6 +1829,8 @@ int l_findgc(lua_State* L)
 	g_fkey_ts = 0;
 	g_fval_ts = 0;
 	g_fkey_hash = 0;
+
+	PushRangeInfo(L, c);
 
 	lua_pushcfunction(L, getgc_iter);
 	lua_insert(L, -2);
@@ -1521,7 +1851,7 @@ int CountStrtNeedle(std::uint64_t G, const char* needle)
 	for (int i = 0; i < size; ++i)
 	{
 		std::uint64_t ts = g_Memory.Read<std::uint64_t>(hash + (std::uint64_t)i * 8ull);
-		for (int k = 0; k < 100000 && ts; ++k)
+		for (int k = 0; k < k_strt_chain_max && ts; ++k)
 		{
 			if (!g_Memory.IsValid(ts) || (ts & 7))
 				break;
@@ -1543,126 +1873,26 @@ int CountPageStrings(std::uint64_t G, const char* needle, int lim)
 {
 	const std::size_t nlen = std::strlen(needle);
 	int hits = 0;
-	int seen = 0;
+	PageBuf pb;
 
-	auto scan_chain = [&](std::uint64_t head, std::uint64_t sentinel, int chain_lim, int next_off)
+	WalkAllPages(G, [&](std::uint64_t p)
 	{
-		std::uint64_t p = head;
-		for (int pi = 0; pi < chain_lim && hits < lim; ++pi)
+		if (hits >= lim)
+			return false;
+		if (!ReadPage(p, 24, pb))
+			return true;
+
+		for (int i = 0; i < pb.count && hits < lim; ++i)
 		{
-			if (!p || p == sentinel)
-				break;
-			if (!g_Memory.IsValid(p))
-				break;
-
-			const std::int32_t pageSize = g_Memory.Read<std::int32_t>(p + 32);
-			const std::int32_t blockSize = g_Memory.Read<std::int32_t>(p + 36);
-			if (blockSize >= 24 && blockSize <= 512 && pageSize >= 128 && pageSize <= 65536)
-			{
-				const int cap = (pageSize - 64) / blockSize;
-				if (cap > 0 && cap < 20000)
-				{
-					for (int i = 0; i < cap && hits < lim; ++i)
-					{
-						const std::uint64_t obj = p + 64ull + (std::uint64_t)i * (std::uint64_t)blockSize;
-						if (g_Memory.Read<std::uint8_t>(obj + 1) != 6)
-							continue;
-						++seen;
-						if (TsEq(obj, needle, nlen))
-							++hits;
-					}
-				}
-			}
-
-			const std::uint64_t nxt = g_Memory.Read<std::uint64_t>(p + (std::uint64_t)next_off);
-			if (nxt == p)
-				break;
-			p = nxt;
+			const unsigned char* b = pb.blocks.data() + (std::size_t)i * (std::size_t)pb.block;
+			if (BlockIsStr(b, pb.block, needle, nlen))
+				++hits;
 		}
-	};
 
-	scan_chain(g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::gcopages),
-		G + Offsets::LuauGlobal::gcopages_end, 200000, (int)Offsets::LuauGlobal::page_next_free);
-	scan_chain(g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::gcopages_large),
-		0, 200000, (int)Offsets::LuauGlobal::page_next_all);
-	for (int sc = 0; sc < 48; ++sc)
-	{
-		scan_chain(g_Memory.Read<std::uint64_t>(
-			G + Offsets::LuauGlobal::gcopages_sizeclass + (std::uint64_t)sc * 8ull),
-			0, 20000, (int)Offsets::LuauGlobal::page_next_free);
-	}
+		return hits < lim;
+	});
 
-	(void)seen;
 	return hits;
-}
-
-void VisitAllTables(std::uint64_t G, const std::function<void(std::uint64_t)>& fn)
-{
-	auto walk_gco = [&](std::uint64_t head)
-	{
-		std::uint64_t cur = head;
-		for (int i = 0; i < 80000; ++i)
-		{
-			if (!g_Memory.IsValid(cur) || (cur & 0x7))
-				break;
-			const int tt = (int)g_Memory.Read<std::uint8_t>(cur + 1);
-			if (tt < 0 || tt > 15)
-				break;
-			if (tt == 7)
-				fn(cur);
-			const std::uint64_t nxt = GcoNext(cur, tt);
-			if (nxt == cur)
-				break;
-			cur = nxt;
-		}
-	};
-
-	walk_gco(g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::gray));
-	walk_gco(g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::grayagain));
-	walk_gco(g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::weak));
-
-	auto walk_pages = [&](std::uint64_t head, std::uint64_t sentinel, int lim, int next_off)
-	{
-		std::uint64_t p = head;
-		for (int pi = 0; pi < lim; ++pi)
-		{
-			if (!p || p == sentinel)
-				break;
-			if (!g_Memory.IsValid(p))
-				break;
-
-			const std::int32_t pageSize = g_Memory.Read<std::int32_t>(p + 32);
-			const std::int32_t blockSize = g_Memory.Read<std::int32_t>(p + 36);
-			if (blockSize >= 40 && blockSize <= 512 && pageSize >= 128 && pageSize <= 65536)
-			{
-				const int cap = (pageSize - 64) / blockSize;
-				if (cap > 0 && cap < 20000)
-				{
-					for (int i = 0; i < cap; ++i)
-					{
-						const std::uint64_t obj = p + 64ull + (std::uint64_t)i * (std::uint64_t)blockSize;
-						fn(obj);
-					}
-				}
-			}
-
-			const std::uint64_t nxt = g_Memory.Read<std::uint64_t>(p + (std::uint64_t)next_off);
-			if (nxt == p)
-				break;
-			p = nxt;
-		}
-	};
-
-	walk_pages(g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::gcopages),
-		G + Offsets::LuauGlobal::gcopages_end, 200000, (int)Offsets::LuauGlobal::page_next_free);
-	walk_pages(g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::gcopages_large),
-		0, 200000, (int)Offsets::LuauGlobal::page_next_all);
-	for (int sc = 0; sc < 48; ++sc)
-	{
-		walk_pages(g_Memory.Read<std::uint64_t>(
-			G + Offsets::LuauGlobal::gcopages_sizeclass + (std::uint64_t)sc * 8ull),
-			0, 20000, (int)Offsets::LuauGlobal::page_next_free);
-	}
 }
 
 // gcprobe() — все VM + где ammo строка
@@ -1689,66 +1919,86 @@ int l_gcprobe(lua_State* L)
 		const auto& vm = vms[vi];
 		const std::uint64_t G = vm.G;
 
-		int n_hash = 0;
-		int n_strkeys = 0;
-		int n_tag_key = 0;
-		int n_ammo_val = 0;
-		std::unordered_set<std::uint64_t> seen;
+		std::int64_t n_hash = 0;
+		std::int64_t n_strkeys = 0;
+		std::int64_t n_tag_key = 0;
+		std::int64_t n_ammo_val = 0;
 
 		lua_createtable(L, 0, 16);
 		lua_createtable(L, 20, 0);
 		const int samples = lua_gettop(L);
 
-		VisitAllTables(G, [&](std::uint64_t obj)
+		auto snap = GetSnapshot(G);
+		const std::uint64_t ammo_ts = FindStrtCached(G, "jewsploit_ammo_test", nullptr);
+
+		unsigned char buf[32 * 64];
+		for (std::uint64_t obj : snap->tables)
 		{
-			if (!LooksLikeTable(obj))
-				return;
-			if (!seen.insert(obj).second)
-				return;
+			std::uint8_t lsz = 0;
+			std::uint64_t node = 0;
+			if (!ReadTableHdr(obj, lsz, node))
+				continue;
 
 			++n_hash;
 
-			const std::uint8_t lsz = g_Memory.Read<std::uint8_t>(obj + 3);
-			const std::uint64_t node = g_Memory.Read<std::uint64_t>(obj + 24);
 			const int nn = 1 << lsz;
-
-			for (int i = 0; i < nn; ++i)
+			int off = 0;
+			while (off < nn)
 			{
-				const std::uint64_t nd = node + (std::uint64_t)i * 32ull;
-				const std::uint8_t ktt = (std::uint8_t)(g_Memory.Read<std::uint8_t>(nd + 28) & 0xF);
-				if (ktt != 6)
-					continue;
+				int chunk = nn - off;
+				if (chunk > 64)
+					chunk = 64;
 
-				const std::uint64_t ts = g_Memory.Read<std::uint64_t>(nd + 16);
-				char sbuf[96]{};
-				const std::uint32_t len = g_Memory.Read<std::uint32_t>(ts + 20);
-				if (!g_Memory.IsValid(ts) || len == 0 || len >= sizeof(sbuf))
-					continue;
-				if (g_Memory.Read<std::uint8_t>(ts + 1) != 6)
-					continue;
-				if (g_Memory.ReadRaw((uintptr_t)(ts + 24), sbuf, len) != len)
-					continue;
-				sbuf[len] = 0;
+				const std::size_t bytes = (std::size_t)chunk * 32ull;
+				if (g_Memory.ReadRaw((uintptr_t)(node + (std::uint64_t)off * 32ull), buf, bytes) != bytes)
+					break;
 
-				++n_strkeys;
-				if (len == 4 && std::memcmp(sbuf, "_tag", 4) == 0)
-					++n_tag_key;
-
-				const int vtt = g_Memory.Read<std::int32_t>(nd + 12);
-				if (vtt == 6)
+				for (int i = 0; i < chunk; ++i)
 				{
-					const std::uint64_t vs = g_Memory.Read<std::uint64_t>(nd);
-					if (TsEq(vs, "jewsploit_ammo_test", 19))
-						++n_ammo_val;
+					const unsigned char* nd = buf + (std::size_t)i * 32ull;
+					if ((std::uint8_t)(nd[28] & 0xF) != 6)
+						continue;
+
+					std::uint64_t ts = 0;
+					std::memcpy(&ts, nd + 16, 8);
+					if (!ts || (ts & 7))
+						continue;
+
+					char sbuf[96]{};
+					if (g_Memory.Read<std::uint8_t>(ts + 1) != 6)
+						continue;
+
+					const std::uint32_t len = g_Memory.Read<std::uint32_t>(ts + 20);
+					if (len == 0 || len >= sizeof(sbuf))
+						continue;
+
+					if (g_Memory.ReadRaw((uintptr_t)(ts + 24), sbuf, len) != len)
+						continue;
+
+					++n_strkeys;
+					if (len == 4 && std::memcmp(sbuf, "_tag", 4) == 0)
+						++n_tag_key;
+
+					std::int32_t vtt = 0;
+					std::memcpy(&vtt, nd + 12, 4);
+					if (vtt == 6 && ammo_ts)
+					{
+						std::uint64_t vs = 0;
+						std::memcpy(&vs, nd, 8);
+						if (vs == ammo_ts)
+							++n_ammo_val;
+					}
+
+					if (n_strkeys <= 15)
+					{
+						lua_pushlstring(L, sbuf, len);
+						lua_rawseti(L, samples, (int)n_strkeys);
+					}
 				}
 
-				if (n_strkeys <= 15)
-				{
-					lua_pushlstring(L, sbuf, len);
-					lua_rawseti(L, samples, n_strkeys);
-				}
+				off += chunk;
 			}
-		});
+		}
 
 		lua_setfield(L, -2, "sample_keys");
 
@@ -1763,13 +2013,13 @@ int l_gcprobe(lua_State* L)
 		lua_setfield(L, -2, "wrap");
 		lua_pushinteger(L, (lua_Integer)(vm.tb >> 10));
 		lua_setfield(L, -2, "kb");
-		lua_pushinteger(L, n_hash);
+		lua_pushinteger(L, (lua_Integer)n_hash);
 		lua_setfield(L, -2, "hash_tables");
-		lua_pushinteger(L, n_strkeys);
+		lua_pushinteger(L, (lua_Integer)n_strkeys);
 		lua_setfield(L, -2, "str_keys");
-		lua_pushinteger(L, n_tag_key);
+		lua_pushinteger(L, (lua_Integer)n_tag_key);
 		lua_setfield(L, -2, "tag_keys");
-		lua_pushinteger(L, n_ammo_val);
+		lua_pushinteger(L, (lua_Integer)n_ammo_val);
 		lua_setfield(L, -2, "ammo_as_val");
 		lua_pushinteger(L, st_tag);
 		lua_setfield(L, -2, "strt_tag");
@@ -1777,13 +2027,15 @@ int l_gcprobe(lua_State* L)
 		lua_setfield(L, -2, "strt_ammo");
 		lua_pushinteger(L, pg_ammo);
 		lua_setfield(L, -2, "page_ammo");
+		lua_pushboolean(L, snap->truncated ? 1 : 0);
+		lua_setfield(L, -2, "truncated");
 
-		char buf[32];
-		std::snprintf(buf, sizeof(buf), "0x%llX", (unsigned long long)G);
-		lua_pushstring(L, buf);
+		char buf2[32];
+		std::snprintf(buf2, sizeof(buf2), "0x%llX", (unsigned long long)G);
+		lua_pushstring(L, buf2);
 		lua_setfield(L, -2, "G");
-		std::snprintf(buf, sizeof(buf), "0x%llX", (unsigned long long)vm.L);
-		lua_pushstring(L, buf);
+		std::snprintf(buf2, sizeof(buf2), "0x%llX", (unsigned long long)vm.L);
+		lua_pushstring(L, buf2);
 		lua_setfield(L, -2, "L");
 
 		lua_rawseti(L, -2, vi + 1);
@@ -1800,47 +2052,479 @@ int l_gcprobe(lua_State* L)
 int l_getrawkeys(lua_State* L)
 {
 	const std::uint64_t tbl = ProxyAddr(L, 1);
-	if (!tbl || !LooksLikeTable(tbl))
+	std::uint8_t lsz = 0;
+	std::uint64_t node = 0;
+	if (!tbl || !ReadTableHdr(tbl, lsz, node))
 	{
 		lua_createtable(L, 0, 0);
 		return 1;
 	}
 
-	const std::uint8_t lsz = g_Memory.Read<std::uint8_t>(tbl + 3);
-	const std::uint64_t node = g_Memory.Read<std::uint64_t>(tbl + 24);
 	const int n = 1 << lsz;
+	lua_createtable(L, 0, n > 128 ? 128 : n);
 
-	lua_createtable(L, 0, n > 0 ? n : 1);
-
-	for (int i = 0; i < n; ++i)
+	unsigned char buf[32 * 64];
+	int off = 0;
+	while (off < n)
 	{
-		const std::uint64_t nd = node + (std::uint64_t)i * 32ull;
-		const std::uint8_t ktt = (std::uint8_t)(g_Memory.Read<std::uint8_t>(nd + 28) & 0xF);
-		if (ktt != 6)
-			continue;
+		int chunk = n - off;
+		if (chunk > 64)
+			chunk = 64;
 
-		const std::uint64_t ts = g_Memory.Read<std::uint64_t>(nd + 16);
-		if (!g_Memory.IsValid(ts) || g_Memory.Read<std::uint8_t>(ts + 1) != 6)
-			continue;
+		const std::size_t bytes = (std::size_t)chunk * 32ull;
+		if (g_Memory.ReadRaw((uintptr_t)(node + (std::uint64_t)off * 32ull), buf, bytes) != bytes)
+			break;
 
-		const std::uint32_t len = g_Memory.Read<std::uint32_t>(ts + 20);
-		if (len == 0 || len > 128)
-			continue;
+		if (!lua_checkstack(L, 8))
+			break;
 
-		char buf[129]{};
-		if (g_Memory.ReadRaw((uintptr_t)(ts + 24), buf, len) != len)
-			continue;
+		for (int i = 0; i < chunk; ++i)
+		{
+			const unsigned char* nd = buf + (std::size_t)i * 32ull;
+			if ((std::uint8_t)(nd[28] & 0xF) != 6)
+				continue;
 
-		const int vtt = g_Memory.Read<std::int32_t>(nd + 12) & 0xF;
-		if (vtt == 0)
-			continue;
+			std::int32_t vtt = 0;
+			std::memcpy(&vtt, nd + 12, 4);
+			if ((vtt & 0xF) == 0)
+				continue;
 
-		lua_pushlstring(L, buf, len);
-		PushGameTValue(L, nd);
-		lua_settable(L, -3);
+			std::uint64_t ts = 0;
+			std::memcpy(&ts, nd + 16, 8);
+			if (!ts || (ts & 7) || g_Memory.Read<std::uint8_t>(ts + 1) != 6)
+				continue;
+
+			const std::uint32_t len = g_Memory.Read<std::uint32_t>(ts + 20);
+			if (len == 0 || len > 128)
+				continue;
+
+			char kbuf[128];
+			if (g_Memory.ReadRaw((uintptr_t)(ts + 24), kbuf, len) != len)
+				continue;
+
+			lua_pushlstring(L, kbuf, len);
+			PushGameTValue(L, node + (std::uint64_t)(off + i) * 32ull);
+			lua_rawset(L, -3);
+		}
+
+		off += chunk;
 	}
 
 	return 1;
+}
+
+struct KeyHit
+{
+	std::uint64_t tbl = 0;
+	std::uint64_t node = 0;
+	std::uint64_t ts = 0;
+};
+
+// все узлы с ключом из keys, текущий тип значения == want_tt
+void ScanKeyNodes(
+	const std::vector<std::string>& keys,
+	int want_tt,
+	std::vector<KeyHit>& out,
+	int cap)
+{
+	out.clear();
+
+	std::vector<GameVm> vms;
+	CollectGameVms(vms);
+	if (vms.empty())
+		return;
+
+	std::sort(vms.begin(), vms.end(), [](const GameVm& a, const GameVm& b)
+	{
+		return a.tb < b.tb;
+	});
+
+	std::vector<std::uint64_t> ks(keys.size(), 0);
+
+	auto try_tbl = [&](std::uint64_t obj)
+	{
+		std::uint8_t lsz = 0;
+		std::uint64_t node = 0;
+		if (!ReadTableHdr(obj, lsz, node))
+			return;
+
+		const int nn = 1 << lsz;
+		unsigned char buf[32 * 64];
+		int off = 0;
+
+		while (off < nn && (int)out.size() < cap)
+		{
+			int chunk = nn - off;
+			if (chunk > 64)
+				chunk = 64;
+
+			const std::size_t bytes = (std::size_t)chunk * 32ull;
+			if (g_Memory.ReadRaw((uintptr_t)(node + (std::uint64_t)off * 32ull), buf, bytes) != bytes)
+				return;
+
+			for (int i = 0; i < chunk; ++i)
+			{
+				const unsigned char* nd = buf + (std::size_t)i * 32ull;
+				if ((std::uint8_t)(nd[28] & 0xF) != 6)
+					continue;
+
+				std::uint64_t ts = 0;
+				std::memcpy(&ts, nd + 16, 8);
+
+				bool match = false;
+				for (std::size_t ki = 0; ki < ks.size(); ++ki)
+				{
+					if (ks[ki] && ts == ks[ki])
+					{
+						match = true;
+						break;
+					}
+				}
+
+				if (!match)
+					continue;
+
+				std::int32_t vtt = 0;
+				std::memcpy(&vtt, nd + 12, 4);
+				if ((vtt & 0xF) != want_tt)
+					continue;
+
+				KeyHit h{};
+				h.tbl = obj;
+				h.node = node + (std::uint64_t)(off + i) * 32ull;
+				h.ts = ts;
+				out.push_back(h);
+			}
+
+			off += chunk;
+		}
+	};
+
+	for (const auto& vm : vms)
+	{
+		int alive = 0;
+		for (std::size_t ki = 0; ki < keys.size(); ++ki)
+		{
+			ks[ki] = FindStrtCached(vm.G, keys[ki].c_str(), nullptr);
+			if (ks[ki])
+				++alive;
+		}
+
+		if (!alive)
+			continue;
+
+		auto snap = GetSnapshot(vm.G);
+		for (std::uint64_t obj : snap->tables)
+		{
+			if ((int)out.size() >= cap)
+				break;
+			try_tbl(obj);
+		}
+
+		if ((int)out.size() >= cap)
+			break;
+	}
+}
+
+struct GcLock
+{
+	std::mutex mx;
+	std::vector<std::string> keys;
+	std::string tag;
+	GcValue val;
+	std::vector<KeyHit> hits;
+	std::chrono::steady_clock::time_point last_scan{};
+};
+
+std::mutex g_lock_mx;
+std::mutex g_thr_mx;
+std::mutex g_cv_mx;
+std::condition_variable g_lock_cv;
+std::vector<std::shared_ptr<GcLock>> g_locks;
+std::thread g_lock_thr;
+std::atomic<bool> g_lock_run{false};
+std::atomic<int> g_lock_ms{100};
+
+void LockWorker()
+{
+	while (g_lock_run.load())
+	{
+		std::vector<std::shared_ptr<GcLock>> snap;
+		{
+			std::lock_guard<std::mutex> g(g_lock_mx);
+			snap = g_locks;
+		}
+
+		for (const auto& lk : snap)
+		{
+			if (!g_lock_run.load())
+				break;
+
+			std::lock_guard<std::mutex> lg(lk->mx);
+
+			int alive = 0;
+			for (const auto& h : lk->hits)
+			{
+				if (!NodeStillHasKey(h.node, h.ts, lk->val.tt))
+					continue;
+
+				WriteGcNode(h.node, lk->val);
+				++alive;
+			}
+
+			// таблицы пересобрались (респавн, смена оружия) — ищем заново,
+			// но скан тяжёлый, поэтому не чаще раза в 2 секунды
+			const auto now = std::chrono::steady_clock::now();
+			if (alive == 0 && now - lk->last_scan >= std::chrono::seconds(2))
+			{
+				lk->last_scan = now;
+				ScanKeyNodes(lk->keys, lk->val.tt, lk->hits, k_hits_max);
+			}
+		}
+
+		int ms = g_lock_ms.load();
+		if (ms < 10)
+			ms = 10;
+
+		std::unique_lock<std::mutex> ul(g_cv_mx);
+		g_lock_cv.wait_for(ul, std::chrono::milliseconds(ms), []
+		{
+			return !g_lock_run.load();
+		});
+	}
+}
+
+void EnsureLockThread()
+{
+	std::lock_guard<std::mutex> g(g_thr_mx);
+	if (g_lock_run.load())
+		return;
+
+	if (g_lock_thr.joinable())
+		g_lock_thr.join();
+
+	g_lock_run.store(true);
+	g_lock_thr = std::thread(LockWorker);
+}
+
+bool CollectKeyArgs(lua_State* L, int idx, std::vector<std::string>& out, std::string& tag)
+{
+	out.clear();
+	tag.clear();
+
+	if (lua_type(L, idx) == LUA_TSTRING)
+	{
+		const char* s = lua_tostring(L, idx);
+		if (!s || !*s)
+			return false;
+
+		out.emplace_back(s);
+		tag = s;
+		return true;
+	}
+
+	if (!lua_istable(L, idx))
+		return false;
+
+	const int n = (int)lua_rawlen(L, idx);
+	for (int i = 1; i <= n && (int)out.size() < 64; ++i)
+	{
+		lua_rawgeti(L, idx, i);
+		if (lua_type(L, -1) == LUA_TSTRING)
+		{
+			const char* s = lua_tostring(L, -1);
+			if (s && *s)
+			{
+				if (!tag.empty())
+					tag += ",";
+				tag += s;
+				out.emplace_back(s);
+			}
+		}
+		lua_pop(L, 1);
+	}
+
+	return !out.empty();
+}
+
+// setgc("ShootCooldown", 0) / setgc({"A","B"}, false)
+int SetGcByKey(lua_State* L)
+{
+	std::vector<std::string> keys;
+	std::string tag;
+	if (!CollectKeyArgs(L, 1, keys, tag))
+		return luaL_error(L, "setgc(key|{keys}, value)");
+
+	GcValue v{};
+	if (!ReadGcValue(L, 2, v))
+		return luaL_error(L, "setgc: value must be number or boolean");
+
+	std::vector<KeyHit> hits;
+	ScanKeyNodes(keys, v.tt, hits, k_hits_max);
+
+	for (const auto& h : hits)
+		WriteGcNode(h.node, v);
+
+	lua_pushinteger(L, (lua_Integer)hits.size());
+	return 1;
+}
+
+// lockgc("ShootCooldown", 0, 100) — держит значение в фоне
+int l_lockgc(lua_State* L)
+{
+	std::vector<std::string> keys;
+	std::string tag;
+	if (!CollectKeyArgs(L, 1, keys, tag))
+		return luaL_error(L, "lockgc(key|{keys}, value [, interval_ms])");
+
+	GcValue v{};
+	if (!ReadGcValue(L, 2, v))
+		return luaL_error(L, "lockgc: value must be number or boolean");
+
+	if (lua_type(L, 3) == LUA_TNUMBER)
+	{
+		int ms = (int)lua_tointeger(L, 3);
+		if (ms < 10)
+			ms = 10;
+		if (ms > 5000)
+			ms = 5000;
+		g_lock_ms.store(ms);
+	}
+
+	auto lk = std::make_shared<GcLock>();
+	lk->keys = keys;
+	lk->tag = tag;
+	lk->val = v;
+	lk->last_scan = std::chrono::steady_clock::now();
+	ScanKeyNodes(lk->keys, v.tt, lk->hits, k_hits_max);
+
+	for (const auto& h : lk->hits)
+		WriteGcNode(h.node, v);
+
+	const std::size_t nhits = lk->hits.size();
+
+	{
+		std::lock_guard<std::mutex> g(g_lock_mx);
+		for (auto it = g_locks.begin(); it != g_locks.end(); ++it)
+		{
+			if ((*it)->tag == tag)
+			{
+				g_locks.erase(it);
+				break;
+			}
+		}
+		g_locks.push_back(lk);
+	}
+
+	EnsureLockThread();
+
+	lua_pushinteger(L, (lua_Integer)nhits);
+	return 1;
+}
+
+// unlockgc() — всё, unlockgc("ShootCooldown") — один
+int l_unlockgc(lua_State* L)
+{
+	const char* tag = (lua_type(L, 1) == LUA_TSTRING) ? lua_tostring(L, 1) : nullptr;
+	int removed = 0;
+
+	{
+		std::lock_guard<std::mutex> g(g_lock_mx);
+		if (!tag)
+		{
+			removed = (int)g_locks.size();
+			g_locks.clear();
+		}
+
+		else
+		{
+			for (auto it = g_locks.begin(); it != g_locks.end();)
+			{
+				if ((*it)->tag == tag)
+				{
+					it = g_locks.erase(it);
+					++removed;
+				}
+
+				else
+				{
+					++it;
+				}
+			}
+		}
+	}
+
+	lua_pushinteger(L, removed);
+	return 1;
+}
+
+int l_listgc_locks(lua_State* L)
+{
+	std::vector<std::shared_ptr<GcLock>> snap;
+	{
+		std::lock_guard<std::mutex> g(g_lock_mx);
+		snap = g_locks;
+	}
+
+	lua_createtable(L, (int)snap.size(), 0);
+
+	int n = 0;
+	for (const auto& lk : snap)
+	{
+		std::lock_guard<std::mutex> lg(lk->mx);
+		lua_createtable(L, 0, 3);
+		lua_pushstring(L, lk->tag.c_str());
+		lua_setfield(L, -2, "key");
+		if (lk->val.tt == 3)
+			lua_pushnumber(L, lk->val.num);
+		else
+			lua_pushboolean(L, lk->val.b ? 1 : 0);
+		lua_setfield(L, -2, "value");
+		lua_pushinteger(L, (lua_Integer)lk->hits.size());
+		lua_setfield(L, -2, "hits");
+		lua_rawseti(L, -2, ++n);
+	}
+
+	return 1;
+}
+
+// gc.flush() — сбросить кэш прохода по куче, следующий getgc/findgc пойдёт заново
+int l_gcflush(lua_State* L)
+{
+	FlushCaches();
+	g_pc.clear();
+	lua_pushboolean(L, 1);
+	return 1;
+}
+
+void RegisterNamespace(lua_State* L)
+{
+	struct Entry
+	{
+		const char* name;
+		lua_CFunction fn;
+	};
+
+	const Entry entries[] = {
+		{ "set", l_setgc },
+		{ "get", l_getgc },
+		{ "find", l_findgc },
+		{ "info", l_getgc_info },
+		{ "lock", l_lockgc },
+		{ "unlock", l_unlockgc },
+		{ "locks", l_listgc_locks },
+		{ "keys", l_getrawkeys },
+		{ "probe", l_gcprobe },
+		{ "flush", l_gcflush },
+	};
+
+	lua_createtable(L, 0, (int)(sizeof(entries) / sizeof(entries[0])));
+	for (const auto& e : entries)
+	{
+		lua_pushcfunction(L, e.fn);
+		lua_setfield(L, -2, e.name);
+	}
+	lua_setglobal(L, "gc");
 }
 
 void EnsureProxyMt(lua_State* L)
@@ -1852,7 +2536,12 @@ void EnsureProxyMt(lua_State* L)
 	lua_setfield(L, -2, "__newindex");
 	lua_pop(L, 1);
 
+	// слабые ключи: иначе реестр держит каждый когда-либо созданный прокси
 	lua_newtable(L);
+	lua_newtable(L);
+	lua_pushstring(L, "k");
+	lua_setfield(L, -2, "__mode");
+	lua_setmetatable(L, -2);
 	lua_setfield(L, LUA_REGISTRYINDEX, "jp_gtables");
 }
 
@@ -1874,10 +2563,16 @@ void Register(lua_State* L)
 	lua_setglobal(L, "gcprobe");
 	lua_pushcfunction(L, l_getrawkeys);
 	lua_setglobal(L, "getrawkeys");
+	lua_pushcfunction(L, l_lockgc);
+	lua_setglobal(L, "lockgc");
+	lua_pushcfunction(L, l_unlockgc);
+	lua_setglobal(L, "unlockgc");
+
+	RegisterNamespace(L);
 
 	// rawget на прокси должен лезть в игру, не в пустую cheat-таблицу
 	lua_getglobal(L, "rawget");
-	if (lua_isfunction(L, -1))
+	if (lua_isfunction(L, -1) && lua_tocfunction(L, -1) != l_rawget_proxy)
 	{
 		lua_pushcclosure(L, l_rawget_proxy, 1);
 		lua_setglobal(L, "rawget");
@@ -1887,6 +2582,26 @@ void Register(lua_State* L)
 	{
 		lua_pop(L, 1);
 	}
+}
+
+void Stop()
+{
+	{
+		std::lock_guard<std::mutex> g(g_lock_mx);
+		g_locks.clear();
+	}
+
+	std::lock_guard<std::mutex> t(g_thr_mx);
+	{
+		std::lock_guard<std::mutex> g(g_cv_mx);
+		g_lock_run.store(false);
+	}
+	g_lock_cv.notify_all();
+
+	if (g_lock_thr.joinable())
+		g_lock_thr.join();
+
+	FlushCaches();
 }
 
 } // namespace LuaGc

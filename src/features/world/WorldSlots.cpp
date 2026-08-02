@@ -7,6 +7,9 @@
 #include "core/roblox/classes/Classes.h"
 #include "core/globals/Globals.h"
 #include "app/Settings.h"
+#include "features/lua/vm/InstanceCreate.h"
+
+#include <string>
 
 #undef GetClassName
 
@@ -48,6 +51,33 @@ void invalidate_sky()
 	if (!rv)
 		return;
 	g_Memory.Write<std::uint8_t>(rv + Offsets::RenderView::SkyValid, 0);
+}
+
+// айди подтверждённо рабочие — те же, что в scripts/custom_skybox.lua
+struct SkyboxPreset
+{
+	const char* name;
+	std::uint64_t bk, dn, ft, lf, rt, up;
+};
+
+constexpr SkyboxPreset k_skybox_presets[] = {
+	{ "Night",        15536110634ull, 15536112543ull, 15536116141ull, 15536114370ull, 15536118762ull, 15536117282ull },
+	{ "Evening",      16136021536ull, 16136025360ull, 16136021536ull, 16136021536ull, 16136021536ull, 16136023362ull },
+	{ "Morning",      6444884337ull,  6444884785ull,  6444884337ull,  6444884337ull,  6444884337ull,  6412503613ull },
+	{ "Galaxy",       159454299ull,   159454296ull,   159454293ull,   159454286ull,   159454300ull,   159454288ull },
+	{ "Pink Sky",     12635309703ull, 12635311686ull, 12635312870ull, 12635313718ull, 12635315817ull, 12635316856ull },
+	{ "Vaporwave",    8631780182ull,  8631784904ull,  8631769834ull,  8631777199ull,  8631735555ull,  8631782345ull },
+	{ "Red Night",    401664839ull,   401664862ull,   401664960ull,   401664881ull,   401664901ull,   401664936ull },
+	{ "Sunset",       323494035ull,   323494368ull,   323494130ull,   323494252ull,   323494067ull,   323493360ull },
+	{ "Blue",         135483466ull,   135483484ull,   135483461ull,   135483495ull,   135483499ull,   135483475ull },
+	{ "Purple Haze",  8107841671ull,  6444884785ull,  8107841671ull,  8107841671ull,  8107841671ull,  8107849791ull },
+	{ "Pink Fade",    11427769401ull, 11427770685ull, 11427769401ull, 11427769401ull, 11427769401ull, 11427771954ull },
+};
+constexpr int k_skybox_preset_count = (int)(sizeof(k_skybox_presets) / sizeof(k_skybox_presets[0]));
+
+std::string skybox_url(std::uint64_t id)
+{
+	return "rbxassetid://" + std::to_string(id);
 }
 
 void write_mat_rgb(std::uint64_t base, std::uintptr_t off, const float c[4])
@@ -1047,6 +1077,107 @@ void TickTerrain(std::uint64_t lighting, bool force_off)
 		WorldOwn::Release(WorldOwn::Feat::Terrain, fields, 1);
 		was = false;
 	}
+}
+
+// пишет 6 граней Sky выбранным пресетом; тяжёлая операция (аллокация строки
+// в процессе игры на грань) — делаем только при реальном изменении настроек,
+// не каждый тик
+void TickSkyboxChanger(std::uint64_t lighting, bool force_off)
+{
+	static bool was = false;
+	static int applied_preset = -1;
+	static int applied_mode = -1;
+	static const WorldOwn::Field fields[] = { WorldOwn::Field::SkyboxChanger };
+	const auto& w = Cheat::g_Settings.world;
+	const bool on = w.skybox_changer && !force_off;
+
+	if (!g_Memory.IsValid(lighting))
+		return;
+
+	if (on)
+	{
+		if (!was)
+		{
+			WorldOwn::Claim(WorldOwn::Feat::SkyboxChanger, fields, 1);
+			was = true;
+			applied_preset = -1;
+			applied_mode = -1;
+		}
+
+		if (!WorldOwn::Owns(WorldOwn::Feat::SkyboxChanger, WorldOwn::Field::SkyboxChanger))
+			return;
+
+		// шейдерный скайбокс — заглушка, реализуется отдельно
+		if (w.skybox_mode != 1)
+			return;
+
+		int preset = w.skybox_preset;
+		if (preset < 0 || preset >= k_skybox_preset_count)
+			preset = 0;
+
+		if (preset == applied_preset && w.skybox_mode == applied_mode)
+			return;
+
+		std::uint64_t sky = g_Memory.Read<std::uint64_t>(lighting + Offsets::Lighting::Sky);
+		if (!g_Memory.IsValid(sky))
+			sky = child_class(lighting, "Sky");
+
+		if (!g_Memory.IsValid(sky))
+		{
+			std::uint64_t created = 0;
+			if (!Cheat::Features::InstanceCreate::New("Sky", 0, &created) || !g_Memory.IsValid(created))
+				return;
+			sky = created;
+		}
+
+		// движок забирает текстуры в момент, когда Sky попадает в Lighting,
+		// поэтому пишем грани, пока он снаружи, и парентим обратно в конце
+		Cheat::Features::InstanceCreate::SetParent(sky, 0);
+
+		const SkyboxPreset& p = k_skybox_presets[preset];
+		bool ok = true;
+		ok &= Cheat::Features::InstanceCreate::SetContent(sky + Offsets::Sky::SkyboxBk, skybox_url(p.bk).c_str());
+		ok &= Cheat::Features::InstanceCreate::SetContent(sky + Offsets::Sky::SkyboxDn, skybox_url(p.dn).c_str());
+		ok &= Cheat::Features::InstanceCreate::SetContent(sky + Offsets::Sky::SkyboxFt, skybox_url(p.ft).c_str());
+		ok &= Cheat::Features::InstanceCreate::SetContent(sky + Offsets::Sky::SkyboxLf, skybox_url(p.lf).c_str());
+		ok &= Cheat::Features::InstanceCreate::SetContent(sky + Offsets::Sky::SkyboxRt, skybox_url(p.rt).c_str());
+		ok &= Cheat::Features::InstanceCreate::SetContent(sky + Offsets::Sky::SkyboxUp, skybox_url(p.up).c_str());
+
+		Cheat::Features::InstanceCreate::SetParent(sky, lighting);
+
+		if (ok)
+		{
+			applied_preset = preset;
+			applied_mode = w.skybox_mode;
+			invalidate_sky();
+		}
+	}
+
+	else if (was)
+	{
+		WorldOwn::Release(WorldOwn::Feat::SkyboxChanger, fields, 1);
+		was = false;
+		applied_preset = -1;
+		applied_mode = -1;
+	}
+}
+
+int SkyboxPresetCount()
+{
+	return k_skybox_preset_count;
+}
+
+const char* const* SkyboxPresetNames()
+{
+	static const char* names[k_skybox_preset_count] = {};
+	static bool built = false;
+	if (!built)
+	{
+		for (int i = 0; i < k_skybox_preset_count; ++i)
+			names[i] = k_skybox_presets[i].name;
+		built = true;
+	}
+	return names;
 }
 
 } // namespace WorldSlots

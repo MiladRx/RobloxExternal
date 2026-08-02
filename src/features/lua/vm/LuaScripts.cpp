@@ -143,6 +143,30 @@ int l_getsenv(lua_State* L)
 	return 1;
 }
 
+void RegisterNamespace(lua_State* L)
+{
+	struct Entry
+	{
+		const char* name;
+		lua_CFunction fn;
+	};
+
+	const Entry entries[] = {
+		{ "get", l_getscripts },
+		{ "bytecode", l_getscriptbytecode },
+		{ "decompile", l_decompile },
+		{ "env", l_getsenv },
+	};
+
+	lua_createtable(L, 0, (int)(sizeof(entries) / sizeof(entries[0])));
+	for (const auto& e : entries)
+	{
+		lua_pushcfunction(L, e.fn);
+		lua_setfield(L, -2, e.name);
+	}
+	lua_setglobal(L, "scripts");
+}
+
 } // namespace
 
 void Register(lua_State* L)
@@ -155,6 +179,8 @@ void Register(lua_State* L)
 	lua_setglobal(L, "decompile");
 	lua_pushcfunction(L, l_getsenv);
 	lua_setglobal(L, "getsenv");
+
+	RegisterNamespace(L);
 }
 
 } // namespace LuaScripts

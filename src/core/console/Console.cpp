@@ -544,5 +544,31 @@ void DumpSilent(bool ok, std::uint64_t handler, std::uint64_t stub,
     }
 }
 
+void DumpGate(bool ok, const char* method, std::uint64_t slot,
+              std::uint64_t handler, std::uint64_t stub,
+              std::uint64_t state, bool cave, int fail)
+{
+    if (!ok)
+    {
+        Log(Color::Red, "Gate install   fail (%d)", fail);
+        return;
+    }
+
+    Log(Color::Green, "Gate install   ok");
+    Log(Color::White, "Method         %s", method ? method : "?");
+    Ptr(Color::Blue, "Slot", slot);
+    Ptr(Color::Magenta, "Handler", handler);
+    Ptr(Color::Yellow, "Stub", stub);
+    Ptr(Color::Cyan, "State", state);
+    Log(Color::Gray, "Stub place     %s", cave ? "cave" : "rwx");
+}
+
+// счётчик не растёт = слот холодный, надо брать другой метод
+void GateTimeout(const char* method, std::uint64_t calls)
+{
+    Log(Color::Red, "Gate timeout   %s, hits %llu",
+        method ? method : "?", (unsigned long long)calls);
+}
+
 }
 

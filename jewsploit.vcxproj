@@ -77,7 +77,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;ZSTD_DISABLE_ASM;ZSTD_LEGACY_SUPPORT=0;XXH_NAMESPACE=ZSTD_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\gui;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -102,7 +102,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;ZSTD_DISABLE_ASM;ZSTD_LEGACY_SUPPORT=0;XXH_NAMESPACE=ZSTD_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\gui;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -127,7 +127,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;ZSTD_DISABLE_ASM;ZSTD_LEGACY_SUPPORT=0;XXH_NAMESPACE=ZSTD_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\gui;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -152,7 +152,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;ZSTD_DISABLE_ASM;ZSTD_LEGACY_SUPPORT=0;XXH_NAMESPACE=ZSTD_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\gui;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -232,9 +232,22 @@
 
     <ClInclude Include="src\gui\TextEditor\TextEditor.h" />
     <ClInclude Include="src\renderer\Renderer.h" />
+    <ClInclude Include="src\gui\gui.h" />
     <ClInclude Include="src\gui\Menu.h" />
     <ClInclude Include="src\gui\colors\colors.h" />
-    <ClInclude Include="src\gui\animation\animation.h" />
+    <ClInclude Include="src\gui\tabs\aim.h" />
+    <ClInclude Include="src\gui\tabs\esp.h" />
+    <ClInclude Include="src\gui\tabs\misc.h" />
+    <ClInclude Include="src\gui\tabs\local.h" />
+    <ClInclude Include="src\gui\tabs\settings_tab.h" />
+    <ClInclude Include="src\gui\tabs\helpers.h" />
+    <ClInclude Include="src\gui\icons.h" />
+    <ClInclude Include="src\gui\lua_window.h" />
+    <ClInclude Include="src\gui\players_window.h" />
+    <ClInclude Include="src\gui\esp_preview_window.h" />
+    <ClInclude Include="src\gui\explorer_window.h" />
+    <ClInclude Include="src\gui\properties_window.h" />
+    <ClInclude Include="src\gui\editor\lua_editor.h" />
     <ClInclude Include="src\gui\resources\fonts\fonts.h" />
     <ClInclude Include="src\gui\resources\fonts\font_fredoka_one.h" />
     <ClInclude Include="src\gui\resources\fonts\font_tahoma.h" />
@@ -243,7 +256,16 @@
     <ClInclude Include="src\gui\resources\fonts\font_visitor.h" />
     <ClInclude Include="src\gui\resources\icons\iconsdex.h" />
     <ClInclude Include="src\gui\widgets\widgets.h" />
+    <ClInclude Include="src\gui\widgets\button.h" />
+    <ClInclude Include="src\gui\widgets\checkbox.h" />
+    <ClInclude Include="src\gui\widgets\colorpicker.h" />
+    <ClInclude Include="src\gui\widgets\combo.h" />
+    <ClInclude Include="src\gui\widgets\input.h" />
+    <ClInclude Include="src\gui\widgets\keybind.h" />
+    <ClInclude Include="src\gui\widgets\slider.h" />
     <ClInclude Include="src\gui\widgets\tabs.h" />
+    <ClInclude Include="src\gui\widgets\text.h" />
+    <ClInclude Include="src\jewsploit\colors\colors.h" />
     <ClInclude Include="third_party\lua\lua.h" />
     <ClInclude Include="third_party\lua\lauxlib.h" />
     <ClInclude Include="third_party\lua\lualib.h" />
@@ -333,8 +355,11 @@
     <ClCompile Include="src\features\mcp\McpBridge.cpp" />
     <ClInclude Include="src\features\lua\vm\LuaVM.h" />
     <ClInclude Include="src\features\lua\vm\InstanceCreate.h" />
+    <ClInclude Include="src\features\lua\vm\CallGate.h" />
+    <ClInclude Include="src\features\lua\vm\Reflect.h" />
     <ClInclude Include="src\features\lua\vm\LuaBridge.h" />
     <ClInclude Include="src\features\lua\vm\LuaGc.h" />
+    <ClInclude Include="src\features\lua\vm\LuaMem.h" />
     <ClCompile Include="src\features\lua\LuaExecutor.cpp" />
     <ClCompile Include="third_party\lua\lapi.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -531,11 +556,14 @@
 
     <ClCompile Include="src\features\lua\vm\LuaVM.cpp" />
     <ClCompile Include="src\features\lua\vm\InstanceCreate.cpp" />
+    <ClCompile Include="src\features\lua\vm\CallGate.cpp" />
+    <ClCompile Include="src\features\lua\vm\Reflect.cpp" />
     <ClCompile Include="src\features\lua\vm\LuaBridge.cpp" />
     <ClCompile Include="src\features\lua\vm\LuaTypes.cpp" />
     <ClCompile Include="src\features\lua\vm\LuaDrawing.cpp" />
     <ClCompile Include="src\features\lua\vm\LuaScripts.cpp" />
     <ClCompile Include="src\features\lua\vm\LuaGc.cpp" />
+    <ClCompile Include="src\features\lua\vm\LuaMem.cpp" />
     <ClCompile Include="src\features\lua\vm\ScriptBytecode.cpp" />
     <ClInclude Include="src\features\lua\vm\FissionEmbed.h" />
     <ClCompile Include="src\features\lua\vm\FissionEmbed.cpp">
@@ -614,153 +642,41 @@
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <SDLCheck>false</SDLCheck>
     </ClCompile>
-    <ClCompile Include="src\jewsploit\tabs\helpers.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    <ClCompile Include="src\gui\gui.cpp" />
+    <ClCompile Include="src\gui\Menu.cpp" />
+    <ClCompile Include="src\gui\tabs\aim.cpp">
+      <ObjectFileName>$(IntDir)gui_tabs_aim.obj</ObjectFileName>
     </ClCompile>
-    <ClCompile Include="src\jewsploit\tabs\aim.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    <ClCompile Include="src\gui\tabs\esp.cpp">
+      <ObjectFileName>$(IntDir)gui_tabs_esp.obj</ObjectFileName>
     </ClCompile>
-    <ClCompile Include="src\jewsploit\tabs\esp.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
+    <ClCompile Include="src\gui\tabs\misc.cpp">
+      <ObjectFileName>$(IntDir)gui_tabs_misc.obj</ObjectFileName>
     </ClCompile>
-    <ClCompile Include="src\jewsploit\tabs\misc.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\tabs\settings_tab.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\jewsploit_shell.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\animation\animation.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
+    <ClCompile Include="src\gui\tabs\local.cpp" />
+    <ClCompile Include="src\gui\tabs\settings_tab.cpp" />
+    <ClCompile Include="src\gui\tabs\helpers.cpp" />
+    <ClCompile Include="src\gui\colors\colors.cpp" />
+    <ClCompile Include="src\gui\icons.cpp" />
+    <ClCompile Include="src\gui\lua_window.cpp" />
+    <ClCompile Include="src\gui\players_window.cpp" />
+    <ClCompile Include="src\gui\esp_preview_window.cpp" />
+    <ClCompile Include="src\gui\explorer_window.cpp" />
+    <ClCompile Include="src\gui\properties_window.cpp" />
+    <ClCompile Include="src\gui\editor\lua_editor.cpp" />
+    <ClCompile Include="src\gui\widgets\button.cpp" />
+    <ClCompile Include="src\gui\widgets\checkbox.cpp" />
+    <ClCompile Include="src\gui\widgets\colorpicker.cpp" />
+    <ClCompile Include="src\gui\widgets\combo.cpp" />
+    <ClCompile Include="src\gui\widgets\input.cpp" />
+    <ClCompile Include="src\gui\widgets\keybind.cpp" />
+    <ClCompile Include="src\gui\widgets\slider.cpp" />
+    <ClCompile Include="src\gui\widgets\tabs.cpp" />
+    <ClCompile Include="src\gui\resources\fonts\fonts.cpp" />
     <ClCompile Include="src\jewsploit\colors\theme.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
     </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\checkbox.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\child.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\slider.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\dropdown.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\keybind.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\label_keybind.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\label_color.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\select.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\keys.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\input.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\input_btn.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\btn_row.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\btn.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\strlist.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\scroll_fade.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\search_popup.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\colorpicker.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\color_presets.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\color_style.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\island.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\float_panel.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\lua_ui.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\explorer_ui.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\players_ui.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\jewsploit\widgets\argb_field.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
-    </ClCompile>
-    <ClCompile Include="src\gui\Menu.cpp" />
-    <ClCompile Include="src\gui\colors\colors.cpp" />
-    <ClCompile Include="src\gui\animation\animation.cpp" />
-    <ClCompile Include="src\gui\resources\fonts\fonts.cpp" />
-    <ClCompile Include="src\gui\widgets\button.cpp" />
-    <ClCompile Include="src\gui\widgets\checkbox.cpp" />
-    <ClCompile Include="src\gui\widgets\slider.cpp" />
-    <ClCompile Include="src\gui\widgets\combo.cpp" />
-    <ClCompile Include="src\gui\widgets\watermark.cpp" />
-    <ClCompile Include="src\gui\widgets\child.cpp" />
-    <ClCompile Include="src\gui\widgets\text.cpp" />
-    <ClCompile Include="src\gui\widgets\tabs.cpp" />
-    <ClCompile Include="src\gui\widgets\color.cpp" />
-    <ClCompile Include="src\gui\widgets\keybind.cpp" />
-    <ClCompile Include="src\gui\widgets\layout.cpp" />
 
     <ClCompile Include="third_party\imgui\imgui.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>

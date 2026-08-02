@@ -99,8 +99,8 @@ inline void WriteMisc(std::ostringstream& out, const Settings& s)
     PutBool(out, "misc.teamcheck", s.misc.teamcheck);
     PutBool(out, "misc.raycast_engine", s.misc.raycast_engine);
     PutBool(out, "misc.explorer", s.misc.explorer);
+    PutBool(out, "misc.esp_preview", s.misc.esp_preview);
     PutBool(out, "misc.mcp", s.misc.mcp);
-    PutBool(out, "misc.pf_support", s.misc.pf_support);
     PutBool(out, "lua.executor", s.lua.executor);
 }
 
@@ -127,8 +127,8 @@ inline void ReadMisc(const KV& kv, Settings& s)
     GetBool(kv, "misc.teamcheck", s.misc.teamcheck);
     GetBool(kv, "misc.raycast_engine", s.misc.raycast_engine);
     GetBool(kv, "misc.explorer", s.misc.explorer);
+    GetBool(kv, "misc.esp_preview", s.misc.esp_preview);
     GetBool(kv, "misc.mcp", s.misc.mcp);
-    GetBool(kv, "misc.pf_support", s.misc.pf_support);
     GetBool(kv, "lua.executor", s.lua.executor);
 }
 

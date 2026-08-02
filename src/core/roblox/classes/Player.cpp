@@ -18,9 +18,7 @@ std::string Cheat::Player::GetDisplayName() const
 std::int64_t Cheat::Player::GetUserId() const
 {
 	if (!g_Memory.IsValid(address))
-	{
 		return 0;
-	}
 
 	return g_Memory.Read<std::int64_t>(address + Offsets::Player::UserId);
 }

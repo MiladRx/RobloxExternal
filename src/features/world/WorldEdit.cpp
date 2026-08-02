@@ -32,6 +32,7 @@ std::thread g_th_cc;
 std::thread g_th_cg;
 std::thread g_th_dof;
 std::thread g_th_terr;
+std::thread g_th_skybox;
 
 std::atomic<std::uint64_t> g_lighting{ 0 };
 std::atomic<std::uint64_t> g_light_tick{ 0 };
@@ -139,6 +140,9 @@ void Start()
 	g_th_terr = std::thread([] {
 		feat_loop(WorldSlots::TickTerrain, [] { return Cheat::g_Settings.world.terrain; });
 	});
+	g_th_skybox = std::thread([] {
+		feat_loop(WorldSlots::TickSkyboxChanger, [] { return Cheat::g_Settings.world.skybox_changer; });
+	});
 }
 
 void Stop()
@@ -163,6 +167,7 @@ void Stop()
 	join_one(g_th_cg);
 	join_one(g_th_dof);
 	join_one(g_th_terr);
+	join_one(g_th_skybox);
 }
 
 } // namespace WorldEdit

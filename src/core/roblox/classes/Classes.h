@@ -23,6 +23,7 @@ namespace Cheat {
 
         std::string GetName() const;
         std::string GetClassName() const;
+        bool HasChildren() const;
         std::vector<Instance> GetChildren() const;
         std::shared_ptr<Instance> FindFirstChild(std::string child) const;
         std::shared_ptr<Instance> GetParent() const;
@@ -110,6 +111,7 @@ namespace Cheat {
         void SetAnchored(bool value) const;
         void SetTransparency(float value) const;
         void SetColor(const Color3& value) const;
+        void Invalidate() const;
         Color3 GetColor() const;
         float GetTransparency() const;
         float GetReflectance() const;

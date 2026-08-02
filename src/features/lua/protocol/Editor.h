@@ -34,7 +34,6 @@ inline ImU32 MixU32(const ImVec4& a, const ImVec4& b, float t, float alpha = 1.0
 
 inline TextEditor::Palette MakePalette()
 {
-	/* editor colors под gui тему */
 	TextEditor::Palette p = TextEditor::GetDarkPalette();
 
 	col::theme_t& th = col::live();

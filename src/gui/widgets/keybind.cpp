@@ -1,327 +1,348 @@
 #include "pch.h"
-#define IMGUI_DEFINE_MATH_OPERATORS
-#include "widgets.h"
-#include "../colors/colors.h"
-#include "../resources/fonts/fonts.h"
-#include "imgui_internal.h"
+#include "keybind.h"
+#include "text.h"
+#include "imgui.h"
+#include <stdio.h>
+#include <string.h>
 #include <Windows.h>
-#include <cstdio>
 
-namespace {
-    //constexpr float k_key_box_w = 72.0f;
-    //constexpr float k_mode_box_w = 56.0f;
-    //constexpr float k_key_box_h = 20.0f;
-    //constexpr float k_box_gap = 5.0f;
-    //constexpr float k_label_gap = 8.0f;
-    //constexpr float k_right_margin = 14.0f;
-    //constexpr ImU32 k_outline = IM_COL32(0, 0, 0, 255);
-
-    const char* mode_name(int mode) {
-        if (mode == 1) return "toggle";
-        if (mode == 2) return "always";
-        return "hold";
-    }
-
-    void key_name(int vk, char* out, int out_size)
+namespace widgets
+{
+    const char* key_name(int key)
     {
-        if (vk == 0)
+        if (key <= 0)
+            return "-";
+
+        switch (key)
         {
-            ImFormatString(out, out_size, "none");
-            return;
+        case VK_LBUTTON: return "lmb";
+        case VK_RBUTTON: return "rmb";
+        case VK_MBUTTON: return "m3";
+        case VK_XBUTTON1: return "m4";
+        case VK_XBUTTON2: return "m5";
+
+        case VK_BACK: return "back";
+        case VK_TAB: return "tab";
+        case VK_RETURN: return "enter";
+        case VK_SHIFT: return "shift";
+        case VK_CONTROL: return "ctrl";
+        case VK_MENU: return "alt";
+        case VK_PAUSE: return "pause";
+        case VK_CAPITAL: return "caps";
+        case VK_ESCAPE: return "esc";
+        case VK_SPACE: return "space";
+        case VK_PRIOR: return "pgup";
+        case VK_NEXT: return "pgdn";
+        case VK_END: return "end";
+        case VK_HOME: return "home";
+        case VK_LEFT: return "left";
+        case VK_UP: return "up";
+        case VK_RIGHT: return "right";
+        case VK_DOWN: return "down";
+        case VK_SNAPSHOT: return "prtsc";
+        case VK_INSERT: return "ins";
+        case VK_DELETE: return "del";
+
+        case 0x30: return "0";
+        case 0x31: return "1";
+        case 0x32: return "2";
+        case 0x33: return "3";
+        case 0x34: return "4";
+        case 0x35: return "5";
+        case 0x36: return "6";
+        case 0x37: return "7";
+        case 0x38: return "8";
+        case 0x39: return "9";
+
+        case 0x41: return "a";
+        case 0x42: return "b";
+        case 0x43: return "c";
+        case 0x44: return "d";
+        case 0x45: return "e";
+        case 0x46: return "f";
+        case 0x47: return "g";
+        case 0x48: return "h";
+        case 0x49: return "i";
+        case 0x4A: return "j";
+        case 0x4B: return "k";
+        case 0x4C: return "l";
+        case 0x4D: return "m";
+        case 0x4E: return "n";
+        case 0x4F: return "o";
+        case 0x50: return "p";
+        case 0x51: return "q";
+        case 0x52: return "r";
+        case 0x53: return "s";
+        case 0x54: return "t";
+        case 0x55: return "u";
+        case 0x56: return "v";
+        case 0x57: return "w";
+        case 0x58: return "x";
+        case 0x59: return "y";
+        case 0x5A: return "z";
+
+        case VK_LWIN: return "lwin";
+        case VK_RWIN: return "rwin";
+        case VK_APPS: return "menu";
+
+        case VK_NUMPAD0: return "np0";
+        case VK_NUMPAD1: return "np1";
+        case VK_NUMPAD2: return "np2";
+        case VK_NUMPAD3: return "np3";
+        case VK_NUMPAD4: return "np4";
+        case VK_NUMPAD5: return "np5";
+        case VK_NUMPAD6: return "np6";
+        case VK_NUMPAD7: return "np7";
+        case VK_NUMPAD8: return "np8";
+        case VK_NUMPAD9: return "np9";
+        case VK_MULTIPLY: return "np*";
+        case VK_ADD: return "np+";
+        case VK_SUBTRACT: return "np-";
+        case VK_DECIMAL: return "np.";
+        case VK_DIVIDE: return "np/";
+
+        case VK_F1: return "f1";
+        case VK_F2: return "f2";
+        case VK_F3: return "f3";
+        case VK_F4: return "f4";
+        case VK_F5: return "f5";
+        case VK_F6: return "f6";
+        case VK_F7: return "f7";
+        case VK_F8: return "f8";
+        case VK_F9: return "f9";
+        case VK_F10: return "f10";
+        case VK_F11: return "f11";
+        case VK_F12: return "f12";
+
+        case VK_NUMLOCK: return "numlk";
+        case VK_SCROLL: return "scroll";
+
+        case VK_LSHIFT: return "lshift";
+        case VK_RSHIFT: return "rshift";
+        case VK_LCONTROL: return "lctrl";
+        case VK_RCONTROL: return "rctrl";
+        case VK_LMENU: return "lalt";
+        case VK_RMENU: return "ralt";
+
+        case VK_OEM_1: return ";";
+        case VK_OEM_PLUS: return "=";
+        case VK_OEM_COMMA: return ",";
+        case VK_OEM_MINUS: return "-";
+        case VK_OEM_PERIOD: return ".";
+        case VK_OEM_2: return "/";
+        case VK_OEM_3: return "`";
+        case VK_OEM_4: return "[";
+        case VK_OEM_5: return "\\";
+        case VK_OEM_6: return "]";
+        case VK_OEM_7: return "'";
+
+        default: break;
         }
 
-        if (vk == VK_LBUTTON) { ImFormatString(out, out_size, "mouse1"); return; }
-        if (vk == VK_RBUTTON) { ImFormatString(out, out_size, "mouse2"); return; }
-        if (vk == VK_MBUTTON) { ImFormatString(out, out_size, "mouse3"); return; }
-        if (vk == VK_XBUTTON1) { ImFormatString(out, out_size, "mouse4"); return; }
-        if (vk == VK_XBUTTON2) { ImFormatString(out, out_size, "mouse5"); return; }
+        static char unknown[16];
+        snprintf(unknown, sizeof(unknown), "k%d", key);
+        return unknown;
+    }
 
-        UINT scan = MapVirtualKeyA((UINT)vk, MAPVK_VK_TO_VSC);
-        LONG lparam = (LONG)scan << 16;
+    static bool s_ignore_key[256];
 
-        // стрелки/home/end и тп, иначе GetKeyNameText врёт
-        if (vk == VK_LEFT || vk == VK_UP || vk == VK_RIGHT || vk == VK_DOWN
-            || vk == VK_PRIOR || vk == VK_NEXT || vk == VK_END || vk == VK_HOME
-            || vk == VK_INSERT || vk == VK_DELETE || vk == VK_DIVIDE || vk == VK_NUMLOCK)
+    static void arm_ignore()
+    {
+        for (int k = 0; k < 256; ++k)
+            s_ignore_key[k] = (GetAsyncKeyState(k) & 0x8000) != 0;
+        s_ignore_key[VK_LBUTTON] = true;
+    }
+
+    static void clear_ignore()
+    {
+        for (int k = 0; k < 256; ++k)
+            s_ignore_key[k] = false;
+    }
+
+    static int poll_bind_key()
+    {
+        for (int k = 1; k < 256; ++k)
         {
-            lparam |= (1 << 24);
-        }
-
-        char buf[64] = {};
-        if (GetKeyNameTextA(lparam, buf, sizeof(buf)) > 0)
-            ImFormatString(out, out_size, "%s", buf);
-
-        else
-            ImFormatString(out, out_size, "key%d", vk);
-    }
-
-    static bool s_capture_snapshot[256] = {};
-
-    void take_key_snapshot() {
-        for (int vk = 1; vk < 256; ++vk)
-            s_capture_snapshot[vk] = (GetAsyncKeyState(vk) & 0x8000) != 0;
-    }
-
-    // что нажали после старта захвата (лкм игнорим, клик по боксу)
-    int find_new_key_since_snapshot() {
-        for (int vk = 1; vk < 256; ++vk) {
-            if (vk == VK_LBUTTON)
+            if (k == VK_SHIFT || k == VK_CONTROL || k == VK_MENU)
                 continue;
-            if (!s_capture_snapshot[vk] && (GetAsyncKeyState(vk) & 0x8000))
-                return vk;
+
+            bool down = (GetAsyncKeyState(k) & 0x8000) != 0;
+            if (s_ignore_key[k])
+            {
+                if (!down)
+                    s_ignore_key[k] = false;
+                continue;
+            }
+            if (down)
+                return k;
         }
         return 0;
     }
 
-    bool draw_key_box(const char* id_seed, int* key)
+    bool keybind(const char* id, int* key)
     {
-        ImGuiWindow* window = ImGui::GetCurrentWindow();
-        if (!window || window->SkipItems || !key)
-            return false;
+        ImGui::PushID(id);
 
-        ImGuiID imgui_id = window->GetID(id_seed);
+        static ImGuiID waiting = 0;
+        ImGuiID self = ImGui::GetID("##kb");
+
+        bool listening = (waiting == self);
+        const char* name = listening ? "..." : key_name(*key);
+
+        char buf[32];
+        snprintf(buf, sizeof(buf), "[%s]", name);
+        ImVec2 text_size = ImGui::CalcTextSize(buf);
+
         ImVec2 pos = ImGui::GetCursorScreenPos();
-        ImVec2 size(72.f, 20.f); // key box
-        ImRect bb(pos, pos + size);
-        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImGui::InvisibleButton("##kb", text_size);
+        bool hovered = ImGui::IsItemHovered();
+        bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+        bool rclicked = ImGui::IsItemClicked(ImGuiMouseButton_Right);
 
-        ImGui::ItemSize(size);
-        if (!ImGui::ItemAdd(bb, imgui_id))
-            return false;
-
-        bool hovered = false;
-        bool held = false;
-        bool pressed = ImGui::ButtonBehavior(bb, imgui_id, &hovered, &held);
-
-        bool* capturing = window->StateStorage.GetBoolRef(imgui_id, false);
-
-        if (pressed)
+        if (clicked)
         {
-            bool now = !*capturing;
-            *capturing = now;
-            if (now)
-                take_key_snapshot();
-        }
-
-        bool changed = false;
-        if (*capturing)
-        {
-            if (GetAsyncKeyState(VK_ESCAPE) & 0x8000)
+            if (listening)
             {
-                *key = 0;
-                *capturing = false;
-                changed = true;
+                waiting = 0;
+                clear_ignore();
             }
-
             else
             {
-                int captured = find_new_key_since_snapshot();
-                if (captured != 0)
+                waiting = self;
+                arm_ignore();
+            }
+        }
+        if (rclicked && !listening)
+            *key = 0;
+
+        bool changed = false;
+        if (listening)
+        {
+            if (ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+            {
+                *key = 0;
+                waiting = 0;
+                clear_ignore();
+                changed = true;
+            }
+            else
+            {
+                int pressed = poll_bind_key();
+                if (pressed && pressed != VK_ESCAPE)
                 {
-                    *key = captured;
-                    *capturing = false;
+                    *key = pressed;
+                    waiting = 0;
+                    clear_ignore();
                     changed = true;
                 }
             }
         }
 
-        dl->AddRectFilled(
-            ImVec2(bb.Min.x + 1.f, bb.Min.y + 1.f),
-            ImVec2(bb.Max.x - 1.f, bb.Max.y - 1.f),
-            colors::widget_track_u32());
-        dl->AddRect(
-            ImVec2(bb.Min.x + 1.f, bb.Min.y + 1.f),
-            ImVec2(bb.Max.x - 1.f, bb.Max.y - 1.f),
-            colors::widget_inline_u32(), 0.f, 0, 1.f);
-        dl->AddRect(bb.Min, bb.Max, IM_COL32(0, 0, 0, 255), 0.f, 0, 1.f);
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        ImU32 col = ImGui::GetColorU32(listening ? ImVec4(1.f, 1.f, 1.f, 1.f) : (hovered ? ImVec4(0.85f, 0.85f, 0.85f, 1.f) : ImVec4(0.55f, 0.55f, 0.55f, 1.f)));
+        text_outlined(draw, pos, col, buf);
 
-        ImFont* font = fonts::ui();
-        float fs = fonts::ui_size();
-
-        char text_buf[32];
-        if (*capturing)
-            ImFormatString(text_buf, IM_ARRAYSIZE(text_buf), "...");
-
-        else
-            key_name(*key, text_buf, IM_ARRAYSIZE(text_buf));
-
-        ImU32 text_col = colors::label_u32(hovered ? 1.f : 0.f);
-        if (*capturing)
-            text_col = colors::accent_u32();
-        ImVec2 text_sz = font->CalcTextSizeA(fs, FLT_MAX, 0.f, text_buf);
-        widgets::draw_outlined_text(
-            dl, font, fs,
-            ImVec2(ImFloor(bb.Min.x + (size.x - text_sz.x) * 0.5f),
-                   ImFloor(bb.Min.y + (size.y - text_sz.y) * 0.5f)),
-            text_col, text_buf);
-
+        ImGui::PopID();
         return changed;
     }
 
-    bool draw_mode_box(const char* id_seed, int* mode)
+    bool checkbox_keybind(const char* label, bool* value, int* key)
     {
-        if (!mode)
-            return false;
+        constexpr float label_gap = 6.f;
 
-        ImGuiWindow* window = ImGui::GetCurrentWindow();
-        if (!window || window->SkipItems)
-            return false;
+        ImGui::PushID(label);
 
-        ImGuiID imgui_id = window->GetID(id_seed);
         ImVec2 pos = ImGui::GetCursorScreenPos();
-        ImVec2 size(56.f, 20.f); // mode box
-        ImRect bb(pos, pos + size);
-        ImDrawList* dl = ImGui::GetWindowDrawList();
+        float avail_w = ImGui::CalcItemWidth();
+        if (avail_w < 1.f)
+            avail_w = ImGui::GetContentRegionAvail().x;
+        ImVec2 text_size = ImGui::CalcTextSize(label);
+        float box_size = text_size.y;
+        float row_h = box_size;
 
-        ImGui::ItemSize(size);
-        if (!ImGui::ItemAdd(bb, imgui_id))
-            return false;
+        ImGui::InvisibleButton("##cb", ImVec2(avail_w, row_h));
+        bool hovered = ImGui::IsItemHovered();
 
-        bool hovered = false;
-        bool held = false;
-        bool pressed = ImGui::ButtonBehavior(bb, imgui_id, &hovered, &held);
-        if (pressed)
-            *mode = (*mode + 1) % 3;
+        char kb_buf[32];
+        static ImGuiID waiting = 0;
+        ImGuiID kb_id = ImGui::GetID("##kb");
+        bool listening = (waiting == kb_id);
+        const char* name = listening ? "..." : key_name(*key);
+        snprintf(kb_buf, sizeof(kb_buf), "[%s]", name);
+        ImVec2 kb_size = ImGui::CalcTextSize(kb_buf);
 
-        dl->AddRectFilled(
-            ImVec2(bb.Min.x + 1.f, bb.Min.y + 1.f),
-            ImVec2(bb.Max.x - 1.f, bb.Max.y - 1.f),
-            colors::widget_track_u32());
-        dl->AddRect(
-            ImVec2(bb.Min.x + 1.f, bb.Min.y + 1.f),
-            ImVec2(bb.Max.x - 1.f, bb.Max.y - 1.f),
-            colors::widget_inline_u32(), 0.f, 0, 1.f);
-        dl->AddRect(bb.Min, bb.Max, IM_COL32(0, 0, 0, 255), 0.f, 0, 1.f);
+        ImVec2 kb_min(pos.x + avail_w - kb_size.x, pos.y);
+        ImVec2 kb_max(pos.x + avail_w, pos.y + row_h);
+        ImVec2 box_min = pos;
+        ImVec2 box_max(box_min.x + box_size, box_min.y + box_size);
 
-        ImFont* font = fonts::ui();
-        float fs = fonts::ui_size();
-        const char* name = mode_name(*mode);
-        ImVec2 text_sz = font->CalcTextSizeA(fs, FLT_MAX, 0.f, name);
-        widgets::draw_outlined_text(
-            dl, font, fs,
-            ImVec2(ImFloor(bb.Min.x + (size.x - text_sz.x) * 0.5f),
-                   ImFloor(bb.Min.y + (size.y - text_sz.y) * 0.5f)),
-            colors::label_u32(hovered ? 1.f : 0.f), name);
+        ImVec2 mouse = ImGui::GetIO().MousePos;
+        bool over_kb = mouse.x >= kb_min.x && mouse.x <= kb_max.x && mouse.y >= kb_min.y && mouse.y <= kb_max.y;
+        bool over_left = hovered && !over_kb;
 
-        return pressed;
-    }
-}
-
-namespace widgets {
-    bool keybind(const char* label, int* key, int* activation_mode)
-    {
-        if (!key)
-            return false;
-
-        menu_row();
-
-        ImGuiWindow* window = ImGui::GetCurrentWindow();
-        if (!window || window->SkipItems)
-            return false;
-
-        const char* text = label ? label : "";
-        ImFont* font = fonts::ui();
-        float fs = fonts::ui_size();
-        float key_w = 72.f;
-        float mode_w = 56.f;
-        float box_h = 20.f;
-        float box_gap = 5.f;
-        float right_m = 14.f;
-
-        if (text[0] != '\0')
+        bool changed = false;
+        if (over_left && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
         {
-            ImVec2 pos = ImGui::GetCursorScreenPos();
-            ImVec2 label_sz = font->CalcTextSizeA(fs, FLT_MAX, 0.f, text);
-            ImDrawList* dl = ImGui::GetWindowDrawList();
-            draw_outlined_text(
-                dl, font, fs,
-                ImVec2(ImFloor(pos.x), ImFloor(pos.y + (box_h - label_sz.y) * 0.5f)),
-                colors::text_active_u32(), text);
-            ImGui::Dummy(ImVec2(label_sz.x, box_h));
-            ImGui::SameLine();
+            *value = !*value;
+            changed = true;
         }
 
+        if (over_kb && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
         {
-            ImGuiWindow* win = ImGui::GetCurrentWindow();
-            float key_area_w = key_w;
-            if (activation_mode)
-                key_area_w += box_gap + mode_w;
-            float right_edge = win->WorkRect.Max.x - right_m;
-            float box_left = right_edge - key_area_w;
-            ImVec2 cur = ImGui::GetCursorScreenPos();
-            if (cur.x < box_left) cur.x = box_left;
-            ImGui::SetCursorScreenPos(cur);
-        }
-
-        char id_buf[128];
-        ImFormatString(id_buf, IM_ARRAYSIZE(id_buf), "%s##keybind", text);
-        bool changed = draw_key_box(id_buf, key);
-
-        if (activation_mode)
-        {
-            ImGui::SameLine(0.f, box_gap);
-            char mode_id[128];
-            ImFormatString(mode_id, IM_ARRAYSIZE(mode_id), "%s##mode", text);
-            changed |= draw_mode_box(mode_id, activation_mode);
-        }
-
-        ImGui::SetCursorPosX(k_menu_pad_x);
-        return changed;
-    }
-
-    bool checkbox_keybind(const char* label, bool* value, int* key, int* activation_mode)
-    {
-        bool label_changed = checkbox(label, value);
-        const float next_y = ImGui::GetCursorPosY();
-
-        float key_w = 72.f;
-        float mode_w = 56.f;
-        float box_gap = 5.f;
-        float right_m = 14.f;
-
-        {
-            ImGuiWindow* win = ImGui::GetCurrentWindow();
-            float key_area_w = key_w;
-            if (activation_mode)
-                key_area_w += box_gap + mode_w;
-            float right_edge = win->WorkRect.Max.x - right_m;
-            float box_left = right_edge - key_area_w;
-            ImGui::SameLine();
-            ImVec2 cur = ImGui::GetCursorScreenPos();
-            if (cur.x < box_left) cur.x = box_left;
-            ImGui::SetCursorScreenPos(cur);
-        }
-
-        char id_buf[128];
-        ImFormatString(id_buf, IM_ARRAYSIZE(id_buf), "%s##keybind", label ? label : "");
-        bool key_changed = draw_key_box(id_buf, key);
-
-        if (activation_mode)
-        {
-            ImGui::SameLine(0.f, box_gap);
-            char mode_id[128];
-            ImFormatString(mode_id, IM_ARRAYSIZE(mode_id), "%s##mode", label ? label : "");
-            key_changed |= draw_mode_box(mode_id, activation_mode);
-        }
-
-        ImGui::SetCursorPosY(next_y);
-        ImGui::SetCursorPosX(k_menu_pad_x);
-
-        if (value && key && *key != 0)
-        {
-            int mode = activation_mode ? *activation_mode : 0;
-            if (mode == 1)
+            if (listening)
             {
-                if (GetAsyncKeyState(*key) & 1)
-                    *value = !*value;
+                waiting = 0;
+                clear_ignore();
             }
-
             else
             {
-                *value = (GetAsyncKeyState(*key) & 0x8000) != 0;
+                waiting = kb_id;
+                arm_ignore();
+            }
+        }
+        if (over_kb && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !listening)
+            *key = 0;
+
+        if (listening)
+        {
+            if (ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+            {
+                *key = 0;
+                waiting = 0;
+                clear_ignore();
+                changed = true;
+            }
+            else
+            {
+                int pressed = poll_bind_key();
+                if (pressed && pressed != VK_ESCAPE)
+                {
+                    *key = pressed;
+                    waiting = 0;
+                    clear_ignore();
+                    changed = true;
+                }
             }
         }
 
-        return label_changed || key_changed;
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        if (*value)
+            draw->AddRectFilled(box_min, box_max, ImGui::GetColorU32(ImVec4(1.f, 1.f, 1.f, 1.f)));
+        else
+        {
+            draw->AddRectFilled(box_min, box_max, ImGui::GetColorU32(ImVec4(0.f, 0.f, 0.f, 0.35f)));
+            if (over_left)
+                draw->AddRectFilled(box_min, box_max, ImGui::GetColorU32(ImVec4(1.f, 1.f, 1.f, 0.06f)));
+        }
+        draw->AddRect(box_min, box_max, ImGui::GetColorU32(ImVec4(0.4f, 0.4f, 0.4f, 1.f)));
+
+        ImU32 text_col = ImGui::GetColorU32(*value ? ImVec4(1.f, 1.f, 1.f, 1.f) : ImVec4(0.55f, 0.55f, 0.55f, 1.f));
+        text_outlined(draw, ImVec2(box_max.x + label_gap, pos.y), text_col, label);
+
+        ImU32 kb_col = ImGui::GetColorU32(listening ? ImVec4(1.f, 1.f, 1.f, 1.f) : (over_kb ? ImVec4(0.85f, 0.85f, 0.85f, 1.f) : ImVec4(0.55f, 0.55f, 0.55f, 1.f)));
+        text_outlined(draw, kb_min, kb_col, kb_buf);
+
+        ImGui::PopID();
+        return changed;
     }
 }

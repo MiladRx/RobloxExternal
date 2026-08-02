@@ -282,9 +282,10 @@ int l_tostring(lua_State* L)
 
 int l_eq(lua_State* L)
 {
-	LuaInstance* a = CheckInst(L, 1);
-	LuaInstance* b = CheckInst(L, 2);
-	lua_pushboolean(L, a->address == b->address);
+	// 5.4 зовёт __eq для любых двух userdata, не только наших
+	auto* a = static_cast<LuaInstance*>(luaL_testudata(L, 1, k_mt));
+	auto* b = static_cast<LuaInstance*>(luaL_testudata(L, 2, k_mt));
+	lua_pushboolean(L, a && b && a->address == b->address);
 	return 1;
 }
 
@@ -352,6 +353,8 @@ int l_FindFirstChildOfClass(lua_State* L)
 	}
 	for (const auto& c : Instance(ud->address).GetChildren())
 	{
+		if (!ValidAddr(c.address))
+			continue;
 		if (Instance(c.address).GetClassName() == cls)
 		{
 			PushInstance(L, c.address);
@@ -387,6 +390,8 @@ int l_FindFirstChildWhichIsA(lua_State* L)
 
 	for (const auto& c : Instance(ud->address).GetChildren())
 	{
+		if (!ValidAddr(c.address))
+			continue;
 		if (ClassIsA(Instance(c.address).GetClassName(), cls))
 		{
 			PushInstance(L, c.address);
@@ -448,6 +453,9 @@ struct wfc_t
 	char name[128]{};
 };
 
+constexpr float k_wfc_poll = 0.05f;
+constexpr int k_wfc_slot = 4;
+
 int wfc_cont(lua_State* L, int status, lua_KContext ctx);
 
 int l_WaitForChild(lua_State* L)
@@ -457,6 +465,8 @@ int l_WaitForChild(lua_State* L)
 	float timeout = static_cast<float>(luaL_optnumber(L, 3, 5.0));
 	if (timeout < 0.f)
 		timeout = 0.f;
+	if (timeout > 3600.f)
+		timeout = 3600.f;
 
 	if (!ValidAddr(ud->address) || !name)
 	{
@@ -477,6 +487,15 @@ int l_WaitForChild(lua_State* L)
 		return 1;
 	}
 
+	if (!lua_isyieldable(L))
+	{
+		lua_pushnil(L);
+		return 1;
+	}
+
+	// состояние держим в кадре корутины, а не в реестре: брошенный
+	// (cancel / переисполнение скрипта) поток иначе течёт ref'ом навсегда
+	lua_settop(L, 3);
 	wfc_t* w = static_cast<wfc_t*>(lua_newuserdatauv(L, sizeof(wfc_t), 0));
 	w->parent = ud->address;
 	w->left = timeout;
@@ -487,18 +506,14 @@ int l_WaitForChild(lua_State* L)
 		std::memcpy(w->name, name, n);
 		w->name[n] = 0;
 	}
-	const int uref = luaL_ref(L, LUA_REGISTRYINDEX);
 
-	LuaVM::ScheduleWait(L, 0.05f);
-	return lua_yieldk(L, 0, static_cast<lua_KContext>(uref), wfc_cont);
+	LuaVM::ScheduleWait(L, k_wfc_poll);
+	return lua_yieldk(L, 0, 0, wfc_cont);
 }
 
-int wfc_cont(lua_State* L, int /*status*/, lua_KContext ctx)
+int wfc_cont(lua_State* L, int /*status*/, lua_KContext /*ctx*/)
 {
-	const int uref = static_cast<int>(ctx);
-	lua_rawgeti(L, LUA_REGISTRYINDEX, uref);
-	wfc_t* w = static_cast<wfc_t*>(lua_touserdata(L, -1));
-	lua_pop(L, 1);
+	wfc_t* w = static_cast<wfc_t*>(lua_touserdata(L, k_wfc_slot));
 	if (!w)
 	{
 		lua_pushnil(L);
@@ -508,21 +523,19 @@ int wfc_cont(lua_State* L, int /*status*/, lua_KContext ctx)
 	const std::uint64_t hit = FindChildNameOrClass(w->parent, w->name);
 	if (hit)
 	{
-		luaL_unref(L, LUA_REGISTRYINDEX, uref);
 		PushInstance(L, hit);
 		return 1;
 	}
 
-	w->left -= 0.05f;
+	w->left -= k_wfc_poll;
 	if (w->left <= 0.f)
 	{
-		luaL_unref(L, LUA_REGISTRYINDEX, uref);
 		lua_pushnil(L);
 		return 1;
 	}
 
-	LuaVM::ScheduleWait(L, 0.05f);
-	return lua_yieldk(L, 0, ctx, wfc_cont);
+	LuaVM::ScheduleWait(L, k_wfc_poll);
+	return lua_yieldk(L, 0, 0, wfc_cont);
 }
 
 int l_GetFullName(lua_State* L)
@@ -594,6 +607,8 @@ int l_GetService(lua_State* L)
 
 	for (const auto& c : Instance(ud->address).GetChildren())
 	{
+		if (!ValidAddr(c.address))
+			continue;
 		Instance child(c.address);
 		if (child.GetClassName() == name || child.GetName() == name)
 		{
@@ -615,6 +630,8 @@ int l_GetPlayers(lua_State* L)
 	int i = 1;
 	for (const auto& c : Instance(ud->address).GetChildren())
 	{
+		if (!ValidAddr(c.address))
+			continue;
 		if (Instance(c.address).GetClassName() != "Player")
 			continue;
 		PushInstance(L, c.address);
@@ -627,8 +644,6 @@ int l_index(lua_State* L)
 {
 	LuaInstance* ud = CheckInst(L);
 	const char* key = luaL_checkstring(L, 2);
-	if (!key)
-		return 0;
 
 	luaL_getmetatable(L, k_mt);
 	lua_pushvalue(L, 2);
@@ -647,16 +662,11 @@ int l_index(lua_State* L)
 	}
 
 	Instance inst(ud->address);
-	const std::string cls = inst.GetClassName();
 
+	// GetClassName — чтение чужого процесса, не дёргаем его ради Name/Parent
 	if (std::strcmp(key, "Name") == 0)
 	{
 		lua_pushstring(L, inst.GetName().c_str());
-		return 1;
-	}
-	if (std::strcmp(key, "ClassName") == 0)
-	{
-		lua_pushstring(L, cls.c_str());
 		return 1;
 	}
 	if (std::strcmp(key, "Address") == 0)
@@ -686,6 +696,13 @@ int l_index(lua_State* L)
 	if (std::strcmp(key, "DescendantAdded") == 0)
 	{
 		LuaVM::PushSignal(L, 8, ud->address);
+		return 1;
+	}
+
+	const std::string cls = inst.GetClassName();
+	if (std::strcmp(key, "ClassName") == 0)
+	{
+		lua_pushstring(L, cls.c_str());
 		return 1;
 	}
 
@@ -1015,32 +1032,39 @@ int l_index(lua_State* L)
 }
 
 constexpr size_t k_desc_cap = 50000;
+constexpr int k_desc_depth = 64;
 
-void CollectDescendants(std::uint64_t addr, lua_State* L, int table_idx, int& n, size_t& nodes)
+// битый Parent/Children в чужой памяти даёт цикл: без лимита глубины
+// рекурсия сожрёт стек раньше, чем сработает cap по узлам
+void CollectDescendants(std::uint64_t addr, lua_State* L, int table_idx, int& n, size_t& nodes, int depth)
 {
-	if (!ValidAddr(addr) || nodes >= k_desc_cap)
+	if (!ValidAddr(addr) || nodes >= k_desc_cap || depth >= k_desc_depth)
 		return;
 	Instance inst(addr);
 	for (const auto& c : inst.GetChildren())
 	{
 		if (nodes >= k_desc_cap)
 			break;
+		if (!ValidAddr(c.address))
+			continue;
 		++nodes;
 		++n;
 		PushInstance(L, c.address);
 		lua_rawseti(L, table_idx, n);
-		CollectDescendants(c.address, L, table_idx, n, nodes);
+		CollectDescendants(c.address, L, table_idx, n, nodes, depth + 1);
 	}
 }
 
 int l_GetDescendants(lua_State* L)
 {
 	LuaInstance* ud = CheckInst(L);
+	if (!lua_checkstack(L, 4))
+		return luaL_error(L, "GetDescendants: stack");
 	lua_newtable(L);
 	int n = 0;
 	size_t nodes = 0;
 	if (ValidAddr(ud->address))
-		CollectDescendants(ud->address, L, lua_gettop(L), n, nodes);
+		CollectDescendants(ud->address, L, lua_gettop(L), n, nodes, 0);
 	return 1;
 }
 
@@ -1068,10 +1092,23 @@ int l_Instance_new(lua_State* L)
 	std::uint64_t addr = 0;
 	if (!InstanceCreate::New(name, parent, &addr) || !addr)
 	{
-		char buf[96]{};
+		char buf[128]{};
 		const int fe = InstanceCreate::LastFail();
-		if (fe == -99)
-			std::snprintf(buf, sizeof(buf), "unable create %s (disabled, was crashing)", name);
+		const char* why = "";
+		switch (fe)
+		{
+		case 3:  why = "unknown class"; break;
+		case 6:  why = "no call gate"; break;
+		case 8:  why = "gate timeout"; break;
+		case 9:  why = "not creatable"; break;
+		case 10: why = "create timeout"; break;
+		case 11: why = "create returned junk"; break;
+		case 12: why = "parent failed"; break;
+		default: break;
+		}
+
+		if (why[0])
+			std::snprintf(buf, sizeof(buf), "unable create %s: %s", name, why);
 		else
 			std::snprintf(buf, sizeof(buf), "unable create %s (%d)", name, fe);
 		lua_getglobal(L, "print");
@@ -1106,7 +1143,7 @@ int l_newindex(lua_State* L)
 	{
 		if (lua_isnil(L, 3))
 		{
-			inst.SetParent(0);
+			InstanceCreate::SetParent(ud->address, 0);
 			return 0;
 		}
 
@@ -1115,7 +1152,7 @@ int l_newindex(lua_State* L)
 		if (!p || !ValidAddr(p->address))
 			return 0;
 
-		inst.SetParent(p->address);
+		InstanceCreate::SetParent(ud->address, p->address);
 		return 0;
 	}
 
@@ -1533,45 +1570,9 @@ int l_GetAttributes(lua_State* L)
 	return 1;
 }
 
-// BindableEvent:Fire(...) / ProximityPrompt:Fire([playerName]) — только наша VM
 int l_Fire(lua_State* L)
 {
-	LuaInstance* ud = CheckInst(L);
-	if (!ValidAddr(ud->address))
-		return luaL_error(L, "Fire: bad instance");
-
-	const std::string cls = Instance(ud->address).GetClassName();
-
-	if (cls == "BindableEvent")
-	{
-		LuaVM::FireSignal(L, 10, ud->address, nullptr);
-		return 0;
-	}
-
-	if (cls == "ProximityPrompt")
-	{
-		if (lua_gettop(L) < 2)
-		{
-			const char* nm = "?";
-			std::string name;
-			if (Globals::Players && ValidAddr(Globals::Players->address))
-			{
-				const std::uint64_t lp = g_Memory.Read<std::uint64_t>(
-					Globals::Players->address + Offsets::Player::LocalPlayer);
-				if (ValidAddr(lp))
-				{
-					name = Instance(lp).GetName();
-					nm = name.c_str();
-				}
-			}
-			lua_pushstring(L, nm);
-		}
-
-		LuaVM::FireSignal(L, 12, ud->address, nullptr);
-		return 0;
-	}
-
-	return luaL_error(L, "Fire: use BindableEvent or ProximityPrompt");
+	return luaL_error(L, "Fire: temporarily disabled");
 }
 
 void CreateMetatable(lua_State* L)
@@ -1641,6 +1642,9 @@ std::uint64_t CheckAddress(lua_State* L, int idx)
 
 void RefreshGlobals(lua_State* L)
 {
+	// зовётся на каждый execute; адреса мёртвых инстансов иначе копятся сессию
+	g_fake_attr.clear();
+
 	if (ValidAddr(Globals::InstanceDataModel.address))
 		PushInstance(L, Globals::InstanceDataModel.address);
 	else

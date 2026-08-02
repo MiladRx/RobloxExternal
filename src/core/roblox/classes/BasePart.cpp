@@ -111,6 +111,7 @@ void Cheat::BasePart::SetPosition(const Vector3& pos) const
 	}
 
 	g_Memory.Write<Vector3>(prim + Offsets::Primitive::Position, pos);
+	Invalidate();
 }
 
 void Cheat::BasePart::SetSize(const Vector3& size) const
@@ -127,6 +128,7 @@ void Cheat::BasePart::SetSize(const Vector3& size) const
 	}
 
 	g_Memory.Write<Vector3>(prim + Offsets::Primitive::Size, size);
+	Invalidate();
 }
 
 void Cheat::BasePart::SetAssemblyLinearVelocity(const Vector3& vel) const
@@ -214,6 +216,7 @@ void Cheat::BasePart::SetTransparency(float value) const
 	}
 
 	g_Memory.Write<float>(address + Offsets::BasePart::Transparency, value);
+	Invalidate();
 }
 
 void Cheat::BasePart::SetColor(const Color3& value) const
@@ -223,7 +226,35 @@ void Cheat::BasePart::SetColor(const Color3& value) const
 		return;
 	}
 
+	std::uint64_t prim = GetPrimitive(address);
+	if (!g_Memory.IsValid(prim))
+	{
+		return;
+	}
+
+	// пишем только в BasePart: Color/Transparency не живут в Primitive,
+	// иначе рендер не пересчитывается — дергаем Validate
 	g_Memory.Write<Color3>(address + Offsets::BasePart::Color3, value);
+	Invalidate();
+}
+
+void Cheat::BasePart::Invalidate() const
+{
+	if (!g_Memory.IsValid(address))
+	{
+		return;
+	}
+
+	std::uint64_t prim = GetPrimitive(address);
+	if (!g_Memory.IsValid(prim))
+	{
+		return;
+	}
+
+	// дергаем Validate-флаг, чтобы движок пересчитал рендер
+	const auto flags = g_Memory.Read<std::uint8_t>(prim + Offsets::Primitive::Validate);
+	g_Memory.Write<std::uint8_t>(prim + Offsets::Primitive::Validate, flags ^ 1);
+	g_Memory.Write<std::uint8_t>(prim + Offsets::Primitive::Validate, flags);
 }
 
 Color3 Cheat::BasePart::GetColor() const

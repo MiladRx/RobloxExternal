@@ -2,6 +2,7 @@
 #include "fonts.h"
 #include "misc/imgui_freetype.h"
 #include "font_fredoka_one.h"
+#include "font_tahoma.h"
 #include "font_tahoma_bold.h"
 #include "font_proggyclean.h"
 #include "font_visitor.h"
@@ -16,92 +17,107 @@ namespace fonts {
     ImFont* proggy_clean = nullptr;
     ImFont* visitor = nullptr;
     ImFont* verdana = nullptr;
+    ImFont* menu = nullptr;
 
     ImFont* tahoma = nullptr;
     ImFont* esp = nullptr;
     ImFont* esp_bold = nullptr;
 
-    void load(ImGuiIO& io) {
+    static void cfg_aa(ImFontConfig& c, float size, bool own_data)
+    {
+        c = ImFontConfig();
+        c.PixelSnapH = false;
+        c.OversampleH = 3;
+        c.OversampleV = 2;
+        c.RasterizerMultiply = 1.15f;
+        c.FontDataOwnedByAtlas = own_data;
+        c.FontLoaderFlags = ImGuiFreeTypeLoaderFlags_LightHinting;
+        c.SizePixels = size;
+    }
+
+    static ImFont* add_system(ImGuiIO& io, const char* file, float size, const ImWchar* ranges)
+    {
+        char path[MAX_PATH]{};
+        if (GetWindowsDirectoryA(path, MAX_PATH) <= 0)
+            return nullptr;
+        strcat_s(path, "\\Fonts\\");
+        strcat_s(path, file);
+
+        ImFontConfig cfg;
+        cfg_aa(cfg, size, true);
+        return io.Fonts->AddFontFromFileTTF(path, size, &cfg, ranges);
+    }
+
+    static void merge_cyr(ImGuiIO& io, float size, const ImWchar* ranges_cyr)
+    {
+        ImFontConfig cfg;
+        cfg_aa(cfg, size, false);
+        cfg.MergeMode = true;
+        io.Fonts->AddFontFromMemoryTTF(Tahoma, sizeof(Tahoma), size, &cfg, ranges_cyr);
+    }
+
+    void load(ImGuiIO& io)
+    {
         io.Fonts->SetFontLoader(ImGuiFreeType::GetFontLoader());
-        io.Fonts->FontLoaderFlags = 0;
+        io.Fonts->FontLoaderFlags = ImGuiFreeTypeLoaderFlags_LightHinting;
 
-        const unsigned int mono_flags =
-            ImGuiFreeTypeLoaderFlags_MonoHinting |
-            ImGuiFreeTypeLoaderFlags_Monochrome;
+        const ImWchar* ranges_def = io.Fonts->GetGlyphRangesDefault();
+        const ImWchar* ranges_cyr = io.Fonts->GetGlyphRangesCyrillic();
 
-		// fredoka остаётся в списке шрифтов
-        ImFontConfig fk{};
-        fk.PixelSnapH = true;
-        fk.OversampleH = 2;
-        fk.OversampleV = 1;
-        fk.RasterizerMultiply = 1.0f;
-        fk.FontDataOwnedByAtlas = false;
-        fk.FontLoaderFlags = ImGuiFreeTypeLoaderFlags_LightHinting;
-        fk.SizePixels = 15.0f;
+        menu = io.Fonts->AddFontDefault();
+        merge_cyr(io, 13.f, ranges_cyr);
+
+        ImFontConfig fk;
+        cfg_aa(fk, 15.f, false);
         fredoka_one = io.Fonts->AddFontFromMemoryTTF(
-            FredokaOne, sizeof(FredokaOne), 15.0f, &fk,
-            io.Fonts->GetGlyphRangesDefault());
+            FredokaOne, sizeof(FredokaOne), 15.f, &fk, ranges_def);
+        merge_cyr(io, 15.f, ranges_cyr);
 
-        ImFontConfig mono{};
-        mono.PixelSnapH = true;
-        mono.OversampleH = 1;
-        mono.OversampleV = 1;
-        mono.RasterizerMultiply = 1.0f;
-        mono.FontLoaderFlags = mono_flags;
-        mono.SizePixels = 14.0f;
-        imgui = io.Fonts->AddFontDefault(&mono);
-
-        ImFontConfig bold{};
-        bold.PixelSnapH = true;
-        bold.OversampleH = 2;
-        bold.OversampleV = 1;
-        bold.RasterizerMultiply = 1.0f;
-        bold.FontDataOwnedByAtlas = false;
-        bold.FontLoaderFlags = ImGuiFreeTypeLoaderFlags_LightHinting;
-        bold.SizePixels = 14.0f;
-        tahoma_bold = io.Fonts->AddFontFromMemoryTTF(
-            TahomaBold, sizeof(TahomaBold), 14.0f, &bold);
-
-        ImFontConfig pixel{};
-        pixel.PixelSnapH = true;
-        pixel.OversampleH = 1;
-        pixel.OversampleV = 1;
-        pixel.RasterizerMultiply = 1.0f;
-        pixel.FontDataOwnedByAtlas = false;
-        pixel.FontLoaderFlags = mono_flags;
-        pixel.SizePixels = 14.0f;
-        proggy_clean = io.Fonts->AddFontFromMemoryTTF(
-            ProggyClean, sizeof(ProggyClean), 14.0f, &pixel);
-
-        ImFontConfig vis_cfg = pixel;
-        vis_cfg.SizePixels = 11.0f;
-        visitor = io.Fonts->AddFontFromMemoryTTF(
-            Visitor, sizeof(Visitor), 11.0f, &vis_cfg);
-
-        // системный verdana, если винды найдутся
-        ImFontConfig verdana_cfg{};
-        verdana_cfg.PixelSnapH = true;
-        verdana_cfg.OversampleH = 2;
-        verdana_cfg.OversampleV = 1;
-        verdana_cfg.RasterizerMultiply = 1.0f;
-        verdana_cfg.FontLoaderFlags = ImGuiFreeTypeLoaderFlags_LightHinting;
-        verdana_cfg.SizePixels = 14.0f;
-
-        char verdana_path[MAX_PATH]{};
-        if (GetWindowsDirectoryA(verdana_path, MAX_PATH) > 0) {
-            strcat_s(verdana_path, "\\Fonts\\verdana.ttf");
-            verdana = io.Fonts->AddFontFromFileTTF(
-                verdana_path, 14.0f, &verdana_cfg, io.Fonts->GetGlyphRangesCyrillic());
+        ImFontConfig tah;
+        cfg_aa(tah, 14.f, false);
+        tahoma = io.Fonts->AddFontFromMemoryTTF(
+            Tahoma, sizeof(Tahoma), 14.f, &tah, ranges_cyr);
+        imgui = tahoma;
+        if (!imgui)
+        {
+            imgui = add_system(io, "segoeui.ttf", 14.f, ranges_cyr);
+            tahoma = imgui;
+        }
+        if (!imgui)
+        {
+            ImFontConfig def;
+            cfg_aa(def, 14.f, true);
+            imgui = io.Fonts->AddFontDefault(&def);
+            merge_cyr(io, 14.f, ranges_cyr);
+            tahoma = imgui;
         }
 
-        // гуи дефолт — verdana (кириллица), fredoka остаётся в списке
-        tahoma = verdana ? verdana : (fredoka_one ? fredoka_one : imgui);
+        ImFontConfig bold;
+        cfg_aa(bold, 14.f, false);
+        tahoma_bold = io.Fonts->AddFontFromMemoryTTF(
+            TahomaBold, sizeof(TahomaBold), 14.f, &bold, ranges_def);
+        merge_cyr(io, 14.f, ranges_cyr);
+
+        ImFontConfig prog;
+        cfg_aa(prog, 13.f, false);
+        proggy_clean = io.Fonts->AddFontFromMemoryTTF(
+            ProggyClean, sizeof(ProggyClean), 13.f, &prog, ranges_def);
+        merge_cyr(io, 13.f, ranges_cyr);
+
+        ImFontConfig vis;
+        cfg_aa(vis, 12.f, false);
+        visitor = io.Fonts->AddFontFromMemoryTTF(
+            Visitor, sizeof(Visitor), 12.f, &vis, ranges_def);
+        merge_cyr(io, 12.f, ranges_cyr);
+
+        verdana = add_system(io, "verdana.ttf", 14.f, ranges_cyr);
+        if (!verdana)
+            verdana = tahoma;
+
         esp = fredoka_one ? fredoka_one : tahoma;
         esp_bold = tahoma_bold ? tahoma_bold : tahoma;
 
-        io.FontDefault = verdana ? verdana : (fredoka_one ? fredoka_one : imgui);
-        if (!io.FontDefault)
-            io.FontDefault = io.Fonts->AddFontDefault();
+        io.FontDefault = menu ? menu : (imgui ? imgui : tahoma);
     }
 
 }
