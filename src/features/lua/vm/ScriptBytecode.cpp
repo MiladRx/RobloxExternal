@@ -21,6 +21,9 @@ namespace Features {
 namespace ScriptBytecode {
 namespace {
 
+constexpr size_t k_max_lift_insns = 200000;
+constexpr size_t k_max_dump_strings = 20000;
+
 // Luau opcode indices (luau-lang Bytecode.h) — Roblox may encode with key*op
 enum : int {
 	LOP_NOP = 0,
@@ -63,10 +66,10 @@ struct Reader {
 		{
 			std::uint8_t b = 0;
 			if (!U8(b)) return false;
+			if (shift >= 32) return false;
 			v |= static_cast<std::uint32_t>(b & 0x7f) << shift;
 			if ((b & 0x80) == 0) return true;
 			shift += 7;
-			if (shift > 35) return false;
 		}
 	}
 	bool String(std::string& s)
@@ -122,11 +125,17 @@ bool IsLuauVersion(std::uint8_t v)
 
 bool TryRsb1(const std::uint8_t* data, size_t n, std::vector<std::uint8_t>& out)
 {
-	if (n < 8 || std::memcmp(data, "RSB1", 4) != 0)
+	if (n <= 8 || std::memcmp(data, "RSB1", 4) != 0)
 		return false;
 	std::uint32_t dec_size = 0;
 	std::memcpy(&dec_size, data + 4, 4);
 	if (dec_size == 0 || dec_size > (32u * 1024u * 1024u))
+		return false;
+	// не выделять 32 МБ по враждебному полю: у кадра zstd свой размер, он и есть правда
+	const unsigned long long fcs = ZSTD_getFrameContentSize(data + 8, n - 8);
+	if (fcs == ZSTD_CONTENTSIZE_ERROR)
+		return false;
+	if (fcs != ZSTD_CONTENTSIZE_UNKNOWN && fcs != dec_size)
 		return false;
 	out.resize(dec_size);
 	const size_t got = ZSTD_decompress(out.data(), out.size(), data + 8, n - 8);
@@ -292,7 +301,7 @@ bool SkipProtoBody(Reader& r, std::uint8_t version, ProtoView* capture)
 	}
 
 	std::uint32_t sizecode = 0;
-	if (!r.VarInt(sizecode) || sizecode > 2'000'000) return false;
+	if (!r.VarInt(sizecode) || sizecode > 2'000'000 || r.Left() < static_cast<size_t>(sizecode) * 4) return false;
 	std::vector<std::uint32_t> code;
 	code.resize(sizecode);
 	for (std::uint32_t i = 0; i < sizecode; ++i)
@@ -301,7 +310,7 @@ bool SkipProtoBody(Reader& r, std::uint8_t version, ProtoView* capture)
 	}
 
 	std::uint32_t sizek = 0;
-	if (!r.VarInt(sizek) || sizek > 500'000) return false;
+	if (!r.VarInt(sizek) || sizek > 500'000 || r.Left() < sizek) return false;
 
 	std::vector<std::string> kstr;
 	std::vector<int> kkind;
@@ -419,7 +428,9 @@ bool SkipProtoBody(Reader& r, std::uint8_t version, ProtoView* capture)
 			if (!r.VarInt(dummy)) return false; // classname
 			std::uint32_t props = 0, methods = 0;
 			if (!r.VarInt(props) || !r.VarInt(methods)) return false;
-			for (std::uint32_t j = 0; j < props + methods; ++j)
+			const std::uint64_t fields = static_cast<std::uint64_t>(props) + methods;
+			if (fields > r.Left()) return false;
+			for (std::uint64_t j = 0; j < fields; ++j)
 			{
 				if (!r.VarInt(dummy)) return false;
 			}
@@ -449,8 +460,9 @@ bool SkipProtoBody(Reader& r, std::uint8_t version, ProtoView* capture)
 	{
 		std::uint8_t linegap = 0;
 		if (!r.U8(linegap)) return false;
-		const std::uint32_t intervals = ((sizecode - 1) >> linegap) + 1;
-		if (!r.Skip(sizecode + intervals * 4)) return false;
+		if (linegap >= 32 || sizecode == 0) return false;
+		const size_t intervals = ((static_cast<size_t>(sizecode) - 1) >> linegap) + 1;
+		if (!r.Skip(static_cast<size_t>(sizecode) + intervals * 4)) return false;
 	}
 
 	std::uint8_t debuginfo = 0;
@@ -515,13 +527,16 @@ std::string LiftProto(const ProtoView& proto, int enc_key, const std::vector<std
 {
 	std::ostringstream ss;
 	const auto& code = proto.code;
+	if (code.size() > k_max_lift_insns)
+		ss << "-- truncated: " << code.size() << " instructions, lifting first " << k_max_lift_insns << "\n";
 	auto reg = [](int r) {
 		char b[16];
 		std::snprintf(b, sizeof(b), "v%d", r);
 		return std::string(b);
 	};
 
-	for (size_t pc = 0; pc < code.size(); ++pc)
+	const size_t last = std::min<size_t>(code.size(), k_max_lift_insns);
+	for (size_t pc = 0; pc < last; ++pc)
 	{
 		const std::uint32_t insn = code[pc];
 		const int op = DecodeOp(insn, enc_key);
@@ -655,19 +670,19 @@ std::string LiftProto(const ProtoView& proto, int enc_key, const std::vector<std
 			break;
 		}
 	}
-	return ss.str();
+	return std::move(ss).str();
 }
 
 std::string DecompileLuau(const std::vector<std::uint8_t>& bc, const char* name)
 {
 	std::ostringstream ss;
-	ss << "-- decompiled by jewsploit\n";
+	ss << "-- decompiled with jewsploit\n";
 	ss << "-- chunk: " << (name ? name : "script") << "\n";
 
 	if (!LooksLikeLuau(bc))
 	{
-		ss << "-- not valid Luau bytecode (head: " << HexHead(bc) << ")\n";
-		ss << "-- tip: dump may be encrypted/signed; need RSB1+zstd or raw version byte 3..11\n";
+		ss << "-- not Luau bytecode (head: " << HexHead(bc) << ")\n";
+		ss << "-- maybe signed/encrypted; need RSB1+zstd or version 3..11\n";
 		return ss.str();
 	}
 
@@ -691,7 +706,8 @@ std::string DecompileLuau(const std::vector<std::uint8_t>& bc, const char* name)
 	}
 
 	std::uint32_t string_count = 0;
-	if (!r.VarInt(string_count) || string_count > 2'000'000)
+	// каждая строка это минимум байт длины, так что счётчик не может быть больше остатка
+	if (!r.VarInt(string_count) || string_count > 2'000'000 || string_count > r.Left())
 	{
 		ss << "-- failed string table\n";
 		return ss.str();
@@ -723,7 +739,7 @@ std::string DecompileLuau(const std::vector<std::uint8_t>& bc, const char* name)
 	}
 
 	std::uint32_t proto_count = 0;
-	if (!r.VarInt(proto_count) || proto_count == 0 || proto_count > 200000)
+	if (!r.VarInt(proto_count) || proto_count == 0 || proto_count > 200000 || proto_count > r.Left())
 	{
 		ss << "-- bad proto count\n";
 		return ss.str();
@@ -737,9 +753,13 @@ std::string DecompileLuau(const std::vector<std::uint8_t>& bc, const char* name)
 			ss << "-- failed proto " << i << "\n";
 			// fall back to string dump
 			ss << "\nlocal _K = {\n";
-			for (size_t si = 0; si < strings.size(); ++si)
+			const size_t shown = std::min<size_t>(strings.size(), k_max_dump_strings);
+			for (size_t si = 0; si < shown; ++si)
 				ss << "  [" << (si + 1) << "] = " << EscapeLua(strings[si]) << ",\n";
-			ss << "}\nreturn _K\n";
+			ss << "}\n";
+			if (shown < strings.size())
+				ss << "-- truncated: " << (strings.size() - shown) << " more strings\n";
+			ss << "return _K\n";
 			return ss.str();
 		}
 		ResolveStringConstants(protos[i], strings);
@@ -768,7 +788,7 @@ std::string DecompileLuau(const std::vector<std::uint8_t>& bc, const char* name)
 		ss << LiftProto(protos[i], enc, strings);
 	}
 
-	return ss.str();
+	return std::move(ss).str();
 }
 
 } // namespace
@@ -831,7 +851,7 @@ bool Normalize(const std::vector<std::uint8_t>& raw, std::vector<std::uint8_t>& 
 	}
 
 	// scan for RSB1 / zstd (редко)
-	for (size_t i = 1; i + 8 < raw.size(); ++i)
+	for (size_t i = 1; i + 8 <= raw.size(); ++i)
 	{
 		if (raw[i] == 'R' && raw[i + 1] == 'S' && raw[i + 2] == 'B' && raw[i + 3] == '1')
 		{
@@ -843,7 +863,7 @@ bool Normalize(const std::vector<std::uint8_t>& raw, std::vector<std::uint8_t>& 
 		}
 	}
 
-	for (size_t i = 0; i + 4 < raw.size(); ++i)
+	for (size_t i = 0; i + 4 <= raw.size(); ++i)
 	{
 		if (raw[i] == 0x28 && raw[i + 1] == 0xB5 && raw[i + 2] == 0x2F && raw[i + 3] == 0xFD)
 		{
@@ -898,30 +918,29 @@ std::string Decompile(const std::vector<std::uint8_t>& raw_or_luau, const char* 
 	std::vector<std::uint8_t> bc;
 	const bool ok = Normalize(raw_or_luau, bc, &norm_status);
 
-	std::ostringstream hdr;
-	hdr << "-- normalize: " << norm_status << "\n";
+	std::string hdr = "-- normalize: " + norm_status + "\n";
 
 	if (!ok || !LooksLikeLuau(bc))
 	{
-		hdr << DecompileLuau(raw_or_luau, chunk_name);
-		hdr << "\n-- also tried normalize; blob not Luau yet.\n";
-		return hdr.str();
+		hdr += DecompileLuau(raw_or_luau, chunk_name);
+		hdr += "\n-- normalize did not produce Luau bytecode.\n";
+		return hdr;
 	}
 
-	// fission в процессе, без Server.exe
 	{
+		// многомегабайтный вывод: дописываем заголовок в начало, а не копируем текст ещё раз
 		std::string fission = FissionEmbed::DecompileLuauBytecode(bc.data(), bc.size());
 		if (!fission.empty())
 		{
-			hdr << "-- via Fission (in-process)\n\n";
-			hdr << fission;
-			return hdr.str();
+			hdr += "-- via Fission (in-process)\n\n";
+			fission.insert(0, hdr);
+			return fission;
 		}
 	}
 
-	hdr << DecompileLuau(bc, chunk_name);
-	hdr << "\n-- (built-in lifter; fission embed failed)\n";
-	return hdr.str();
+	hdr += DecompileLuau(bc, chunk_name);
+	hdr += "\n-- (built-in lifter; Fission failed)\n";
+	return hdr;
 }
 
 } // namespace ScriptBytecode

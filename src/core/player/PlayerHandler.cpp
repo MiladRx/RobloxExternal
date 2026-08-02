@@ -329,12 +329,12 @@ bool IsLeafPartClass(const std::string& cls)
            cls == "Terrain";
 }
 
-bool CharacterOwnedByPlayer(std::uint64_t character_address)
+std::uint64_t FindOwningPlayerAddress(std::uint64_t character_address)
 {
     if (!g_Memory.IsValid(character_address))
-        return false;
+        return 0;
     if (!Cheat::Globals::Players || !g_Memory.IsValid(Cheat::Globals::Players->address))
-        return false;
+        return 0;
 
     for (const auto& player : Cheat::Globals::Players->GetChildren()) {
         if (!g_Memory.IsValid(player.address))
@@ -342,9 +342,14 @@ bool CharacterOwnedByPlayer(std::uint64_t character_address)
         const std::uint64_t model = g_Memory.Read<std::uint64_t>(
             player.address + Offsets::Player::ModelInstance);
         if (model == character_address)
-            return true;
+            return player.address;
     }
-    return false;
+    return 0;
+}
+
+bool CharacterOwnedByPlayer(std::uint64_t character_address)
+{
+    return FindOwningPlayerAddress(character_address) != 0;
 }
 
 void AddCharacter(const Cheat::Instance& model, Cheat::PlayerCache&& cache,
@@ -375,7 +380,18 @@ void AddCharacter(const Cheat::Instance& model, Cheat::PlayerCache&& cache,
 
     cache.character = model.address;
     cache.team_folder = Cheat::PlayerHandler::ResolveTeamFolder(model.address);
-    cache.is_player = CharacterOwnedByPlayer(model.address);
+
+    const std::uint64_t player_addr = FindOwningPlayerAddress(model.address);
+    cache.is_player = player_addr != 0;
+    if (player_addr)
+    {
+        cache.player_address = player_addr;
+        cache.user_id = Cheat::Player(player_addr).GetUserId();
+
+        std::string pdn = Cheat::Player(player_addr).GetDisplayName();
+        if (!pdn.empty() && pdn != "Unknown")
+            cache.displayName = pdn;
+    }
 
     target[model.address] = std::move(cache);
 }
@@ -751,6 +767,7 @@ void Cheat::PlayerHandler::UpdateCache(const Instance& player,
 
     cache.character = char_addr;
     cache.team_folder = ResolveTeamFolder(char_addr);
+    cache.player_address = player.address;
     cache.user_id = Player(player.address).GetUserId();
     cache.is_player = true;
     PopulateParts(char_addr, cache);

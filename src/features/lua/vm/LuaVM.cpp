@@ -5,6 +5,7 @@
 #include "LuaDrawing.h"
 #include "LuaScripts.h"
 #include "LuaGc.h"
+#include "LuaMem.h"
 #include "features/lua/LuaExecutor.h"
 #include "renderer/Renderer.h"
 #include "core/globals/Globals.h"
@@ -27,6 +28,7 @@ extern "C" {
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iterator>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -60,12 +62,18 @@ struct ConnEntry {
 	bool once = false;
 	int kind = 0;
 	std::uint64_t owner = 0;
+	std::uint32_t seq = 0;
 	std::string prop;
 };
 std::vector<ConnEntry> g_conns;
 
+// слоты переиспользуются и чистятся на каждый execute — без seq старый
+// Connection/Task токен убил бы чужую запись
+std::uint32_t g_token_seq = 0;
+
 struct ConnUd {
 	int idx = -1;
+	std::uint32_t seq = 0;
 };
 
 struct SigWait {
@@ -80,20 +88,30 @@ std::vector<SigWait> g_sigwaits;
 std::unordered_map<std::uint64_t, std::unordered_set<std::uint64_t>> g_kids_snap;
 std::unordered_map<std::uint64_t, std::unordered_set<std::uint64_t>> g_desc_snap;
 std::unordered_map<std::string, std::string> g_prop_snap; // "addr|prop" -> val
+constexpr size_t k_max_prop_polls = 16;
+size_t g_prop_cursor = 0;
 
 struct DelayEntry {
 	int fn_ref = LUA_NOREF;
 	float left = 0.f;
 	bool alive = false;
+	std::uint32_t seq = 0;
 };
 std::vector<DelayEntry> g_delays;
 
 struct DelayUd {
 	int idx = -1;
+	std::uint32_t seq = 0;
 };
+
+unsigned g_poll_tick = 0;
 
 void schedule_wait(lua_State* L, float sec)
 {
+	// resume главного стейта = смерть vm, туда попасть можно из delay-колбэка
+	if (!lua_isyieldable(L))
+		return;
+
 	if (sec < 0.f)
 		sec = 0.f;
 
@@ -164,6 +182,8 @@ int l_identifyexecutor(lua_State* L)
 int l_wait(lua_State* L)
 {
 	float t = static_cast<float>(luaL_optnumber(L, 1, 0.03));
+	if (!lua_isyieldable(L))
+		return 0;
 	schedule_wait(L, t);
 	return lua_yield(L, 0);
 }
@@ -212,40 +232,31 @@ int alloc_delay(float sec, lua_State* L, int fn_idx)
 	d.fn_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 	d.left = sec;
 	d.alive = true;
+	d.seq = ++g_token_seq;
 	return idx;
+}
+
+void push_task_token(lua_State* L, int idx)
+{
+	auto* ud = static_cast<DelayUd*>(lua_newuserdata(L, sizeof(DelayUd)));
+	ud->idx = idx;
+	ud->seq = g_delays[static_cast<size_t>(idx)].seq;
+	luaL_getmetatable(L, "jewsploit.Task");
+	lua_setmetatable(L, -2);
 }
 
 int l_delay(lua_State* L)
 {
 	float t = static_cast<float>(luaL_checknumber(L, 1));
 	luaL_checktype(L, 2, LUA_TFUNCTION);
-
-	const int idx = alloc_delay(t, L, 2);
-	auto* ud = static_cast<DelayUd*>(lua_newuserdata(L, sizeof(DelayUd)));
-	ud->idx = idx;
-	luaL_getmetatable(L, "jewsploit.Task");
-	if (lua_isnil(L, -1))
-	{
-		lua_pop(L, 1);
-		luaL_newmetatable(L, "jewsploit.Task");
-	}
-	lua_setmetatable(L, -2);
+	push_task_token(L, alloc_delay(t, L, 2));
 	return 1;
 }
 
 int l_defer(lua_State* L)
 {
 	luaL_checktype(L, 1, LUA_TFUNCTION);
-	const int idx = alloc_delay(0.f, L, 1);
-	auto* ud = static_cast<DelayUd*>(lua_newuserdata(L, sizeof(DelayUd)));
-	ud->idx = idx;
-	luaL_getmetatable(L, "jewsploit.Task");
-	if (lua_isnil(L, -1))
-	{
-		lua_pop(L, 1);
-		luaL_newmetatable(L, "jewsploit.Task");
-	}
-	lua_setmetatable(L, -2);
+	push_task_token(L, alloc_delay(0.f, L, 1));
 	return 1;
 }
 
@@ -258,7 +269,7 @@ int l_cancel(lua_State* L)
 			return 0;
 
 		DelayEntry& d = g_delays[static_cast<size_t>(ud->idx)];
-		if (!d.alive)
+		if (!d.alive || d.seq != ud->seq)
 			return 0;
 
 		d.alive = false;
@@ -284,6 +295,24 @@ int l_cancel(lua_State* L)
 
 			luaL_unref(L, LUA_REGISTRYINDEX, g_waits[i].ref);
 			g_waits.erase(g_waits.begin() + static_cast<std::ptrdiff_t>(i));
+			break;
+		}
+
+		for (size_t i = 0; i < g_sigwaits.size(); ++i)
+		{
+			SigWait& w = g_sigwaits[i];
+			if (!w.alive || w.thr_ref == LUA_NOREF)
+				continue;
+
+			lua_rawgeti(L, LUA_REGISTRYINDEX, w.thr_ref);
+			lua_State* wco = lua_tothread(L, -1);
+			lua_pop(L, 1);
+			if (wco != co)
+				continue;
+
+			luaL_unref(L, LUA_REGISTRYINDEX, w.thr_ref);
+			w.thr_ref = LUA_NOREF;
+			w.alive = false;
 			break;
 		}
 	}
@@ -362,7 +391,7 @@ int l_conn_disconnect(lua_State* L)
 		return 0;
 
 	ConnEntry& c = g_conns[static_cast<size_t>(ud->idx)];
-	if (!c.alive)
+	if (!c.alive || c.seq != ud->seq)
 		return 0;
 
 	c.alive = false;
@@ -427,17 +456,23 @@ void fire_conns(int kind, std::uint64_t owner, const char* prop, int nargs)
 	if (!g_L)
 		return;
 
+	if (!lua_checkstack(g_L, nargs + 2))
+		return;
+
 	const int arg0 = lua_gettop(g_L) - nargs + 1;
 	const size_t n = g_conns.size();
-	for (size_t i = 0; i < n; ++i)
+	for (size_t i = 0; i < n && i < g_conns.size(); ++i)
 	{
-		ConnEntry& c = g_conns[i];
-		if (!c.alive || c.fn_ref == LUA_NOREF)
+		// хендлер может звать Connect и растить g_conns — держать ссылку нельзя
+		if (!g_conns[i].alive || g_conns[i].fn_ref == LUA_NOREF)
 			continue;
-		if (!conn_owner_ok(c, kind, owner, prop))
+		if (!conn_owner_ok(g_conns[i], kind, owner, prop))
 			continue;
 
-		lua_rawgeti(g_L, LUA_REGISTRYINDEX, c.fn_ref);
+		const std::uint32_t seq = g_conns[i].seq;
+		const bool once = g_conns[i].once;
+
+		lua_rawgeti(g_L, LUA_REGISTRYINDEX, g_conns[i].fn_ref);
 		for (int a = 0; a < nargs; ++a)
 			lua_pushvalue(g_L, arg0 + a);
 		if (lua_pcall(g_L, nargs, 0, 0) != LUA_OK)
@@ -445,8 +480,9 @@ void fire_conns(int kind, std::uint64_t owner, const char* prop, int nargs)
 			LogErr(lua_tostring(g_L, -1));
 			lua_pop(g_L, 1);
 		}
-		if (c.once)
-			kill_conn(c);
+
+		if (once && i < g_conns.size() && g_conns[i].seq == seq)
+			kill_conn(g_conns[i]);
 	}
 }
 
@@ -455,21 +491,26 @@ void wake_waits(int kind, std::uint64_t owner, const char* prop, int nargs)
 	if (!g_L)
 		return;
 
+	if (!lua_checkstack(g_L, nargs + 2))
+		return;
+
 	const int arg0 = lua_gettop(g_L) - nargs + 1;
-	for (size_t i = 0; i < g_sigwaits.size(); ++i)
+	const size_t n = g_sigwaits.size();
+	for (size_t i = 0; i < n && i < g_sigwaits.size(); ++i)
 	{
-		SigWait& w = g_sigwaits[i];
-		if (!wait_owner_ok(w, kind, owner, prop))
+		// резюм может добавить новых ждунов — индекс, не ссылка
+		if (!wait_owner_ok(g_sigwaits[i], kind, owner, prop))
 			continue;
 
-		lua_rawgeti(g_L, LUA_REGISTRYINDEX, w.thr_ref);
+		const int ref = g_sigwaits[i].thr_ref;
+		g_sigwaits[i].alive = false;
+		g_sigwaits[i].thr_ref = LUA_NOREF;
+
+		lua_rawgeti(g_L, LUA_REGISTRYINDEX, ref);
 		lua_State* co = lua_tothread(g_L, -1);
-		const int ref = w.thr_ref;
-		w.alive = false;
-		w.thr_ref = LUA_NOREF;
 		luaL_unref(g_L, LUA_REGISTRYINDEX, ref);
 
-		if (!co)
+		if (!co || !lua_checkstack(co, nargs + 1))
 		{
 			lua_pop(g_L, 1);
 			continue;
@@ -491,6 +532,8 @@ void wake_waits(int kind, std::uint64_t owner, const char* prop, int nargs)
 
 void fire_sig(int kind, std::uint64_t owner, const char* prop, int nargs)
 {
+	if (!g_L)
+		return;
 	fire_conns(kind, owner, prop, nargs);
 	wake_waits(kind, owner, prop, nargs);
 	if (nargs > 0)
@@ -529,9 +572,12 @@ int l_signal_connect(lua_State* L)
 	c.kind = kind;
 	c.owner = owner;
 	c.prop = prop ? prop : "";
+	c.seq = ++g_token_seq;
 
+	const std::uint32_t seq = c.seq;
 	auto* ud = static_cast<ConnUd*>(lua_newuserdata(L, sizeof(ConnUd)));
 	ud->idx = idx;
+	ud->seq = seq;
 
 	if (luaL_newmetatable(L, "jewsploit.RBXScriptConnection"))
 	{
@@ -550,6 +596,9 @@ int l_signal_wait(lua_State* L)
 	const std::uint64_t owner = static_cast<std::uint64_t>(lua_tointeger(L, lua_upvalueindex(2)));
 	const char* prop = lua_tostring(L, lua_upvalueindex(3));
 
+	if (!lua_isyieldable(L))
+		return 0;
+
 	lua_pushthread(L);
 	const int ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
@@ -563,44 +612,9 @@ int l_signal_wait(lua_State* L)
 	return lua_yield(L, 0);
 }
 
-// signal:Fire(...) — локально в нашей VM, не в Roblox
 int l_signal_fire(lua_State* L)
 {
-	const int kind = static_cast<int>(lua_tointeger(L, lua_upvalueindex(1)));
-	const std::uint64_t owner = static_cast<std::uint64_t>(lua_tointeger(L, lua_upvalueindex(2)));
-	const char* prop = lua_tostring(L, lua_upvalueindex(3));
-
-	if (!g_L)
-		return luaL_error(L, "signal fire: no vm");
-
-	// execute идёт на co = lua_newthread(g_L), L != g_L
-	lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
-	lua_State* main = lua_tothread(L, -1);
-	lua_pop(L, 1);
-	if (main != g_L)
-		return luaL_error(L, "signal fire: bad state");
-
-	const int top = lua_gettop(L);
-	int nargs = top - 1;
-	if (nargs < 0)
-		nargs = 0;
-
-	if (L != g_L)
-	{
-		if (nargs > 0)
-		{
-			for (int i = 0; i < nargs; ++i)
-				lua_pushvalue(L, 2 + i);
-			lua_xmove(L, g_L, nargs);
-		}
-		fire_sig(kind, owner, prop, nargs);
-	}
-
-	else
-	{
-		fire_sig(kind, owner, prop, nargs);
-	}
-
+	(void)L;
 	return 0;
 }
 
@@ -645,8 +659,22 @@ bool g_plr_seeded = false;
 std::unordered_set<std::uint64_t> g_seen_plr;
 std::unordered_map<std::uint64_t, std::uint64_t> g_seen_char;
 
+bool has_kind(int k0, int k1 = -1);
+
 void poll_players()
 {
+	// без коннектов это чистый обход детей Players каждый тик — дорого
+	if (!has_kind(1, 2) && !has_kind(3))
+	{
+		if (g_plr_seeded)
+		{
+			g_plr_seeded = false;
+			g_seen_plr.clear();
+			g_seen_char.clear();
+		}
+		return;
+	}
+
 	if (!Globals::Players || !Globals::Players->address)
 		return;
 
@@ -762,7 +790,7 @@ void fire_input_sig(int kind, int vk)
 	fire_sig(kind, 0, nullptr, 2);
 }
 
-bool has_kind(int k0, int k1 = -1)
+bool has_kind(int k0, int k1)
 {
 	for (const auto& c : g_conns)
 	{
@@ -914,42 +942,50 @@ void poll_hierarchy()
 			watch_desc.insert(w.owner);
 	}
 
-	for (std::uint64_t owner : watch_kids)
+	// снапшоты живут по адресу — без чистки мапы растут всю сессию
+	for (auto it = g_kids_snap.begin(); it != g_kids_snap.end();)
+		it = watch_kids.count(it->first) ? std::next(it) : g_kids_snap.erase(it);
+	for (auto it = g_desc_snap.begin(); it != g_desc_snap.end();)
+		it = watch_desc.count(it->first) ? std::next(it) : g_desc_snap.erase(it);
+
+	// каждый тик обходить детей всех watched = сотни ReadProcessMemory в секунду
+	if ((g_poll_tick % 2) == 0)
 	{
-		if (!g_Memory.IsValid(owner))
-			continue;
+		for (std::uint64_t owner : watch_kids)
+		{
+			if (!g_Memory.IsValid(owner))
+				continue;
 
-		std::unordered_set<std::uint64_t> now;
-		for (const auto& c : Instance(owner).GetChildren())
-		{
-			if (g_Memory.IsValid(c.address))
-				now.insert(c.address);
-		}
+			std::unordered_set<std::uint64_t> now;
+			for (const auto& c : Instance(owner).GetChildren())
+			{
+				if (g_Memory.IsValid(c.address))
+					now.insert(c.address);
+			}
 
-		auto it = g_kids_snap.find(owner);
-		if (it == g_kids_snap.end())
-		{
-			g_kids_snap[owner] = now;
-			continue;
-		}
+			auto it = g_kids_snap.find(owner);
+			if (it == g_kids_snap.end())
+			{
+				g_kids_snap.emplace(owner, std::move(now));
+				continue;
+			}
 
-		for (std::uint64_t a : now)
-		{
-			if (!it->second.count(a))
-				fire_inst_sig(6, owner, a);
+			for (std::uint64_t a : now)
+			{
+				if (!it->second.count(a))
+					fire_inst_sig(6, owner, a);
+			}
+			for (std::uint64_t a : it->second)
+			{
+				if (!now.count(a))
+					fire_inst_sig(7, owner, a);
+			}
+			it->second.swap(now);
 		}
-		for (std::uint64_t a : it->second)
-		{
-			if (!now.count(a))
-				fire_inst_sig(7, owner, a);
-		}
-		it->second.swap(now);
 	}
 
 	// DescendantAdded — раз в N тиков, а то workspace жрёт всё
-	static int desc_tick = 0;
-	++desc_tick;
-	if (!watch_desc.empty() && (desc_tick % 8) == 0)
+	if (!watch_desc.empty() && (g_poll_tick % 8) == 0)
 	{
 		for (std::uint64_t owner : watch_desc)
 		{
@@ -968,16 +1004,24 @@ void poll_hierarchy()
 			}
 
 			int fired = 0;
+			bool capped = false;
 			for (std::uint64_t a : now)
 			{
 				if (it->second.count(a))
 					continue;
+				if (fired >= 32)
+				{
+					capped = true;
+					break;
+				}
 				fire_inst_sig(8, owner, a);
 				++fired;
-				if (fired >= 32)
-					break;
+				it->second.insert(a);
 			}
-			it->second.swap(now);
+			// упёрлись в лимит — остаток добираем следующим проходом,
+			// swap проглотил бы их навсегда
+			if (!capped)
+				it->second.swap(now);
 		}
 	}
 }
@@ -987,18 +1031,17 @@ void poll_props()
 	if (!g_L)
 		return;
 
-	struct key_t { std::uint64_t addr; std::string prop; };
+	struct key_t { std::uint64_t addr; std::string prop; std::string mapk; };
 	std::vector<key_t> keys;
+	std::unordered_set<std::string> seen;
 
 	auto add = [&](std::uint64_t a, const std::string& p) {
 		if (!a || p.empty())
 			return;
-		for (const auto& k : keys)
-		{
-			if (k.addr == a && k.prop == p)
-				return;
-		}
-		keys.push_back({ a, p });
+		std::string mapk = std::to_string(a) + "|" + p;
+		if (!seen.insert(mapk).second)
+			return;
+		keys.push_back({ a, p, std::move(mapk) });
 	};
 
 	for (const auto& c : g_conns)
@@ -1012,14 +1055,35 @@ void poll_props()
 			add(w.owner, w.prop);
 	}
 
-	for (const auto& k : keys)
+	if (keys.empty())
 	{
-		const std::string mapk = std::to_string(k.addr) + "|" + k.prop;
+		g_prop_snap.clear();
+		g_prop_cursor = 0;
+		return;
+	}
+
+	if (g_prop_snap.size() > keys.size())
+	{
+		for (auto it = g_prop_snap.begin(); it != g_prop_snap.end();)
+			it = seen.count(it->first) ? std::next(it) : g_prop_snap.erase(it);
+	}
+
+	// каждый ключ = чтение чужого процесса; за тик берём фиксированный кусок
+	// по кругу, иначе 500 Changed-коннектов вешают тикер
+	if (g_prop_cursor >= keys.size())
+		g_prop_cursor = 0;
+
+	const size_t budget = keys.size() < k_max_prop_polls ? keys.size() : k_max_prop_polls;
+	for (size_t n = 0; n < budget; ++n)
+	{
+		const key_t& k = keys[g_prop_cursor];
+		g_prop_cursor = (g_prop_cursor + 1) % keys.size();
+
 		const std::string cur = read_prop_snap(k.addr, k.prop);
-		auto it = g_prop_snap.find(mapk);
+		auto it = g_prop_snap.find(k.mapk);
 		if (it == g_prop_snap.end())
 		{
-			g_prop_snap[mapk] = cur;
+			g_prop_snap.emplace(k.mapk, cur);
 			continue;
 		}
 		if (it->second == cur)
@@ -1028,6 +1092,11 @@ void poll_props()
 		fire_sig(9, k.addr, k.prop.c_str(), 0);
 	}
 }
+
+std::uint64_t g_bus_seq_addr = 0;
+std::uint64_t g_bus_pay_addr = 0;
+std::int32_t g_bus_last_seq = 0;
+bool g_bus_seeded = false;
 
 // ReplicatedStorage.JewsploitTest.Bus — LocalScript кладёт ивенты, мы poll
 std::uint64_t find_child_named(std::uint64_t parent, const char* name)
@@ -1131,64 +1200,59 @@ void poll_jp_bus()
 	if (!g_L)
 		return;
 
-	bool need = false;
-	for (const auto& c : g_conns)
+	if (!has_kind(11, 12))
 	{
-		if (c.alive && (c.kind == 11 || c.kind == 12))
-		{
-			need = true;
-			break;
-		}
+		g_bus_seeded = false;
+		g_bus_seq_addr = 0;
+		g_bus_pay_addr = 0;
+		return;
 	}
-	if (!need)
+
+	// три поиска по имени на каждый тик — держим адреса, пока валидны
+	if (!g_bus_seq_addr || !g_bus_pay_addr
+		|| !g_Memory.IsValid(g_bus_seq_addr) || !g_Memory.IsValid(g_bus_pay_addr))
 	{
-		for (const auto& w : g_sigwaits)
-		{
-			if (w.alive && (w.kind == 11 || w.kind == 12))
-			{
-				need = true;
-				break;
-			}
-		}
+		g_bus_seq_addr = 0;
+		g_bus_pay_addr = 0;
+
+		const std::uint64_t bus = find_jp_bus();
+		if (!bus)
+			return;
+
+		const std::uint64_t seq_i = find_child_named(bus, "Seq");
+		const std::uint64_t pay_i = find_child_named(bus, "Payload");
+		if (!seq_i || !pay_i)
+			return;
+		if (Instance(seq_i).GetClassName() != "IntValue")
+			return;
+		if (Instance(pay_i).GetClassName() != "StringValue")
+			return;
+
+		g_bus_seq_addr = seq_i;
+		g_bus_pay_addr = pay_i;
+		g_bus_seeded = false;
 	}
-	if (!need)
-		return;
-
-	const std::uint64_t bus = find_jp_bus();
-	if (!bus)
-		return;
-
-	const std::uint64_t seq_i = find_child_named(bus, "Seq");
-	const std::uint64_t pay_i = find_child_named(bus, "Payload");
-	if (!seq_i || !pay_i)
-		return;
-	if (Instance(seq_i).GetClassName() != "IntValue")
-		return;
-	if (Instance(pay_i).GetClassName() != "StringValue")
-		return;
 
 	const std::int32_t seq = g_Memory.Read<std::int32_t>(
-		seq_i + Offsets::Misc::Value);
+		g_bus_seq_addr + Offsets::Misc::Value);
 
-	static std::int32_t last_seq = 0;
-	static bool seeded = false;
-	if (!seeded)
+	if (!g_bus_seeded)
 	{
-		last_seq = seq;
-		seeded = true;
+		g_bus_last_seq = seq;
+		g_bus_seeded = true;
 		return;
 	}
-	if (seq == last_seq)
+	if (seq == g_bus_last_seq)
 		return;
-	if (seq < last_seq)
+	if (seq < g_bus_last_seq)
 	{
-		last_seq = seq;
+		g_bus_last_seq = seq;
 		return;
 	}
-	last_seq = seq;
+	g_bus_last_seq = seq;
 
 	const std::string payload = g_Memory.ReadString(
-		pay_i + Offsets::Misc::Value);
+		g_bus_pay_addr + Offsets::Misc::Value);
 	if (payload.empty())
 		return;
 
@@ -1213,7 +1277,11 @@ void poll_jp_bus()
 	if (!target)
 		return;
 
-	const int nargs = (int)parts.size() - 2;
+	int nargs = (int)parts.size() - 2;
+	if (nargs > 16)
+		nargs = 16;
+	if (!lua_checkstack(g_L, nargs + 4))
+		return;
 	for (int i = 0; i < nargs; ++i)
 		lua_pushstring(g_L, parts[(std::size_t)(2 + i)].c_str());
 	fire_sig(kind, target, nullptr, nargs);
@@ -1317,7 +1385,8 @@ int l_bit_lrotate(lua_State* L)
 {
 	std::uint32_t x = bit_to_u32(L, 1);
 	int d = static_cast<int>(luaL_checkinteger(L, 2)) & 31;
-	lua_pushinteger(L, static_cast<lua_Integer>((x << d) | (x >> (32 - d))));
+	// сдвиг на 32 — UB, при d==0 вторая половина обязана быть нулём
+	lua_pushinteger(L, static_cast<lua_Integer>((x << d) | (x >> ((32 - d) & 31))));
 	return 1;
 }
 
@@ -1325,7 +1394,7 @@ int l_bit_rrotate(lua_State* L)
 {
 	std::uint32_t x = bit_to_u32(L, 1);
 	int d = static_cast<int>(luaL_checkinteger(L, 2)) & 31;
-	lua_pushinteger(L, static_cast<lua_Integer>((x >> d) | (x << (32 - d))));
+	lua_pushinteger(L, static_cast<lua_Integer>((x >> d) | (x << ((32 - d) & 31))));
 	return 1;
 }
 
@@ -1335,8 +1404,9 @@ int l_bit_extract(lua_State* L)
 	int f = static_cast<int>(luaL_checkinteger(L, 2));
 	int w = static_cast<int>(luaL_optinteger(L, 3, 1));
 	if (f < 0) f = 0;
+	if (f > 31) f = 31;
 	if (w < 1) w = 1;
-	if (f + w > 32) w = 32 - f;
+	if (w > 32 - f) w = 32 - f;
 	std::uint32_t mask = (w >= 32) ? 0xFFFFFFFFu : ((1u << w) - 1u);
 	lua_pushinteger(L, static_cast<lua_Integer>((n >> f) & mask));
 	return 1;
@@ -1349,8 +1419,9 @@ int l_bit_replace(lua_State* L)
 	int f = static_cast<int>(luaL_checkinteger(L, 3));
 	int w = static_cast<int>(luaL_optinteger(L, 4, 1));
 	if (f < 0) f = 0;
+	if (f > 31) f = 31;
 	if (w < 1) w = 1;
-	if (f + w > 32) w = 32 - f;
+	if (w > 32 - f) w = 32 - f;
 	std::uint32_t mask = (w >= 32) ? 0xFFFFFFFFu : ((1u << w) - 1u);
 	n = (n & ~(mask << f)) | ((v & mask) << f);
 	lua_pushinteger(L, static_cast<lua_Integer>(n));
@@ -1553,16 +1624,19 @@ int l_request(lua_State* L)
 {
 	luaL_checktype(L, 1, LUA_TTABLE);
 
+	std::string url;
 	lua_getfield(L, 1, "Url");
-	const char* url = lua_tostring(L, -1);
+	if (const char* u = lua_tostring(L, -1))
+		url = u;
 	lua_pop(L, 1);
-	if (!url || !url[0])
+	if (url.empty())
 	{
 		lua_getfield(L, 1, "url");
-		url = lua_tostring(L, -1);
+		if (const char* u = lua_tostring(L, -1))
+			url = u;
 		lua_pop(L, 1);
 	}
-	if (!url || !url[0])
+	if (url.empty())
 		return luaL_error(L, "request: Url required");
 
 	std::string method = "GET";
@@ -1610,13 +1684,19 @@ int l_request(lua_State* L)
 int l_httpget(lua_State* L)
 {
 	const char* url = luaL_checkstring(L, 1);
-	std::string out;
 	int status = 0;
-	bool ok = http_request_raw("GET", url, {}, {}, out, status);
-	if (!ok || status < 200 || status >= 300)
-		return luaL_error(L, "HttpGet failed (%d)", status);
-	lua_pushlstring(L, out.data(), out.size());
-	return 1;
+	{
+		// lua собран как C: luaL_error делает longjmp мимо деструкторов,
+		// поэтому тело должно умереть до ошибки
+		std::string out;
+		if (http_request_raw("GET", url, {}, {}, out, status)
+			&& status >= 200 && status < 300)
+		{
+			lua_pushlstring(L, out.data(), out.size());
+			return 1;
+		}
+	}
+	return luaL_error(L, "HttpGet failed (%d)", status);
 }
 
 int http_arg(lua_State* L)
@@ -1630,9 +1710,11 @@ int http_arg(lua_State* L)
 int l_httpservice_getasync(lua_State* L)
 {
 	const int i = http_arg(L);
-	const char* url = luaL_checkstring(L, i);
-	lua_settop(L, 0);
-	lua_pushstring(L, url);
+	luaL_checkstring(L, i);
+	// нельзя держать const char* и чистить стек — строку соберёт gc
+	lua_pushvalue(L, i);
+	lua_replace(L, 1);
+	lua_settop(L, 1);
 	return l_httpget(L);
 }
 
@@ -1805,6 +1887,7 @@ void RegisterApi(lua_State* L)
 	LuaDrawing::Register(L);
 	LuaScripts::Register(L);
 	LuaGc::Register(L);
+	LuaMem::Register(L);
 	LuaBridge::Register(L);
 	RegisterRunService(L);
 	RegisterUserInputService(L);
@@ -1822,35 +1905,10 @@ void PushSignal(lua_State* L, int kind, std::uint64_t owner, const char* prop)
 
 void FireSignal(lua_State* L, int kind, std::uint64_t owner, const char* prop)
 {
-	if (!L || !g_L)
-		return;
-
-	lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
-	lua_State* main = lua_tothread(L, -1);
-	lua_pop(L, 1);
-	if (main != g_L)
-		return;
-
-	const int top = lua_gettop(L);
-	int nargs = top - 1;
-	if (nargs < 0)
-		nargs = 0;
-
-	if (L != g_L)
-	{
-		if (nargs > 0)
-		{
-			for (int i = 0; i < nargs; ++i)
-				lua_pushvalue(L, 2 + i);
-			lua_xmove(L, g_L, nargs);
-		}
-		fire_sig(kind, owner, prop, nargs);
-	}
-
-	else
-	{
-		fire_sig(kind, owner, prop, nargs);
-	}
+	(void)L;
+	(void)kind;
+	(void)owner;
+	(void)prop;
 }
 
 void ScheduleWait(lua_State* L, float sec)
@@ -1957,6 +2015,12 @@ void Shutdown()
 	g_kids_snap.clear();
 	g_desc_snap.clear();
 	g_prop_snap.clear();
+	g_prop_cursor = 0;
+	g_bus_seq_addr = 0;
+	g_bus_pay_addr = 0;
+	g_bus_last_seq = 0;
+	g_bus_seeded = false;
+	g_poll_tick = 0;
 
 	lua_close(g_L);
 	g_L = nullptr;
@@ -1995,6 +2059,33 @@ void wipe_script_signals()
 		w.alive = false;
 	}
 	g_sigwaits.clear();
+
+	// корутины прошлого запуска иначе живут вечно: их ref в реестре не даёт
+	// gc собрать тред, а тикер продолжает их крутить
+	for (auto& w : g_waits)
+	{
+		if (w.ref != LUA_NOREF)
+			luaL_unref(g_L, LUA_REGISTRYINDEX, w.ref);
+	}
+	g_waits.clear();
+
+	for (auto& d : g_delays)
+	{
+		if (d.fn_ref != LUA_NOREF)
+			luaL_unref(g_L, LUA_REGISTRYINDEX, d.fn_ref);
+		d.fn_ref = LUA_NOREF;
+		d.alive = false;
+	}
+	g_delays.clear();
+
+	g_kids_snap.clear();
+	g_desc_snap.clear();
+	g_prop_snap.clear();
+	g_prop_cursor = 0;
+	g_bus_seq_addr = 0;
+	g_bus_pay_addr = 0;
+	g_bus_seeded = false;
+	lua_gc(g_L, LUA_GCCOLLECT, 0);
 }
 
 void ExecuteLocked(const std::string& source, const std::string& name)
@@ -2079,10 +2170,13 @@ void Tick(float dt)
 	if (!g_L)
 		return;
 
+	++g_poll_tick;
+
 	poll_players();
 	poll_input();
 	poll_hierarchy();
-	poll_props();
+	if ((g_poll_tick % 2) == 0)
+		poll_props();
 	poll_jp_bus();
 
 	// fake Heartbeat / RenderStepped / Stepped
@@ -2091,21 +2185,20 @@ void Tick(float dt)
 		fire_sig(0, 0, nullptr, 1);
 	}
 
-	// task.delay / defer
+	// task.delay / defer — колбэк может звать task.delay, вектор переедет
 	const size_t ndelay = g_delays.size();
-	for (size_t i = 0; i < ndelay; ++i)
+	for (size_t i = 0; i < ndelay && i < g_delays.size(); ++i)
 	{
-		DelayEntry& d = g_delays[i];
-		if (!d.alive || d.fn_ref == LUA_NOREF)
+		if (!g_delays[i].alive || g_delays[i].fn_ref == LUA_NOREF)
 			continue;
 
-		d.left -= dt;
-		if (d.left > 0.f)
+		g_delays[i].left -= dt;
+		if (g_delays[i].left > 0.f)
 			continue;
 
-		const int fn = d.fn_ref;
-		d.alive = false;
-		d.fn_ref = LUA_NOREF;
+		const int fn = g_delays[i].fn_ref;
+		g_delays[i].alive = false;
+		g_delays[i].fn_ref = LUA_NOREF;
 		lua_rawgeti(g_L, LUA_REGISTRYINDEX, fn);
 		luaL_unref(g_L, LUA_REGISTRYINDEX, fn);
 		if (lua_pcall(g_L, 0, 0, 0) != LUA_OK)
@@ -2120,7 +2213,11 @@ void Tick(float dt)
 
 	// cap resumes/frame so wait(0) loops cannot freeze the UI thread
 	constexpr int k_max_resumes = 64;
-	int resumes = 0;
+
+	// сначала выдёргиваем готовых, потом резюмим: resume внутри цикла
+	// добавляет новые wait'ы и ломает индексы
+	static std::vector<int> ready;
+	ready.clear();
 
 	for (size_t i = 0; i < g_waits.size();)
 	{
@@ -2131,20 +2228,22 @@ void Tick(float dt)
 			continue;
 		}
 
-		if (resumes >= k_max_resumes)
+		if (static_cast<int>(ready.size()) >= k_max_resumes)
 		{
 			g_waits[i].left = 0.f; // retry next frame
 			++i;
 			continue;
 		}
 
-		const int ref = g_waits[i].ref;
+		ready.push_back(g_waits[i].ref);
+		g_waits.erase(g_waits.begin() + static_cast<std::ptrdiff_t>(i));
+	}
+
+	for (int ref : ready)
+	{
 		lua_rawgeti(g_L, LUA_REGISTRYINDEX, ref); // keep thread alive on stack
 		lua_State* co = lua_tothread(g_L, -1);
-
-		g_waits.erase(g_waits.begin() + static_cast<std::ptrdiff_t>(i));
 		luaL_unref(g_L, LUA_REGISTRYINDEX, ref);
-		++resumes;
 
 		if (!co)
 		{

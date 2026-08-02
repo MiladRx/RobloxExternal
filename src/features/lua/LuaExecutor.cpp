@@ -8,7 +8,7 @@
 #include "execute/Scripts.h"
 #include "protocol/Log.h"
 #include "app/Settings.h"
-#include "jewsploit/lua_ui.h"
+#include "gui/lua_window.h"
 
 #include <cstdarg>
 #include <cstdio>
@@ -58,7 +58,8 @@ void LuaExecutor::Log(LogLevel level, const char* fmt, ...)
 
 void LuaExecutor::Render(float alpha)
 {
-	ng_lua::draw(alpha);
+	(void)alpha;
+	gui::render_lua_window(&g_Settings.lua.executor);
 }
 
 }

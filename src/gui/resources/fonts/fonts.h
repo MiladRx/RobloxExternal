@@ -11,6 +11,7 @@ namespace fonts {
     extern ImFont* proggy_clean;
     extern ImFont* visitor;
     extern ImFont* verdana;
+    extern ImFont* menu;
 
     extern ImFont* tahoma;
     extern ImFont* esp;
@@ -19,7 +20,7 @@ namespace fonts {
     void load(ImGuiIO& io);
 
     inline ImFont* by_index(int index) {
-		// 0 fredoka … 4 verdana (gui дефолт = 4)
+		// 0 fredoka, 1 tahoma bold, 2 proggy clean, 3 visitor, 4 verdana, 5 segoe ui, 6 imgui default
         switch (index) {
         case 0: if (fredoka_one)  return fredoka_one;  break;
         case 1: if (tahoma_bold)  return tahoma_bold;  break;
@@ -27,9 +28,12 @@ namespace fonts {
         case 3: if (visitor)      return visitor;      break;
         case 4: if (verdana)      return verdana;      break;
         case 5: if (imgui)        return imgui;        break;
+        case 6: if (menu)         return menu;         break;
         default: break;
         }
 
+        if (menu)
+            return menu;
         if (verdana)
             return verdana;
         if (fredoka_one)
@@ -46,10 +50,16 @@ namespace fonts {
     }
 
     inline ImFont* ui() {
-        return by_index(Cheat::g_Settings.gui.font);
+        if (imgui)
+            return imgui;
+        if (verdana)
+            return verdana;
+        return ImGui::GetFont();
     }
 
     inline ImFont* ui_bold() {
+        if (tahoma_bold)
+            return tahoma_bold;
         return ui();
     }
 
@@ -63,6 +73,6 @@ namespace fonts {
     inline float snap_px(float size) {
         if (size < 8.0f)
             size = 8.0f;
-        return std::floor(size + 0.5f);
+        return size;
     }
 }

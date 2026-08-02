@@ -1,314 +1,91 @@
 #include "pch.h"
 #include "tabs.h"
-#include "widgets.h"
-#include "../colors/colors.h"
-#include "imgui_internal.h"
+#include "text.h"
+#include "imgui.h"
 
-namespace {
-    //constexpr int k_tab_gradient_count = 17;
-    enum { max_tabs = 8 };
-
-    struct tab_frame {
-        int outer_l = 0;
-        int outer_t = 0;
-        int outer_r = 0;
-        int outer_b = 0;
-        int inner_l = 0;
-        int inner_t = 0;
-        int inner_r = 0;
-        int inner_b = 0;
-        ImRect fill{};
-    };
-
-    tab_frame make_tab_frame(float tab_left, float tab_top, float tab_width, int panel_top_outer, int panel_top_inner) {
-        tab_frame frame{};
-        frame.outer_l = static_cast<int>(ImFloor(tab_left));
-        frame.outer_t = static_cast<int>(ImFloor(tab_top));
-        frame.outer_r = static_cast<int>(ImFloor(tab_left + tab_width)) - 1;
-        frame.outer_b = panel_top_outer;
-        frame.inner_l = frame.outer_l + 1;
-        frame.inner_t = frame.outer_t + 1;
-        frame.inner_r = frame.outer_r - 1;
-        frame.inner_b = panel_top_inner;
-        frame.fill = ImRect(
-            ImVec2(static_cast<float>(frame.inner_l + 1), static_cast<float>(frame.inner_t + 1)),
-            ImVec2(static_cast<float>(frame.inner_r), static_cast<float>(panel_top_outer)));
-        return frame;
-    }
-
-    void paint_hline(ImDrawList* draw_list, int x0, int x1, int y, ImU32 color) {
-        if (x1 < x0) {
-            return;
-        }
-        draw_list->AddRectFilled(
-            ImVec2(static_cast<float>(x0), static_cast<float>(y)),
-            ImVec2(static_cast<float>(x1 + 1), static_cast<float>(y + 1)),
-            color);
-    }
-
-    void paint_vline(ImDrawList* draw_list, int x, int y0, int y1, ImU32 color) {
-        if (y1 < y0) {
-            return;
-        }
-        draw_list->AddRectFilled(
-            ImVec2(static_cast<float>(x), static_cast<float>(y0)),
-            ImVec2(static_cast<float>(x + 1), static_cast<float>(y1 + 1)),
-            color);
-    }
-
-    ImU32 tab_fill_row(int row, int row_count, bool active)
+namespace widgets
+{
+    void sidebar_tabs(const std::vector<const char*>& items, int* selected, float width)
     {
-        if (row_count < 1) row_count = 1;
-        if (row < 0) row = 0;
-        if (row > row_count - 1) row = row_count - 1;
-        int denom = row_count - 1;
-        if (denom < 1) denom = 1;
-        float t = (float)row / (float)denom;
+        constexpr float item_height = 34.f;
+        constexpr float text_padding_x = 10.f;
+        constexpr float active_inset = 2.f;
 
-        if (active)
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.f, 0.f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.f, 0.f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.f, 0.f, 0.f, 0.f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.f, 0.f, 0.f, 0.f));
+        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.f, 0.f, 0.f, 0.f));
+
+        ImGui::BeginChild("##sidebar_tabs", ImVec2(width, 0.f), ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
+
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+
+        for (int i = 0; i < (int)items.size(); ++i)
         {
-            ImVec4 top = ImLerp(colors::content_fill, colors::child_fill, 0.15f);
-            return ImGui::ColorConvertFloat4ToU32(ImLerp(top, colors::content_fill, t));
-        }
-
-        ImVec4 top = ImLerp(colors::child_fill, colors::panel_fill, 0.25f);
-        ImVec4 bot = ImLerp(colors::child_fill, colors::content_fill, 0.35f);
-        return ImGui::ColorConvertFloat4ToU32(ImLerp(top, bot, t));
-    }
-
-    void draw_tab_gradient(ImDrawList* draw_list, const ImRect& rect, bool active)
-    {
-        float height = rect.GetHeight();
-        if (!draw_list || height <= 0.f)
-            return;
-
-        int grad_n = 17; // rows
-        for (int g = 0; g < grad_n - 1; ++g)
-        {
-            float y0 = rect.Min.y + (height * (float)g) / (float)(grad_n - 1);
-            float y1 = rect.Min.y + (height * (float)(g + 1)) / (float)(grad_n - 1);
-            ImU32 c0 = tab_fill_row(g, grad_n, active);
-            ImU32 c1 = tab_fill_row(g + 1, grad_n, active);
-            draw_list->AddRectFilledMultiColor(
-                ImVec2(rect.Min.x, y0),
-                ImVec2(rect.Max.x, y1),
-                c0, c0, c1, c1);
-        }
-    }
-
-    void draw_tab_sides(ImDrawList* draw_list, const tab_frame& f, ImU32 outer_col, ImU32 inner_col) {
-        paint_hline(draw_list, f.outer_l, f.outer_r, f.outer_t, outer_col);
-        paint_vline(draw_list, f.outer_l, f.outer_t, f.outer_b, outer_col);
-        paint_vline(draw_list, f.outer_r, f.outer_t, f.outer_b, outer_col);
-
-        paint_hline(draw_list, f.inner_l, f.inner_r, f.inner_t, inner_col);
-        paint_vline(draw_list, f.inner_l, f.inner_t, f.inner_b, inner_col);
-        paint_vline(draw_list, f.inner_r, f.inner_t, f.inner_b, inner_col);
-    }
-
-    // щель под активный таб а то двойная линия
-    void paint_panel_top_with_tab_gap(
-        ImDrawList* draw_list,
-        int seg_l,
-        int seg_r,
-        int y,
-        int gap_l,
-        int gap_r,
-        ImU32 color) {
-        if (gap_l > seg_l) {
-            paint_hline(draw_list, seg_l, gap_l - 1, y, color);
-        }
-        if (gap_r < seg_r) {
-            paint_hline(draw_list, gap_r + 1, seg_r, y, color);
-        }
-    }
-
-    void draw_content_panel(
-        ImDrawList* draw_list,
-        const ImVec2& panel_min,
-        const ImVec2& panel_max,
-        ImU32 fill,
-        ImU32 outer_border,
-        ImU32 inner_border,
-        float tab_start_x,
-        float tab_top,
-        float tab_width,
-        float tab_spacing,
-        int label_count,
-        int active_index)
-    {
-        (void)label_count;
-        int panel_top_outer = (int)ImFloor(panel_min.y);
-        int panel_top_inner = panel_top_outer + 1;
-        int panel_outer_l = (int)ImFloor(panel_min.x);
-        int panel_outer_r = (int)ImCeil(panel_max.x) - 1;
-        int panel_outer_b = (int)ImCeil(panel_max.y) - 1;
-        int panel_inner_l = panel_outer_l + 1;
-        int panel_inner_r = panel_outer_r - 1;
-        int panel_inner_b = panel_outer_b - 1;
-
-        tab_frame active = make_tab_frame(
-            tab_start_x + (float)active_index * (tab_width + tab_spacing),
-            tab_top,
-            tab_width,
-            panel_top_outer,
-            panel_top_inner);
-
-        draw_list->AddRectFilled(
-            ImVec2((float)(panel_inner_l + 1), (float)panel_top_outer),
-            ImVec2((float)panel_inner_r, (float)(panel_inner_b + 1)),
-            fill);
-
-        paint_vline(draw_list, panel_outer_l, panel_top_outer, panel_outer_b, outer_border);
-        paint_vline(draw_list, panel_outer_r, panel_top_outer, panel_outer_b, outer_border);
-        paint_hline(draw_list, panel_outer_l, panel_outer_r, panel_outer_b, outer_border);
-
-        paint_vline(draw_list, panel_inner_l, panel_top_inner, panel_inner_b, inner_border);
-        paint_vline(draw_list, panel_inner_r, panel_top_inner, panel_inner_b, inner_border);
-        paint_hline(draw_list, panel_inner_l, panel_inner_r, panel_inner_b, inner_border);
-
-        paint_panel_top_with_tab_gap(
-            draw_list,
-            panel_outer_l,
-            panel_outer_r,
-            panel_top_outer,
-            active.outer_l,
-            active.outer_r,
-            outer_border);
-        paint_panel_top_with_tab_gap(
-            draw_list,
-            panel_inner_l,
-            panel_inner_r,
-            panel_top_inner,
-            active.inner_l,
-            active.inner_r,
-            inner_border);
-    }
-}
-
-namespace widgets {
-    int draw_tab_bar(
-        ImDrawList* draw_list,
-        const ImVec2& panel_min,
-        const ImVec2& panel_max,
-        float tab_start_x,
-        float tab_top,
-        int active_index,
-        const char* const* labels,
-        int label_count,
-        float tab_width,
-        float tab_height,
-        float tab_spacing,
-        ImFont* font,
-        ImFont* font_active,
-        float font_size,
-        ImU32 panel_fill,
-        ImU32 panel_outer_border,
-        ImU32 panel_inner_border)
-    {
-        if (!draw_list || !labels || label_count <= 0)
-            return active_index;
-
-        if (active_index < 0 || active_index >= label_count)
-            active_index = 0;
-
-        if (!font)
-            font = ImGui::GetFont();
-        if (!font_active)
-            font_active = font;
-        if (font_size <= 0.0f)
-            font_size = ImGui::GetFontSize();
-
-        const int panel_top_outer = static_cast<int>(ImFloor(panel_min.y));
-        const int panel_top_inner = panel_top_outer + 1;
-        int clicked_index = active_index;
-        static float tab_hover[max_tabs] = {};
-
-        for (int i = 0; i < label_count; ++i)
-        {
-            const ImVec2 tab_min(tab_start_x + static_cast<float>(i) * (tab_width + tab_spacing), tab_top);
-            ImGui::SetCursorScreenPos(tab_min);
+            bool active = (*selected == i);
             ImGui::PushID(i);
-            if (ImGui::InvisibleButton("tab", ImVec2(tab_width, tab_height)))
-            {
-                clicked_index = i;
-            }
+
+            ImVec2 item_pos = ImGui::GetCursorScreenPos();
+            ImVec2 item_max(item_pos.x + width, item_pos.y + item_height);
+
+            if (ImGui::Selectable("", active, 0, ImVec2(width, item_height)))
+                *selected = i;
+
+            if (ImGui::IsItemHovered())
+                draw->AddRectFilled(item_pos, item_max, ImGui::GetColorU32(ImVec4(1.f, 1.f, 1.f, 0.06f)));
+
+            if (active)
+                draw->AddRect(ImVec2(item_pos.x + active_inset, item_pos.y + active_inset), ImVec2(item_max.x - active_inset, item_max.y - active_inset), ImGui::GetColorU32(ImVec4(1.f, 1.f, 1.f, 0.35f)));
+
+            ImVec2 text_size = ImGui::CalcTextSize(items[i]);
+            ImU32 text_col = ImGui::GetColorU32(active ? ImVec4(1.f, 1.f, 1.f, 1.f) : ImVec4(0.55f, 0.55f, 0.55f, 1.f));
+            text_outlined(draw, ImVec2(item_pos.x + text_padding_x, item_pos.y + (item_height - text_size.y) * 0.5f), text_col, items[i]);
+
+            ImGui::PopID();
+        }
+
+        ImGui::EndChild();
+
+        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar(3);
+    }
+
+    void horizontal_tabs(const std::vector<const char*>& items, int* selected, float width, float height)
+    {
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(1.f, 1.f, 1.f, 0.06f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(1.f, 1.f, 1.f, 0.06f));
+        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.f, 0.f, 0.f, 0.f));
+
+        ImGui::BeginChild("##horizontal_tabs", ImVec2(width, height), ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollbar);
+
+        float item_width = width / (float)items.size();
+
+        for (int i = 0; i < (int)items.size(); ++i)
+        {
+            bool active = (*selected == i);
+            ImGui::PushID(i);
+            ImGui::PushStyleColor(ImGuiCol_Text, active ? ImVec4(1.f, 1.f, 1.f, 1.f) : ImVec4(0.55f, 0.55f, 0.55f, 1.f));
+
+            ImVec2 item_pos = ImGui::GetCursorScreenPos();
+            if (ImGui::Selectable("", active, 0, ImVec2(item_width, height)))
+                *selected = i;
+
+            ImVec2 text_size = ImGui::CalcTextSize(items[i]);
+            text_outlined(ImGui::GetWindowDrawList(), ImVec2(item_pos.x + (item_width - text_size.x) * 0.5f, item_pos.y + (height - text_size.y) * 0.5f), ImGui::GetColorU32(ImGuiCol_Text), items[i]);
+
+            ImGui::PopStyleColor();
             ImGui::PopID();
 
-            tab_hover[i] = ImLerp(
-                tab_hover[i],
-                ImGui::IsItemHovered() ? 1.0f : 0.0f,
-                15.0f * ImGui::GetIO().DeltaTime);
+            if (i + 1 < (int)items.size())
+                ImGui::SameLine(0.f, 0.f);
         }
 
-        // неактивные снизу, активный сверху поверх панели
-        for (int pass = 0; pass < 2; ++pass)
-        {
-            for (int i = 0; i < label_count; ++i)
-            {
-                bool is_active = (i == clicked_index);
-                if (pass == 0 && is_active)
-                    continue;
-                if (pass == 1 && !is_active)
-                    continue;
+        ImGui::EndChild();
 
-                if (pass == 1)
-                {
-                    draw_content_panel(
-                        draw_list,
-                        panel_min,
-                        panel_max,
-                        panel_fill,
-                        panel_outer_border,
-                        panel_inner_border,
-                        tab_start_x,
-                        tab_top,
-                        tab_width,
-                        tab_spacing,
-                        label_count,
-                        clicked_index);
-                }
-
-                const float tab_left = tab_start_x + static_cast<float>(i) * (tab_width + tab_spacing);
-                const tab_frame frame = make_tab_frame(tab_left, tab_top, tab_width, panel_top_outer, panel_top_inner);
-
-                draw_tab_gradient(draw_list, frame.fill, is_active);
-
-                if (is_active)
-                {
-                    draw_list->AddRectFilled(
-                        ImVec2(static_cast<float>(frame.inner_l), static_cast<float>(panel_top_outer)),
-                        ImVec2(static_cast<float>(frame.inner_r + 1), static_cast<float>(panel_top_inner + 1)),
-                        panel_fill);
-                }
-
-                else
-                {
-                    const ImU32 seam = ImGui::ColorConvertFloat4ToU32(
-                        ImLerp(colors::child_fill, colors::content_fill, 0.35f));
-                    draw_list->AddRectFilled(
-                        ImVec2(static_cast<float>(frame.outer_l), static_cast<float>(panel_top_outer - 1)),
-                        ImVec2(static_cast<float>(frame.outer_r + 1), static_cast<float>(panel_top_inner + 1)),
-                        seam);
-                }
-
-                draw_tab_sides(draw_list, frame, panel_outer_border, panel_inner_border);
-
-                ImU32 text_color = colors::label_u32(tab_hover[i]);
-                if (is_active)
-                    text_color = colors::accent_u32();
-
-                ImFont* label_font = font;
-                if (is_active)
-                    label_font = font_active;
-                const ImVec2 text_size = label_font->CalcTextSizeA(font_size, FLT_MAX, 0.0f, labels[i]);
-                const ImVec2 text_pos(
-                    ImFloor(static_cast<float>(frame.outer_l) + (tab_width - text_size.x) * 0.5f),
-                    ImFloor(static_cast<float>(frame.outer_t) + (tab_height - text_size.y) * 0.5f));
-                widgets::draw_outlined_text(draw_list, label_font, font_size, text_pos, text_color, labels[i]);
-            }
-        }
-
-        return clicked_index;
+        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar();
     }
 }

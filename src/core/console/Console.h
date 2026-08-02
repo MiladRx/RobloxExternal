@@ -30,6 +30,10 @@ namespace Cheat::Console {
     void DumpWorld();
     void DumpSilent(bool ok, std::uint64_t handler, std::uint64_t stub,
                     std::uint64_t state, std::uint64_t slot, const char* detail);
+    void DumpGate(bool ok, const char* method, std::uint64_t slot,
+                  std::uint64_t handler, std::uint64_t stub,
+                  std::uint64_t state, bool cave, int fail);
+    void GateTimeout(const char* method, std::uint64_t calls);
     void DumpCrash(unsigned long exit_code);
     void DumpLastCrash();
 }

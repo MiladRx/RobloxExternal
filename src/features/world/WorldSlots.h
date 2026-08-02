@@ -26,6 +26,11 @@ void TickColorCorr(std::uint64_t lighting, bool force_off = false);
 void TickColorGrade(std::uint64_t lighting, bool force_off = false);
 void TickDof(std::uint64_t lighting, bool force_off = false);
 void TickTerrain(std::uint64_t lighting, bool force_off = false);
+void TickSkyboxChanger(std::uint64_t lighting, bool force_off = false);
+
+// имена пресетов для GUI — источник истины тут же, рядом с самими айдишниками
+int SkyboxPresetCount();
+const char* const* SkyboxPresetNames();
 
 } // namespace WorldSlots
 } // namespace Features

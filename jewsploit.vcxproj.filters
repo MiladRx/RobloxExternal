@@ -97,11 +97,11 @@
     <Filter Include="src\gui">
       <UniqueIdentifier>{28C4E687-3ADB-4CE7-B8C9-756A437C8F3C}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\gui\animation">
-      <UniqueIdentifier>{31D61813-397D-4310-BEFE-BD2B75741609}</UniqueIdentifier>
+    <Filter Include="src\jewsploit">
+      <UniqueIdentifier>{92883A43-4579-4A9D-ADE1-F8E0F050EA2A}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\gui\colors">
-      <UniqueIdentifier>{4BFC7AAB-EC5F-4959-9BE6-5D75F6B5B133}</UniqueIdentifier>
+    <Filter Include="src\jewsploit\colors">
+      <UniqueIdentifier>{BA81F7F1-1504-4ABC-AC3C-AB143C5674EA}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\gui\resources">
       <UniqueIdentifier>{F4DBF106-F7C8-4F98-9A51-CD27CC4CCDE0}</UniqueIdentifier>
@@ -117,6 +117,9 @@
     </Filter>
     <Filter Include="src\gui\widgets">
       <UniqueIdentifier>{590E82CC-0B62-4E76-A152-7B0C29699F21}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\gui\editor">
+      <UniqueIdentifier>{77F965C0-935F-4B14-823A-3EB99470FD1F}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\renderer">
       <UniqueIdentifier>{EBE0FC87-CD45-4040-83A5-670623AF1FBF}</UniqueIdentifier>
@@ -300,16 +303,37 @@
     <ClInclude Include="src\renderer\Renderer.h">
       <Filter>src\renderer</Filter>
     </ClInclude>
+    <ClInclude Include="src\gui\gui.h">
+      <Filter>src\gui</Filter>
+    </ClInclude>
     <ClInclude Include="src\gui\Menu.h">
       <Filter>src\gui</Filter>
     </ClInclude>
-    <ClInclude Include="src\gui\colors\colors.h">
-      <Filter>src\gui\colors</Filter>
+    <ClInclude Include="src\gui\icons.h">
+      <Filter>src\gui</Filter>
     </ClInclude>
-    <ClInclude Include="src\gui\animation\animation.h">
-      <Filter>src\gui\animation</Filter>
+    <ClInclude Include="src\gui\lua_window.h">
+      <Filter>src\gui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\players_window.h">
+      <Filter>src\gui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\esp_preview_window.h">
+      <Filter>src\gui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\explorer_window.h">
+      <Filter>src\gui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\properties_window.h">
+      <Filter>src\gui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\editor\lua_editor.h">
+      <Filter>src\gui\editor</Filter>
     </ClInclude>
     <ClInclude Include="src\gui\resources\fonts\fonts.h">
+      <Filter>src\gui\resources\fonts</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\resources\fonts\font_fredoka_one.h">
       <Filter>src\gui\resources\fonts</Filter>
     </ClInclude>
     <ClInclude Include="src\gui\resources\fonts\font_tahoma.h">
@@ -330,8 +354,35 @@
     <ClInclude Include="src\gui\widgets\widgets.h">
       <Filter>src\gui\widgets</Filter>
     </ClInclude>
+    <ClInclude Include="src\gui\widgets\button.h">
+      <Filter>src\gui\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\widgets\checkbox.h">
+      <Filter>src\gui\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\widgets\colorpicker.h">
+      <Filter>src\gui\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\widgets\combo.h">
+      <Filter>src\gui\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\widgets\input.h">
+      <Filter>src\gui\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\widgets\keybind.h">
+      <Filter>src\gui\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\widgets\slider.h">
+      <Filter>src\gui\widgets</Filter>
+    </ClInclude>
     <ClInclude Include="src\gui\widgets\tabs.h">
       <Filter>src\gui\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\widgets\text.h">
+      <Filter>src\gui\widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\jewsploit\colors\colors.h">
+      <Filter>src\jewsploit\colors</Filter>
     </ClInclude>
     <ClInclude Include="third_party\stb\stb_image.h">
       <Filter>third_party\stb</Filter>
@@ -536,17 +587,32 @@
     <ClCompile Include="third_party\stb\stb_image_impl.cpp">
       <Filter>third_party\stb</Filter>
     </ClCompile>
+    <ClCompile Include="src\gui\gui.cpp">
+      <Filter>src\gui</Filter>
+    </ClCompile>
     <ClCompile Include="src\gui\Menu.cpp">
       <Filter>src\gui</Filter>
     </ClCompile>
-    <ClCompile Include="src\gui\colors\colors.cpp">
-      <Filter>src\gui\colors</Filter>
+    <ClCompile Include="src\gui\icons.cpp">
+      <Filter>src\gui</Filter>
     </ClCompile>
-    <ClCompile Include="src\gui\animation\animation.cpp">
-      <Filter>src\gui\animation</Filter>
+    <ClCompile Include="src\gui\lua_window.cpp">
+      <Filter>src\gui</Filter>
     </ClCompile>
-    <ClCompile Include="src\gui\resources\fonts\fonts.cpp">
-      <Filter>src\gui\resources\fonts</Filter>
+    <ClCompile Include="src\gui\players_window.cpp">
+      <Filter>src\gui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gui\esp_preview_window.cpp">
+      <Filter>src\gui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gui\explorer_window.cpp">
+      <Filter>src\gui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gui\properties_window.cpp">
+      <Filter>src\gui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gui\editor\lua_editor.cpp">
+      <Filter>src\gui\editor</Filter>
     </ClCompile>
     <ClCompile Include="src\gui\widgets\button.cpp">
       <Filter>src\gui\widgets</Filter>
@@ -554,29 +620,29 @@
     <ClCompile Include="src\gui\widgets\checkbox.cpp">
       <Filter>src\gui\widgets</Filter>
     </ClCompile>
-    <ClCompile Include="src\gui\widgets\slider.cpp">
+    <ClCompile Include="src\gui\widgets\colorpicker.cpp">
       <Filter>src\gui\widgets</Filter>
     </ClCompile>
     <ClCompile Include="src\gui\widgets\combo.cpp">
       <Filter>src\gui\widgets</Filter>
     </ClCompile>
-    <ClCompile Include="src\gui\widgets\watermark.cpp">
+    <ClCompile Include="src\gui\widgets\input.cpp">
       <Filter>src\gui\widgets</Filter>
     </ClCompile>
-    <ClCompile Include="src\gui\widgets\child.cpp">
+    <ClCompile Include="src\gui\widgets\keybind.cpp">
       <Filter>src\gui\widgets</Filter>
     </ClCompile>
-    <ClCompile Include="src\gui\widgets\text.cpp">
+    <ClCompile Include="src\gui\widgets\slider.cpp">
       <Filter>src\gui\widgets</Filter>
     </ClCompile>
     <ClCompile Include="src\gui\widgets\tabs.cpp">
       <Filter>src\gui\widgets</Filter>
     </ClCompile>
-    <ClCompile Include="src\gui\widgets\color.cpp">
-      <Filter>src\gui\widgets</Filter>
+    <ClCompile Include="src\gui\resources\fonts\fonts.cpp">
+      <Filter>src\gui\resources\fonts</Filter>
     </ClCompile>
-    <ClCompile Include="src\gui\widgets\keybind.cpp">
-      <Filter>src\gui\widgets</Filter>
+    <ClCompile Include="src\jewsploit\colors\theme.cpp">
+      <Filter>src\jewsploit\colors</Filter>
     </ClCompile>
     <ClCompile Include="third_party\imgui\imgui.cpp">
       <Filter>third_party\imgui</Filter>

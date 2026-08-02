@@ -26,6 +26,7 @@ enum class Feat : std::uint8_t
 	ColorGrade,
 	Dof,
 	Terrain,
+	SkyboxChanger,
 };
 
 enum class Field : std::uint8_t
@@ -56,6 +57,7 @@ enum class Field : std::uint8_t
 	ColorGrade,
 	Dof,
 	Terrain,
+	SkyboxChanger,
 	Count
 };
 

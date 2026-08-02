@@ -48,6 +48,10 @@ inline void WriteWorld(std::ostringstream& out, const Settings& s)
 	PutFloat(out, "world.sky_orient_x", s.world.sky_orient_xyz[0]);
 	PutFloat(out, "world.sky_orient_y", s.world.sky_orient_xyz[1]);
 	PutFloat(out, "world.sky_orient_z", s.world.sky_orient_xyz[2]);
+	PutBool(out, "world.skybox_changer", s.world.skybox_changer);
+	PutInt(out, "world.skybox_mode", s.world.skybox_mode);
+	PutInt(out, "world.skybox_shader", s.world.skybox_shader);
+	PutInt(out, "world.skybox_preset", s.world.skybox_preset);
 	PutBool(out, "world.bloom", s.world.bloom);
 	PutFloat(out, "world.bloom_intensity", s.world.bloom_intensity);
 	PutFloat(out, "world.bloom_size", s.world.bloom_size);
@@ -133,6 +137,10 @@ inline void ReadWorld(const KV& kv, Settings& s)
 	GetFloat(kv, "world.sky_orient_x", s.world.sky_orient_xyz[0]);
 	GetFloat(kv, "world.sky_orient_y", s.world.sky_orient_xyz[1]);
 	GetFloat(kv, "world.sky_orient_z", s.world.sky_orient_xyz[2]);
+	GetBool(kv, "world.skybox_changer", s.world.skybox_changer);
+	GetInt(kv, "world.skybox_mode", s.world.skybox_mode);
+	GetInt(kv, "world.skybox_shader", s.world.skybox_shader);
+	GetInt(kv, "world.skybox_preset", s.world.skybox_preset);
 	GetBool(kv, "world.bloom", s.world.bloom);
 	GetFloat(kv, "world.bloom_intensity", s.world.bloom_intensity);
 	GetFloat(kv, "world.bloom_size", s.world.bloom_size);

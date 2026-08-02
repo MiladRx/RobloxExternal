@@ -13,6 +13,7 @@ extern "C" {
 #include <vector>
 #include <cstring>
 #include <algorithm>
+#include <cfloat>
 
 namespace Cheat {
 namespace Features {
@@ -47,6 +48,8 @@ struct DrawObject {
 	std::string text;
 };
 
+constexpr size_t k_max_objects = 4096;
+
 std::mutex g_mutex;
 std::vector<std::shared_ptr<DrawObject>> g_objects;
 
@@ -59,6 +62,14 @@ LuaDraw* Check(lua_State* L, int idx = 1)
 	return static_cast<LuaDraw*>(luaL_checkudata(L, idx, k_mt));
 }
 
+float sane(double v)
+{
+	const float f = static_cast<float>(v);
+	if (f != f || f > 1e6f || f < -1e6f)
+		return 0.f;
+	return f;
+}
+
 ImU32 MakeColor(const DrawObject& o)
 {
 	const float a = std::clamp(1.f - o.transparency, 0.f, 1.f);
@@ -69,27 +80,44 @@ ImU32 MakeColor(const DrawObject& o)
 		static_cast<int>(a * 255.f));
 }
 
+bool publish(std::shared_ptr<DrawObject> obj)
+{
+	std::lock_guard lock(g_mutex);
+	if (g_objects.size() >= k_max_objects)
+		return false;
+	g_objects.push_back(std::move(obj));
+	return true;
+}
+
 int l_remove(lua_State* L)
 {
 	auto* ud = Check(L);
-	if (ud->obj)
-	{
-		ud->obj->alive = false;
-		ud->obj->visible = false;
-	}
+	if (!ud->obj)
+		return 0;
+	std::lock_guard lock(g_mutex);
+	ud->obj->alive = false;
+	ud->obj->visible = false;
 	return 0;
 }
 
 int l_tostring(lua_State* L)
 {
 	auto* ud = Check(L);
-	if (!ud->obj || !ud->obj->alive)
+	bool removed = true;
+	DrawType type = DrawType::Line;
+	{
+		std::lock_guard lock(g_mutex);
+		removed = !ud->obj || !ud->obj->alive;
+		if (ud->obj)
+			type = ud->obj->type;
+	}
+	if (removed)
 	{
 		lua_pushstring(L, "Drawing(removed)");
 		return 1;
 	}
 	const char* name = "Drawing";
-	switch (ud->obj->type)
+	switch (type)
 	{
 	case DrawType::Line: name = "Drawing(Line)"; break;
 	case DrawType::Text: name = "Drawing(Text)"; break;
@@ -109,12 +137,17 @@ int l_index(lua_State* L)
 		lua_pushcfunction(L, l_remove);
 		return 1;
 	}
-	if (!ud->obj || !ud->obj->alive)
+
+	DrawObject o;
 	{
-		lua_pushnil(L);
-		return 1;
+		std::lock_guard lock(g_mutex);
+		if (!ud->obj || !ud->obj->alive)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		o = *ud->obj;
 	}
-	auto& o = *ud->obj;
 
 	if (std::strcmp(key, "Visible") == 0) { lua_pushboolean(L, o.visible); return 1; }
 	if (std::strcmp(key, "Transparency") == 0) { lua_pushnumber(L, o.transparency); return 1; }
@@ -156,35 +189,52 @@ int l_index(lua_State* L)
 int l_newindex(lua_State* L)
 {
 	auto* ud = Check(L);
-	if (!ud->obj || !ud->obj->alive)
+	const char* key = luaL_checkstring(L, 2);
+	if (!ud->obj)
+		return 0;
+
+	// всё, что может кинуть lua-ошибку, читаем до захвата мьютекса:
+	// luaL_error делает longjmp мимо деструктора lock_guard
+	const bool isnum = lua_isnumber(L, 3) != 0;
+	const float num = isnum ? sane(lua_tonumber(L, 3)) : 0.f;
+	const bool flag = lua_toboolean(L, 3) != 0;
+	float vx = 0.f, vy = 0.f;
+	const bool isv2 = LuaTypes::ToVector2(L, 3, vx, vy);
+	float cr = 0.f, cg = 0.f, cb = 0.f;
+	const bool iscol = LuaTypes::ToColor3(L, 3, cr, cg, cb);
+	std::string str;
+	if (lua_type(L, 3) == LUA_TSTRING)
+		str = lua_tostring(L, 3);
+	vx = sane(vx);
+	vy = sane(vy);
+
+	std::lock_guard lock(g_mutex);
+	if (!ud->obj->alive)
 		return 0;
 	auto& o = *ud->obj;
-	const char* key = luaL_checkstring(L, 2);
 
-	if (std::strcmp(key, "Visible") == 0) { o.visible = lua_toboolean(L, 3) != 0; return 0; }
-	if (std::strcmp(key, "Transparency") == 0) { o.transparency = static_cast<float>(luaL_checknumber(L, 3)); return 0; }
-	if (std::strcmp(key, "Thickness") == 0) { o.thickness = static_cast<float>(luaL_checknumber(L, 3)); return 0; }
+	if (std::strcmp(key, "Visible") == 0) { o.visible = flag; return 0; }
+	if (std::strcmp(key, "Transparency") == 0) { if (isnum) o.transparency = num; return 0; }
+	if (std::strcmp(key, "Thickness") == 0) { if (isnum) o.thickness = num; return 0; }
 	if (std::strcmp(key, "Color") == 0)
 	{
-		float r, g, b;
-		if (LuaTypes::ToColor3(L, 3, r, g, b))
+		if (iscol)
 		{
-			o.r = r; o.g = g; o.b = b;
+			o.r = cr; o.g = cg; o.b = cb;
 		}
 		return 0;
 	}
 
 	if (o.type == DrawType::Line)
 	{
-		float x, y;
-		if (std::strcmp(key, "From") == 0 && LuaTypes::ToVector2(L, 3, x, y))
+		if (std::strcmp(key, "From") == 0 && isv2)
 		{
-			o.fromX = x; o.fromY = y;
+			o.fromX = vx; o.fromY = vy;
 			return 0;
 		}
-		if (std::strcmp(key, "To") == 0 && LuaTypes::ToVector2(L, 3, x, y))
+		if (std::strcmp(key, "To") == 0 && isv2)
 		{
-			o.toX = x; o.toY = y;
+			o.toX = vx; o.toY = vy;
 			return 0;
 		}
 	}
@@ -192,44 +242,41 @@ int l_newindex(lua_State* L)
 	{
 		if (std::strcmp(key, "Text") == 0)
 		{
-			o.text = luaL_checkstring(L, 3);
+			o.text = std::move(str);
 			return 0;
 		}
-		float x, y;
-		if (std::strcmp(key, "Position") == 0 && LuaTypes::ToVector2(L, 3, x, y))
+		if (std::strcmp(key, "Position") == 0 && isv2)
 		{
-			o.posX = x; o.posY = y;
+			o.posX = vx; o.posY = vy;
 			return 0;
 		}
-		if (std::strcmp(key, "Size") == 0) { o.size = static_cast<float>(luaL_checknumber(L, 3)); return 0; }
-		if (std::strcmp(key, "Center") == 0) { o.centered = lua_toboolean(L, 3) != 0; return 0; }
-		if (std::strcmp(key, "Outline") == 0) { o.outline = lua_toboolean(L, 3) != 0; return 0; }
+		if (std::strcmp(key, "Size") == 0) { if (isnum) o.size = num; return 0; }
+		if (std::strcmp(key, "Center") == 0) { o.centered = flag; return 0; }
+		if (std::strcmp(key, "Outline") == 0) { o.outline = flag; return 0; }
 	}
 	if (o.type == DrawType::Circle)
 	{
-		float x, y;
-		if (std::strcmp(key, "Position") == 0 && LuaTypes::ToVector2(L, 3, x, y))
+		if (std::strcmp(key, "Position") == 0 && isv2)
 		{
-			o.posX = x; o.posY = y;
+			o.posX = vx; o.posY = vy;
 			return 0;
 		}
-		if (std::strcmp(key, "Radius") == 0) { o.radius = static_cast<float>(luaL_checknumber(L, 3)); return 0; }
-		if (std::strcmp(key, "Filled") == 0) { o.filled = lua_toboolean(L, 3) != 0; return 0; }
+		if (std::strcmp(key, "Radius") == 0) { if (isnum) o.radius = num; return 0; }
+		if (std::strcmp(key, "Filled") == 0) { o.filled = flag; return 0; }
 	}
 	if (o.type == DrawType::Square)
 	{
-		float x, y;
-		if (std::strcmp(key, "Position") == 0 && LuaTypes::ToVector2(L, 3, x, y))
+		if (std::strcmp(key, "Position") == 0 && isv2)
 		{
-			o.posX = x; o.posY = y;
+			o.posX = vx; o.posY = vy;
 			return 0;
 		}
-		if (std::strcmp(key, "Size") == 0 && LuaTypes::ToVector2(L, 3, x, y))
+		if (std::strcmp(key, "Size") == 0 && isv2)
 		{
-			o.width = x; o.height = y;
+			o.width = vx; o.height = vy;
 			return 0;
 		}
-		if (std::strcmp(key, "Filled") == 0) { o.filled = lua_toboolean(L, 3) != 0; return 0; }
+		if (std::strcmp(key, "Filled") == 0) { o.filled = flag; return 0; }
 	}
 	return 0;
 }
@@ -247,15 +294,14 @@ int l_new(lua_State* L)
 
 	auto obj = std::make_shared<DrawObject>();
 	obj->type = type;
-	{
-		std::lock_guard lock(g_mutex);
-		g_objects.push_back(obj);
-	}
 
 	auto* ud = static_cast<LuaDraw*>(lua_newuserdatauv(L, sizeof(LuaDraw), 0));
 	new (ud) LuaDraw{ obj };
 	luaL_getmetatable(L, k_mt);
 	lua_setmetatable(L, -2);
+
+	if (!publish(std::move(obj)))
+		return luaL_error(L, "Drawing.new: too many objects (%d)", static_cast<int>(k_max_objects));
 	return 1;
 }
 
@@ -270,6 +316,107 @@ int l_gc(lua_State* L)
 {
 	auto* ud = Check(L);
 	ud->~LuaDraw();
+	return 0;
+}
+
+void read_color_opt(lua_State* L, int idx, DrawObject& o)
+{
+	float r, g, b;
+	if (LuaTypes::ToColor3(L, idx, r, g, b))
+	{
+		o.r = r;
+		o.g = g;
+		o.b = b;
+	}
+}
+
+int l_draw_text(lua_State* L)
+{
+	float x = 0.f, y = 0.f;
+	if (!LuaTypes::ToVector2(L, 1, x, y))
+		return luaL_error(L, "draw.text: arg1 Vector2 expected");
+	const char* text = luaL_checkstring(L, 2);
+	auto obj = std::make_shared<DrawObject>();
+	obj->type = DrawType::Text;
+	obj->posX = sane(x);
+	obj->posY = sane(y);
+	obj->text = text ? text : "";
+	obj->outline = true;
+	if (lua_gettop(L) >= 3)
+		read_color_opt(L, 3, *obj);
+	if (lua_isnumber(L, 4))
+		obj->size = sane(lua_tonumber(L, 4));
+	publish(std::move(obj));
+	return 0;
+}
+
+int l_draw_text_size(lua_State* L)
+{
+	const char* text = luaL_checkstring(L, 1);
+	float size = lua_isnumber(L, 2) ? static_cast<float>(lua_tonumber(L, 2)) : 0.f;
+	ImFont* font = ImGui::GetFont();
+	float fs = size > 0.f ? size : (font ? font->LegacySize : ImGui::GetFontSize());
+	ImVec2 sz = font ? font->CalcTextSizeA(fs, FLT_MAX, 0.f, text ? text : "") : ImGui::CalcTextSize(text);
+	LuaTypes::PushVector2(L, sz.x, sz.y);
+	return 1;
+}
+
+int l_draw_line(lua_State* L)
+{
+	float x0, y0, x1, y1;
+	if (!LuaTypes::ToVector2(L, 1, x0, y0) || !LuaTypes::ToVector2(L, 2, x1, y1))
+		return luaL_error(L, "draw.line: Vector2, Vector2 expected");
+	auto obj = std::make_shared<DrawObject>();
+	obj->type = DrawType::Line;
+	obj->fromX = sane(x0);
+	obj->fromY = sane(y0);
+	obj->toX = sane(x1);
+	obj->toY = sane(y1);
+	if (lua_gettop(L) >= 3)
+		read_color_opt(L, 3, *obj);
+	if (lua_isnumber(L, 4))
+		obj->thickness = sane(lua_tonumber(L, 4));
+	publish(std::move(obj));
+	return 0;
+}
+
+int l_draw_rect(lua_State* L)
+{
+	float x, y, w, h;
+	if (!LuaTypes::ToVector2(L, 1, x, y) || !LuaTypes::ToVector2(L, 2, w, h))
+		return luaL_error(L, "draw.rect: Vector2, Vector2 expected");
+	auto obj = std::make_shared<DrawObject>();
+	obj->type = DrawType::Square;
+	obj->posX = sane(x);
+	obj->posY = sane(y);
+	obj->width = sane(w);
+	obj->height = sane(h);
+	obj->filled = lua_toboolean(L, 3) != 0;
+	if (lua_gettop(L) >= 4)
+		read_color_opt(L, 4, *obj);
+	if (lua_isnumber(L, 5))
+		obj->thickness = sane(lua_tonumber(L, 5));
+	publish(std::move(obj));
+	return 0;
+}
+
+int l_draw_circle(lua_State* L)
+{
+	float x, y;
+	if (!LuaTypes::ToVector2(L, 1, x, y))
+		return luaL_error(L, "draw.circle: Vector2 expected");
+	const float radius = sane(luaL_checknumber(L, 2));
+	auto obj = std::make_shared<DrawObject>();
+	obj->type = DrawType::Circle;
+	obj->posX = sane(x);
+	obj->posY = sane(y);
+	obj->radius = radius;
+	obj->filled = lua_toboolean(L, 3) != 0;
+	if (lua_gettop(L) >= 4)
+		read_color_opt(L, 4, *obj);
+	if (lua_isnumber(L, 5))
+		obj->thickness = sane(lua_tonumber(L, 5));
+	publish(std::move(obj));
 	return 0;
 }
 
@@ -291,21 +438,22 @@ void Clear()
 
 void Render()
 {
-	std::vector<std::shared_ptr<DrawObject>> snapshot;
-	{
-		std::lock_guard lock(g_mutex);
-		g_objects.erase(
-			std::remove_if(g_objects.begin(), g_objects.end(),
-				[](const std::shared_ptr<DrawObject>& o) { return !o || !o->alive; }),
-			g_objects.end());
-		snapshot = g_objects;
-	}
-
 	ImDrawList* dl = ImGui::GetBackgroundDrawList();
 	if (!dl)
 		return;
 
-	for (const auto& sp : snapshot)
+	ImFont* font = ImGui::GetFont();
+	const float base_fs = ImGui::GetFontSize();
+
+	// луа-поток мутирует объекты в любой момент, поэтому держим лок на весь проход:
+	// снапшот shared_ptr спасал только от free, но не от гонки по полям (text особенно)
+	std::lock_guard lock(g_mutex);
+	g_objects.erase(
+		std::remove_if(g_objects.begin(), g_objects.end(),
+			[](const std::shared_ptr<DrawObject>& o) { return !o || !o->alive; }),
+		g_objects.end());
+
+	for (const auto& sp : g_objects)
 	{
 		if (!sp || !sp->alive || !sp->visible)
 			continue;
@@ -320,22 +468,23 @@ void Render()
 			break;
 		case DrawType::Text:
 		{
+			const float fs = o.size > 0.f ? o.size : base_fs;
 			ImVec2 pos(o.posX, o.posY);
-			if (o.centered)
+			if (o.centered && font)
 			{
-				const ImVec2 sz = ImGui::CalcTextSize(o.text.c_str());
+				const ImVec2 sz = font->CalcTextSizeA(fs, FLT_MAX, 0.f, o.text.c_str());
 				pos.x -= sz.x * 0.5f;
 				pos.y -= sz.y * 0.5f;
 			}
 			if (o.outline)
 			{
 				const ImU32 oc = IM_COL32(0, 0, 0, (col >> 24) & 0xFF);
-				dl->AddText(ImVec2(pos.x - 1, pos.y), oc, o.text.c_str());
-				dl->AddText(ImVec2(pos.x + 1, pos.y), oc, o.text.c_str());
-				dl->AddText(ImVec2(pos.x, pos.y - 1), oc, o.text.c_str());
-				dl->AddText(ImVec2(pos.x, pos.y + 1), oc, o.text.c_str());
+				dl->AddText(font, fs, ImVec2(pos.x - 1, pos.y), oc, o.text.c_str());
+				dl->AddText(font, fs, ImVec2(pos.x + 1, pos.y), oc, o.text.c_str());
+				dl->AddText(font, fs, ImVec2(pos.x, pos.y - 1), oc, o.text.c_str());
+				dl->AddText(font, fs, ImVec2(pos.x, pos.y + 1), oc, o.text.c_str());
 			}
-			dl->AddText(nullptr, o.size > 0.f ? o.size : 0.f, pos, col, o.text.c_str());
+			dl->AddText(font, fs, pos, col, o.text.c_str());
 			break;
 		}
 		case DrawType::Circle:
@@ -379,6 +528,21 @@ void Register(lua_State* L)
 	lua_pushcfunction(L, l_clear);
 	lua_setfield(L, -2, "clear");
 	lua_setglobal(L, "Drawing");
+
+	lua_newtable(L);
+	lua_pushcfunction(L, l_draw_text);
+	lua_setfield(L, -2, "text");
+	lua_pushcfunction(L, l_draw_text_size);
+	lua_setfield(L, -2, "text_size");
+	lua_pushcfunction(L, l_draw_line);
+	lua_setfield(L, -2, "line");
+	lua_pushcfunction(L, l_draw_rect);
+	lua_setfield(L, -2, "rect");
+	lua_pushcfunction(L, l_draw_circle);
+	lua_setfield(L, -2, "circle");
+	lua_pushcfunction(L, l_clear);
+	lua_setfield(L, -2, "clear");
+	lua_setglobal(L, "draw");
 
 	lua_pushcfunction(L, l_clear);
 	lua_setglobal(L, "cleardrawcache");

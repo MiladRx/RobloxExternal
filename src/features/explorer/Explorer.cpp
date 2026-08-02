@@ -1,22 +1,31 @@
 #include "pch.h"
 #include "Explorer.h"
-#include "jewsploit/explorer_ui.h"
+
+#include "gui/explorer_window.h"
+#include "gui/icons.h"
+#include "app/Graphics.h"
+#include "app/Settings.h"
 
 namespace Cheat::Features {
 
 void Explorer::Initialize()
 {
-	ng_explorer::init_icons();
+	gui::icons_init(Cheat::Core::g_Device);
+	gui::explorer_init();
 }
 
 void Explorer::Shutdown()
 {
-	ng_explorer::shutdown();
+	gui::explorer_shutdown();
 }
 
 void Explorer::Render(float alpha)
 {
-	ng_explorer::draw(alpha);
+	if (alpha <= 0.001f)
+		return;
+	if (!Cheat::g_Settings.misc.explorer)
+		return;
+	gui::render_explorer_window(&Cheat::g_Settings.misc.explorer);
 }
 
 }

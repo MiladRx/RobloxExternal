@@ -10,6 +10,7 @@
 #include <winhttp.h>
 
 #include <atomic>
+#include <cctype>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -18,6 +19,7 @@
 #include <vector>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #pragma comment(lib, "winhttp.lib")
@@ -38,14 +40,27 @@ namespace {
 
 	std::mutex g_mu;
 	std::unordered_map<std::int64_t, Tex> g_tex;
-	std::unordered_map<std::int64_t, float> g_fail_at; // ImGui time, retry
+	std::unordered_map<std::int64_t, float> g_fail_at;
 	std::unordered_set<std::int64_t> g_queued;
 	std::unordered_set<std::int64_t> g_loading;
 	std::vector<std::int64_t> g_queue;
 	std::vector<Pending> g_ready;
 
+	std::unordered_map<std::string, std::int64_t> g_name_uid;
+	std::unordered_set<std::string> g_name_queued;
+	std::unordered_set<std::string> g_name_loading;
+	std::vector<std::string> g_name_queue;
+	std::unordered_map<std::string, float> g_name_fail_at;
+
 	std::atomic<int> g_alive{ 0 };
 	const int g_max_workers = 12;
+
+	std::string lower_copy(std::string s)
+	{
+		for (char& c : s)
+			c = (char)std::tolower((unsigned char)c);
+		return s;
+	}
 
 	bool HttpGet(const wchar_t* host, INTERNET_PORT port, const wchar_t* path,
 	             bool https, std::vector<std::uint8_t>& out)
@@ -122,6 +137,128 @@ namespace {
 		WinHttpCloseHandle(con);
 		WinHttpCloseHandle(ses);
 		return !out.empty();
+	}
+
+	bool HttpPostJson(const wchar_t* host, const wchar_t* path, const std::string& body,
+	                  std::vector<std::uint8_t>& out)
+	{
+		out.clear();
+		HINTERNET ses = WinHttpOpen(
+			L"jewsploit/1.0",
+			WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+			WINHTTP_NO_PROXY_NAME,
+			WINHTTP_NO_PROXY_BYPASS,
+			0);
+		if (!ses)
+			return false;
+
+		HINTERNET con = WinHttpConnect(ses, host, INTERNET_DEFAULT_HTTPS_PORT, 0);
+		if (!con)
+		{
+			WinHttpCloseHandle(ses);
+			return false;
+		}
+
+		HINTERNET req = WinHttpOpenRequest(
+			con, L"POST", path, nullptr,
+			WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
+		if (!req)
+		{
+			WinHttpCloseHandle(con);
+			WinHttpCloseHandle(ses);
+			return false;
+		}
+
+		wchar_t hdrs[] = L"Content-Type: application/json\r\n";
+		BOOL ok = WinHttpSendRequest(
+			req, hdrs, (DWORD)-1L,
+			(LPVOID)body.data(), (DWORD)body.size(), (DWORD)body.size(), 0);
+		if (!ok || !WinHttpReceiveResponse(req, nullptr))
+		{
+			WinHttpCloseHandle(req);
+			WinHttpCloseHandle(con);
+			WinHttpCloseHandle(ses);
+			return false;
+		}
+
+		for (;;)
+		{
+			DWORD avail = 0;
+			if (!WinHttpQueryDataAvailable(req, &avail) || avail == 0)
+				break;
+
+			std::size_t old = out.size();
+			out.resize(old + avail);
+			DWORD read = 0;
+			if (!WinHttpReadData(req, out.data() + old, avail, &read))
+			{
+				out.resize(old);
+				break;
+			}
+			out.resize(old + read);
+			if (out.size() > (1u << 20))
+				break;
+		}
+
+		WinHttpCloseHandle(req);
+		WinHttpCloseHandle(con);
+		WinHttpCloseHandle(ses);
+		return !out.empty();
+	}
+
+	std::int64_t ParseUserIdFromJson(const std::string& json, const std::string& name)
+	{
+		std::string key = "\"name\":\"" + name + "\"";
+		std::size_t pos = json.find(key);
+		if (pos == std::string::npos)
+		{
+			std::string low = lower_copy(name);
+			std::string jlow = lower_copy(json);
+			std::string k2 = "\"name\":\"" + low + "\"";
+			pos = jlow.find(k2);
+			if (pos == std::string::npos)
+				pos = 0;
+		}
+
+		std::size_t id = json.find("\"id\":", pos == std::string::npos ? 0 : pos);
+		if (id == std::string::npos)
+			id = json.find("\"id\":");
+		if (id == std::string::npos)
+			return 0;
+
+		id += 5;
+		while (id < json.size() && (json[id] == ' ' || json[id] == '\t'))
+			++id;
+
+		char* end = nullptr;
+		long long v = std::strtoll(json.c_str() + id, &end, 10);
+		if (v <= 0)
+			return 0;
+		return (std::int64_t)v;
+	}
+
+	bool ResolveNameToUid(const std::string& name, std::int64_t& out_uid)
+	{
+		out_uid = 0;
+		if (name.empty() || name == "unknown")
+			return false;
+
+		std::string body = "{\"usernames\":[\"";
+		for (char c : name)
+		{
+			if (c == '"' || c == '\\')
+				body.push_back('\\');
+			body.push_back(c);
+		}
+		body += "\"],\"excludeBannedUsers\":false}";
+
+		std::vector<std::uint8_t> raw;
+		if (!HttpPostJson(L"users.roblox.com", L"/v1/usernames/users", body, raw))
+			return false;
+
+		std::string json(raw.begin(), raw.end());
+		out_uid = ParseUserIdFromJson(json, name);
+		return out_uid > 0;
 	}
 
 	bool ParseUrl(const std::string& url, std::wstring& host, std::wstring& path, bool& https)
@@ -275,18 +412,51 @@ namespace {
 	{
 		for (;;)
 		{
+			std::string name_job;
 			std::int64_t uid = 0;
 			{
 				std::lock_guard<std::mutex> lk(g_mu);
-				if (g_queue.empty())
+				if (!g_name_queue.empty())
+				{
+					name_job = g_name_queue.back();
+					g_name_queue.pop_back();
+					g_name_queued.erase(name_job);
+					g_name_loading.insert(name_job);
+				}
+				else if (!g_queue.empty())
+				{
+					uid = g_queue.back();
+					g_queue.pop_back();
+					g_queued.erase(uid);
+					g_loading.insert(uid);
+				}
+				else
 				{
 					break;
 				}
+			}
 
-				uid = g_queue.back();
-				g_queue.pop_back();
-				g_queued.erase(uid);
-				g_loading.insert(uid);
+			if (!name_job.empty())
+			{
+				std::int64_t resolved = 0;
+				bool ok = ResolveNameToUid(name_job, resolved);
+				std::lock_guard<std::mutex> lk(g_mu);
+				g_name_loading.erase(name_job);
+				if (ok && resolved > 0)
+				{
+					g_name_uid[lower_copy(name_job)] = resolved;
+					g_name_fail_at.erase(name_job);
+					if (!g_tex.count(resolved) && !g_queued.count(resolved) && !g_loading.count(resolved))
+					{
+						g_queue.push_back(resolved);
+						g_queued.insert(resolved);
+					}
+				}
+				else
+				{
+					g_name_fail_at[name_job] = -1.f;
+				}
+				continue;
 			}
 
 			std::vector<std::uint8_t> png;
@@ -302,10 +472,8 @@ namespace {
 					p.png = std::move(png);
 					g_ready.push_back(std::move(p));
 				}
-
 				else
 				{
-					// ретрай позже
 					g_fail_at[uid] = -1.f;
 				}
 			}
@@ -327,10 +495,8 @@ namespace {
 
 			{
 				std::lock_guard<std::mutex> lk(g_mu);
-				if (g_queue.empty())
-				{
+				if (g_queue.empty() && g_name_queue.empty())
 					return;
-				}
 			}
 
 			if (!g_alive.compare_exchange_weak(cur, cur + 1))
@@ -422,15 +588,19 @@ namespace {
 
 	void EnqueueWanted()
 	{
-		std::vector<std::int64_t> want;
+		struct Want {
+			std::int64_t uid = 0;
+			std::string name;
+		};
+		std::vector<Want> want;
 		PlayerHandler::ForEachPlayer([&](const PlayerCache& c)
 		{
-			if (!c.is_player || c.user_id <= 0)
-			{
+			if (!c.is_player)
 				return;
-			}
-
-			want.push_back(c.user_id);
+			Want w{};
+			w.uid = c.user_id;
+			w.name = c.name;
+			want.push_back(std::move(w));
 		});
 
 		float now = (float)ImGui::GetTime();
@@ -438,17 +608,46 @@ namespace {
 		{
 			std::lock_guard<std::mutex> lk(g_mu);
 
-			for (std::int64_t uid : want)
+			for (auto& w : want)
 			{
-				if (g_tex.count(uid))
+				std::int64_t uid = w.uid;
+				if (uid <= 0 && !w.name.empty())
 				{
-					continue;
+					auto it = g_name_uid.find(lower_copy(w.name));
+					if (it != g_name_uid.end())
+						uid = it->second;
+					else
+					{
+						if (g_name_queued.count(w.name) || g_name_loading.count(w.name))
+							continue;
+
+						auto fit = g_name_fail_at.find(w.name);
+						if (fit != g_name_fail_at.end())
+						{
+							float t = fit->second;
+							if (t < 0.f)
+							{
+								fit->second = now + 2.5f;
+								continue;
+							}
+							if (now < t)
+								continue;
+							g_name_fail_at.erase(fit);
+						}
+
+						g_name_queue.push_back(w.name);
+						g_name_queued.insert(w.name);
+						kick = true;
+						continue;
+					}
 				}
 
-				if (g_queued.count(uid) || g_loading.count(uid))
-				{
+				if (uid <= 0)
 					continue;
-				}
+				if (g_tex.count(uid))
+					continue;
+				if (g_queued.count(uid) || g_loading.count(uid))
+					continue;
 
 				auto fit = g_fail_at.find(uid);
 				if (fit != g_fail_at.end())
@@ -459,12 +658,8 @@ namespace {
 						fit->second = now + 2.5f;
 						continue;
 					}
-
 					if (now < t)
-					{
 						continue;
-					}
-
 					g_fail_at.erase(fit);
 				}
 
@@ -473,28 +668,29 @@ namespace {
 				kick = true;
 			}
 
-			// кап очереди
 			while (g_queue.size() > 96)
 			{
 				std::int64_t drop = g_queue.front();
 				g_queue.erase(g_queue.begin());
 				g_queued.erase(drop);
 			}
+			while (g_name_queue.size() > 64)
+			{
+				std::string drop = g_name_queue.front();
+				g_name_queue.erase(g_name_queue.begin());
+				g_name_queued.erase(drop);
+			}
 		}
 
 		if (!kick)
 		{
 			std::lock_guard<std::mutex> lk(g_mu);
-			if (!g_queue.empty() && g_alive.load() < g_max_workers)
-			{
+			if ((!g_queue.empty() || !g_name_queue.empty()) && g_alive.load() < g_max_workers)
 				kick = true;
-			}
 		}
 
 		if (kick)
-		{
 			KickWorkers();
-		}
 	}
 
 } // namespace
@@ -514,12 +710,15 @@ void Clear()
 		g_loading.clear();
 		g_ready.clear();
 		g_fail_at.clear();
+		g_name_queue.clear();
+		g_name_queued.clear();
+		g_name_loading.clear();
+		g_name_uid.clear();
+		g_name_fail_at.clear();
 		for (auto& kv : g_tex)
 		{
 			if (kv.second.srv)
-			{
 				kv.second.srv->Release();
-			}
 		}
 		g_tex.clear();
 	}
@@ -528,18 +727,25 @@ void Clear()
 ID3D11ShaderResourceView* Get(std::int64_t user_id)
 {
 	if (user_id <= 0)
-	{
 		return nullptr;
-	}
 
 	std::lock_guard<std::mutex> lk(g_mu);
 	auto it = g_tex.find(user_id);
 	if (it == g_tex.end())
-	{
 		return nullptr;
-	}
 
 	return it->second.srv;
+}
+
+std::int64_t LookupUserId(const std::string& username)
+{
+	if (username.empty())
+		return 0;
+	std::lock_guard<std::mutex> lk(g_mu);
+	auto it = g_name_uid.find(lower_copy(username));
+	if (it == g_name_uid.end())
+		return 0;
+	return it->second;
 }
 
 }

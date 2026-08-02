@@ -43,6 +43,29 @@ std::string Cheat::Instance::GetClassName() const
 	return "Unknown";
 }
 
+bool Cheat::Instance::HasChildren() const
+{
+	if (!address || !g_Memory.IsValid(address))
+		return false;
+
+	std::uint64_t kids = g_Memory.Read<std::uint64_t>(address + Offsets::Instance::ChildrenStart);
+	if (!g_Memory.IsValid(kids))
+		return false;
+
+	std::uint64_t start = g_Memory.Read<std::uint64_t>(kids);
+	std::uint64_t end = g_Memory.Read<std::uint64_t>(kids + Offsets::Instance::ChildrenEnd);
+	if (!g_Memory.IsValid(start) || !g_Memory.IsValid(end) || start >= end)
+		return false;
+
+	for (std::uint64_t ptr = start; ptr < end; ptr += 16)
+	{
+		std::uint64_t child = g_Memory.Read<std::uint64_t>(ptr);
+		if (g_Memory.IsValid(child))
+			return true;
+	}
+	return false;
+}
+
 std::vector<Cheat::Instance> Cheat::Instance::GetChildren() const
 {
 	if (!address || !g_Memory.IsValid(address))

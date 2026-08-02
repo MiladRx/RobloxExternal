@@ -150,19 +150,32 @@ int v3_mul(lua_State* L)
 		const float s = static_cast<float>(lua_tonumber(L, 1));
 		auto* v = CheckV3(L, 2);
 		PushV3Raw(L, v->x * s, v->y * s, v->z * s);
+		return 1;
 	}
-	else
+
+	auto* v = CheckV3(L, 1);
+	if (luaL_testudata(L, 2, k_v3))
 	{
-		auto* v = CheckV3(L, 1);
-		const float s = static_cast<float>(luaL_checknumber(L, 2));
-		PushV3Raw(L, v->x * s, v->y * s, v->z * s);
+		auto* o = CheckV3(L, 2);
+		PushV3Raw(L, v->x * o->x, v->y * o->y, v->z * o->z);
+		return 1;
 	}
+
+	const float s = static_cast<float>(luaL_checknumber(L, 2));
+	PushV3Raw(L, v->x * s, v->y * s, v->z * s);
 	return 1;
 }
 
 int v3_div(lua_State* L)
 {
 	auto* v = CheckV3(L, 1);
+	if (luaL_testudata(L, 2, k_v3))
+	{
+		auto* o = CheckV3(L, 2);
+		PushV3Raw(L, v->x / o->x, v->y / o->y, v->z / o->z);
+		return 1;
+	}
+
 	const float s = static_cast<float>(luaL_checknumber(L, 2));
 	PushV3Raw(L, v->x / s, v->y / s, v->z / s);
 	return 1;
@@ -177,9 +190,9 @@ int v3_unm(lua_State* L)
 
 int v3_eq(lua_State* L)
 {
-	auto* a = CheckV3(L, 1);
-	auto* b = CheckV3(L, 2);
-	lua_pushboolean(L, a->x == b->x && a->y == b->y && a->z == b->z);
+	auto* a = static_cast<LuaV3*>(luaL_testudata(L, 1, k_v3));
+	auto* b = static_cast<LuaV3*>(luaL_testudata(L, 2, k_v3));
+	lua_pushboolean(L, a && b && a->x == b->x && a->y == b->y && a->z == b->z);
 	return 1;
 }
 
@@ -346,6 +359,89 @@ LuaCF IdentityCF(float x, float y, float z)
 	return cf;
 }
 
+LuaCF ComposeCF(const LuaCF& a, const LuaCF& b)
+{
+	LuaCF o{};
+	o.r00 = a.r00 * b.r00 + a.r01 * b.r10 + a.r02 * b.r20;
+	o.r01 = a.r00 * b.r01 + a.r01 * b.r11 + a.r02 * b.r21;
+	o.r02 = a.r00 * b.r02 + a.r01 * b.r12 + a.r02 * b.r22;
+	o.r10 = a.r10 * b.r00 + a.r11 * b.r10 + a.r12 * b.r20;
+	o.r11 = a.r10 * b.r01 + a.r11 * b.r11 + a.r12 * b.r21;
+	o.r12 = a.r10 * b.r02 + a.r11 * b.r12 + a.r12 * b.r22;
+	o.r20 = a.r20 * b.r00 + a.r21 * b.r10 + a.r22 * b.r20;
+	o.r21 = a.r20 * b.r01 + a.r21 * b.r11 + a.r22 * b.r21;
+	o.r22 = a.r20 * b.r02 + a.r21 * b.r12 + a.r22 * b.r22;
+	o.px = a.r00 * b.px + a.r01 * b.py + a.r02 * b.pz + a.px;
+	o.py = a.r10 * b.px + a.r11 * b.py + a.r12 * b.pz + a.py;
+	o.pz = a.r20 * b.px + a.r21 * b.py + a.r22 * b.pz + a.pz;
+	return o;
+}
+
+LuaCF EulerCF(float rx, float ry, float rz)
+{
+	const float cx = std::cos(rx), sx = std::sin(rx);
+	const float cy = std::cos(ry), sy = std::sin(ry);
+	const float cz = std::cos(rz), sz = std::sin(rz);
+
+	LuaCF cf{};
+	cf.r00 = cy * cz;
+	cf.r01 = -cy * sz;
+	cf.r02 = sy;
+	cf.r10 = cx * sz + sx * sy * cz;
+	cf.r11 = cx * cz - sx * sy * sz;
+	cf.r12 = -sx * cy;
+	cf.r20 = sx * sz - cx * sy * cz;
+	cf.r21 = sx * cz + cx * sy * sz;
+	cf.r22 = cx * cy;
+	return cf;
+}
+
+LuaCF LookAtCF(float px, float py, float pz, float tx, float ty, float tz)
+{
+	LuaCF cf = IdentityCF(px, py, pz);
+
+	float fx = tx - px, fy = ty - py, fz = tz - pz;
+	float len = std::sqrt(fx * fx + fy * fy + fz * fz);
+	if (len < 1e-6f)
+		return cf;
+	fx /= len; fy /= len; fz /= len;
+
+	// right = look x (0,1,0); при взгляде строго вверх/вниз вырождается в ноль
+	float rx = -fz;
+	float ry = 0.f;
+	float rz = fx;
+	len = std::sqrt(rx * rx + rz * rz);
+	if (len < 1e-6f)
+	{
+		rx = 1.f; ry = 0.f; rz = 0.f;
+	}
+	else
+	{
+		rx /= len; ry /= len; rz /= len;
+	}
+
+	const float ux = ry * fz - rz * fy;
+	const float uy = rz * fx - rx * fz;
+	const float uz = rx * fy - ry * fx;
+
+	cf.r00 = rx; cf.r01 = ux; cf.r02 = -fx;
+	cf.r10 = ry; cf.r11 = uy; cf.r12 = -fy;
+	cf.r20 = rz; cf.r21 = uz; cf.r22 = -fz;
+	return cf;
+}
+
+LuaCF InverseCF(const LuaCF& a)
+{
+	LuaCF o{};
+	o.r00 = a.r00; o.r01 = a.r10; o.r02 = a.r20;
+	o.r10 = a.r01; o.r11 = a.r11; o.r12 = a.r21;
+	o.r20 = a.r02; o.r21 = a.r12; o.r22 = a.r22;
+	o.px = -(o.r00 * a.px + o.r01 * a.py + o.r02 * a.pz);
+	o.py = -(o.r10 * a.px + o.r11 * a.py + o.r12 * a.pz);
+	o.pz = -(o.r20 * a.px + o.r21 * a.py + o.r22 * a.pz);
+	return o;
+}
+
 int cf_new(lua_State* L)
 {
 	LuaCF cf = IdentityCF(0, 0, 0);
@@ -354,12 +450,26 @@ int cf_new(lua_State* L)
 	{
 		auto* v = CheckV3(L, 1);
 		cf.px = v->x; cf.py = v->y; cf.pz = v->z;
+		if (n >= 2 && luaL_testudata(L, 2, k_v3))
+		{
+			auto* t = CheckV3(L, 2);
+			cf = LookAtCF(v->x, v->y, v->z, t->x, t->y, t->z);
+		}
 	}
-	else if (n >= 3)
+	else if (n >= 12)
 	{
-		cf.px = static_cast<float>(lua_tonumber(L, 1));
-		cf.py = static_cast<float>(lua_tonumber(L, 2));
-		cf.pz = static_cast<float>(lua_tonumber(L, 3));
+		cf.px = static_cast<float>(luaL_optnumber(L, 1, 0.0));
+		cf.py = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+		cf.pz = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+		cf.r00 = static_cast<float>(luaL_optnumber(L, 4, 1.0));
+		cf.r01 = static_cast<float>(luaL_optnumber(L, 5, 0.0));
+		cf.r02 = static_cast<float>(luaL_optnumber(L, 6, 0.0));
+		cf.r10 = static_cast<float>(luaL_optnumber(L, 7, 0.0));
+		cf.r11 = static_cast<float>(luaL_optnumber(L, 8, 1.0));
+		cf.r12 = static_cast<float>(luaL_optnumber(L, 9, 0.0));
+		cf.r20 = static_cast<float>(luaL_optnumber(L, 10, 0.0));
+		cf.r21 = static_cast<float>(luaL_optnumber(L, 11, 0.0));
+		cf.r22 = static_cast<float>(luaL_optnumber(L, 12, 1.0));
 	}
 	else if (n >= 1)
 	{
@@ -368,6 +478,46 @@ int cf_new(lua_State* L)
 		cf.pz = static_cast<float>(luaL_optnumber(L, 3, 0.0));
 	}
 	PushCFRaw(L, cf);
+	return 1;
+}
+
+int cf_angles(lua_State* L)
+{
+	const float rx = static_cast<float>(luaL_optnumber(L, 1, 0.0));
+	const float ry = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+	const float rz = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+	PushCFRaw(L, EulerCF(rx, ry, rz));
+	return 1;
+}
+
+int cf_lookat(lua_State* L)
+{
+	auto* p = CheckV3(L, 1);
+	auto* t = CheckV3(L, 2);
+	PushCFRaw(L, LookAtCF(p->x, p->y, p->z, t->x, t->y, t->z));
+	return 1;
+}
+
+int cf_inverse(lua_State* L)
+{
+	auto* cf = CheckCF(L, 1);
+	PushCFRaw(L, InverseCF(*cf));
+	return 1;
+}
+
+int cf_to_world(lua_State* L)
+{
+	auto* a = CheckCF(L, 1);
+	auto* b = CheckCF(L, 2);
+	PushCFRaw(L, ComposeCF(*a, *b));
+	return 1;
+}
+
+int cf_to_object(lua_State* L)
+{
+	auto* a = CheckCF(L, 1);
+	auto* b = CheckCF(L, 2);
+	PushCFRaw(L, ComposeCF(InverseCF(*a), *b));
 	return 1;
 }
 
@@ -399,14 +549,28 @@ int cf_index(lua_State* L)
 		PushV3Raw(L, cf->r01, cf->r11, cf->r21);
 		return 1;
 	}
+	if (std::strcmp(key, "Rotation") == 0)
+	{
+		LuaCF rot = *cf;
+		rot.px = rot.py = rot.pz = 0.f;
+		PushCFRaw(L, rot);
+		return 1;
+	}
+	if (std::strcmp(key, "Inverse") == 0) { lua_pushcfunction(L, cf_inverse); return 1; }
+	if (std::strcmp(key, "ToWorldSpace") == 0) { lua_pushcfunction(L, cf_to_world); return 1; }
+	if (std::strcmp(key, "ToObjectSpace") == 0) { lua_pushcfunction(L, cf_to_object); return 1; }
 	return 0;
 }
 
 int cf_tostring(lua_State* L)
 {
 	auto* cf = CheckCF(L, 1);
-	char buf[128];
-	std::snprintf(buf, sizeof(buf), "%g, %g, %g", cf->px, cf->py, cf->pz);
+	char buf[192];
+	std::snprintf(buf, sizeof(buf), "%g, %g, %g, %g, %g, %g, %g, %g, %g, %g, %g, %g",
+		cf->px, cf->py, cf->pz,
+		cf->r00, cf->r01, cf->r02,
+		cf->r10, cf->r11, cf->r12,
+		cf->r20, cf->r21, cf->r22);
 	lua_pushstring(L, buf);
 	return 1;
 }
@@ -423,8 +587,33 @@ int cf_mul(lua_State* L)
 		PushV3Raw(L, x, y, z);
 		return 1;
 	}
-	luaL_error(L, "CFrame * Vector3 expected");
-	return 0;
+	if (luaL_testudata(L, 2, k_cf))
+	{
+		auto* b = CheckCF(L, 2);
+		PushCFRaw(L, ComposeCF(*cf, *b));
+		return 1;
+	}
+	return luaL_error(L, "CFrame * (CFrame|Vector3) expected");
+}
+
+int cf_add(lua_State* L)
+{
+	auto* cf = CheckCF(L, 1);
+	auto* v = CheckV3(L, 2);
+	LuaCF out = *cf;
+	out.px += v->x; out.py += v->y; out.pz += v->z;
+	PushCFRaw(L, out);
+	return 1;
+}
+
+int cf_sub(lua_State* L)
+{
+	auto* cf = CheckCF(L, 1);
+	auto* v = CheckV3(L, 2);
+	LuaCF out = *cf;
+	out.px -= v->x; out.py -= v->y; out.pz -= v->z;
+	PushCFRaw(L, out);
+	return 1;
 }
 
 void RegisterVector3(lua_State* L)
@@ -537,12 +726,24 @@ void RegisterCFrame(lua_State* L)
 		lua_setfield(L, -2, "__tostring");
 		lua_pushcfunction(L, cf_mul);
 		lua_setfield(L, -2, "__mul");
+		lua_pushcfunction(L, cf_add);
+		lua_setfield(L, -2, "__add");
+		lua_pushcfunction(L, cf_sub);
+		lua_setfield(L, -2, "__sub");
 	}
 	lua_pop(L, 1);
 
 	lua_newtable(L);
 	lua_pushcfunction(L, cf_new);
 	lua_setfield(L, -2, "new");
+	lua_pushcfunction(L, cf_angles);
+	lua_setfield(L, -2, "Angles");
+	lua_pushcfunction(L, cf_angles);
+	lua_setfield(L, -2, "fromEulerAnglesXYZ");
+	lua_pushcfunction(L, cf_lookat);
+	lua_setfield(L, -2, "lookAt");
+	PushCFRaw(L, IdentityCF(0, 0, 0));
+	lua_setfield(L, -2, "identity");
 	lua_newtable(L);
 	lua_pushcfunction(L, cf_new);
 	lua_setfield(L, -2, "__call");
@@ -568,7 +769,7 @@ bool ToVector3(lua_State* L, int idx, Vector3& out)
 	if (lua_istable(L, idx))
 	{
 		lua_getfield(L, idx, "x");
-		if (!lua_isnumber(L, -1)) lua_getfield(L, idx, "X");
+		if (!lua_isnumber(L, -1)) { lua_pop(L, 1); lua_getfield(L, idx, "X"); }
 		out.x = static_cast<float>(lua_tonumber(L, -1));
 		lua_pop(L, 1);
 		lua_getfield(L, idx, "y");
