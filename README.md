@@ -2,8 +2,6 @@
 
 # RobloxExternal
 
-**External Roblox client overlay — read-only memory, ImGui overlay, no injection.**
-
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D4?style=flat-square&logo=windows)]()
 [![Toolset](https://img.shields.io/badge/toolset-MSVC%20v143-5C2D91?style=flat-square&logo=visualstudio)]()
 [![C++](https://img.shields.io/badge/C%2B%2B-20-00599C?style=flat-square&logo=cplusplus)]()
