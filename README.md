@@ -25,7 +25,7 @@ This fork is maintained by **[MiladRx](https://github.com/MiladRx)** since the u
 
 | Category      | What's in it                                                                 |
 | ------------- | ---------------------------------------------------------------------------- |
-| **Aim**       | RaycastSilent · BoundSilent · MagicBullet · MouseSilent · PhantomSilent · ViewportSilent · AimFov · AimTarget |
+| **Aim**       | Silent aim · Aimbot                                                          |
 | **Visuals**   | ESP (box, skeleton, healthbar, health text, name, distance, tool, chinahat, offscreen arrows, tracers) · ESP Preview window · Crosshair · Kill effects · Raycast engine |
 | **Chams**     | Shader chams · Mesh chams (occlusion, outline, DX11 shader) · Engine chams · Mesh cache / fetch / parser · Model loader |
 | **World**     | Havoc-style world ESP · Lighting invalidate · No shadow · Fog control · Time changer · WorldEdit · WorldOwn · WorldSlots · WorldExtras · WorldVisuals |
