@@ -46,3 +46,7 @@ tools/*
 
 # FreeType libs
 !third_party/freetype/lib/**
+
+# Personal AI assistant config — do not publish
+CLAUDE.md
+.claude/
