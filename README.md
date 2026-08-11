@@ -46,6 +46,32 @@ Any tool that reads/writes another process's memory (the whole point of an exter
 - `src/renderer/` — overlay renderer
 - `third_party/` — vendored deps
 - `scripts/` — VM smoke tests
+- `tools/` — auxiliary tooling (see below)
+
+## tools/
+
+Not part of the main build — utilities used during development and after Roblox updates.
+
+### `tools/fission_src/`
+
+Vendored source of **Fission**, a Luau decompiler used by the Lua VM feature to decompile scripts at runtime. Built with CMake (`tools/fission_src/CMakeLists.txt`) and linked into the main exe as `Fission.Decompiler.lib` + `Fission.Common.lib`. If those .libs are missing under `tools/fission_src/build/Release/` the main solution won't link — build Fission first:
+
+```bash
+cd tools\fission_src
+cmake -B build -A x64
+cmake --build build --config Release
+```
+
+Fission is credited to its upstream author (see `tools/fission_src/README.md` and `LICENSE`).
+
+### `tools/ida/`
+
+IDA Pro helpers for re-syncing offsets after a Roblox update.
+
+- `raycast.py` — IDAPython script that scans `RobloxPlayerBeta.exe` for `WorldRoot::Raycast` bound-function metadata and prints RVAs to paste into `src/core/roblox/offsets/Offsets.h` (`RaycastBoundDesc`, `RaycastBoundFn`). Fixes the "Silent inject fail bad handler" error that appears when Roblox shifts these addresses.
+- `README.md` — MCP-style guide describing the layout and the correct static-analysis method (the naive "xref to `Raycast` string" heuristic doesn't work — the desc body is populated at runtime).
+
+Run `raycast.py` inside IDA after loading a fresh `RobloxPlayerBeta.exe` IDB, copy the two RVAs into `Offsets.h`, rebuild.
 
 ## License
 
