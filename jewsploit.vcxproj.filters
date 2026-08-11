@@ -679,5 +679,8 @@
     <ResourceCompile Include="assets\hitsounds\hitsounds.rc">
       <Filter>assets\hitsounds</Filter>
     </ResourceCompile>
+    <ResourceCompile Include="assets\version.rc">
+      <Filter>assets</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>
