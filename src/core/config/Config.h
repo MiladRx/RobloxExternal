@@ -13,5 +13,9 @@ namespace Config {
     bool Load(const std::string& name);
     bool Remove(const std::string& name);
 
+    // last-used config name stamped to configs\last.txt on Save/Load
+    std::string LastName();
+    bool LoadLast();
+
 }
 }
