@@ -641,7 +641,14 @@ bool Save(const std::string& name)
     if (!file)
         return false;
     file << out.str();
-    return (bool)file;
+    if (!file)
+        return false;
+
+    // stamp last-used
+    std::ofstream marker(dir + "\\last.txt", std::ios::trunc);
+    if (marker)
+        marker << name;
+    return true;
 }
 
 // грузим key=value поверх того что есть
@@ -1017,12 +1024,45 @@ bool Load(const std::string& name)
     GetFloat(kv, "hitsound.volume", s.hitsound.volume);
     GetBool(kv, "hitdata.enabled", s.hitdata.enabled);
 
+    // stamp last-used
+    std::ofstream marker(Directory() + "\\last.txt", std::ios::trunc);
+    if (marker)
+        marker << name;
     return true;
 }
 
 bool Remove(const std::string& name)
 {
-    return DeleteFileA(PathFor(name).c_str()) != 0;
+    const std::string path = PathFor(name);
+    const bool ok = DeleteFileA(path.c_str()) != 0;
+    if (ok && LastName() == name)
+    {
+        const std::string marker = Directory() + "\\last.txt";
+        DeleteFileA(marker.c_str());
+    }
+    return ok;
+}
+
+std::string LastName()
+{
+    const std::string marker = Directory() + "\\last.txt";
+    std::ifstream f(marker);
+    if (!f)
+        return {};
+    std::string name;
+    std::getline(f, name);
+    while (!name.empty() && (name.back() == '\r' || name.back() == '\n' ||
+                             name.back() == ' ' || name.back() == '\t'))
+        name.pop_back();
+    return name;
+}
+
+bool LoadLast()
+{
+    const std::string name = LastName();
+    if (name.empty())
+        return false;
+    return Load(name);
 }
 
 }

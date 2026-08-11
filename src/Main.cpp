@@ -3,6 +3,7 @@
 #include "core/console/Console.h"
 #include "core/roblox/offsets/Offsets.h"
 #include "core/globals/Globals.h"
+#include "core/config/Config.h"
 #include "core/player/PlayerHandler.h"
 #include "features/visuals/RaycastEngine.h"
 #include "features/misc/PlayerAvatars.h"
@@ -61,6 +62,13 @@ static void OnRobloxAttached(bool reattached)
 int main()
 {
     SetProcessDPIAware();
+
+    // load last-used config before overlay/UI spins up
+    if (Cheat::Config::LoadLast())
+    {
+        Cheat::Console::Log(Cheat::Console::Color::Green,
+            "loaded config  %s", Cheat::Config::LastName().c_str());
+    }
 
     { /* setup overlay */
         std::thread(OverlayThread).detach();
