@@ -206,6 +206,7 @@
     <ClInclude Include="assets\preview_model\preview_model_texture.h" />
     <ClInclude Include="src\features\aim\Aim.h" />
     <ClInclude Include="src\features\aim\RaycastSilent.h" />
+    <ClInclude Include="src\features\aim\BoundSilent.h" />
     <ClInclude Include="src\features\aim\MagicBullet.h" />
     <ClInclude Include="src\features\aim\ViewportSilent.h" />
     <ClInclude Include="src\features\aim\MouseSilent.h" />
@@ -328,6 +329,7 @@
     <ClCompile Include="src\features\visuals\PreviewRenderer.cpp" />
     <ClCompile Include="src\features\aim\Aim.cpp" />
     <ClCompile Include="src\features\aim\RaycastSilent.cpp" />
+    <ClCompile Include="src\features\aim\BoundSilent.cpp" />
     <ClCompile Include="src\features\aim\MagicBullet.cpp" />
     <ClCompile Include="src\features\aim\ViewportSilent.cpp" />
     <ClCompile Include="src\features\aim\MouseSilent.cpp" />
