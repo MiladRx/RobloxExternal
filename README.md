@@ -25,14 +25,18 @@ This fork is maintained by **[MiladRx](https://github.com/MiladRx)** since the u
 
 | Category      | What's in it                                                                 |
 | ------------- | ---------------------------------------------------------------------------- |
-| **Aim**       | RaycastSilent · BoundSilent · MagicBullet · MouseSilent · PhantomSilent · ViewportSilent |
-| **Visuals**   | ESP boxes/skeleton/health · Chams (shader / mesh / engine) · Kill effects · Chinahat · Offscreen arrows |
-| **World**     | Havoc-style world ESP · Lighting invalidate · WorldEdit · WorldSlots         |
-| **Movement**  | Fly · Speed · Third-person                                                   |
-| **Misc**      | Hitbox expander · Hitsounds · Player avatars · Explorer · Properties window  |
-| **Lua VM**    | Executor · Bytecode · Reflection · Drawing · Fission decompiler bridge       |
-| **Games**     | Phantom Forces · Apocalypse Rising                                           |
-| **Overlay**   | DX11 · ImGui menu · Custom fonts · Icon set · Config save/load               |
+| **Aim**       | RaycastSilent · BoundSilent · MagicBullet · MouseSilent · PhantomSilent · ViewportSilent · AimFov · AimTarget |
+| **Visuals**   | ESP (box, skeleton, healthbar, health text, name, distance, tool, chinahat, offscreen arrows, tracers) · ESP Preview window · Crosshair · Kill effects · Raycast engine |
+| **Chams**     | Shader chams · Mesh chams (occlusion, outline, DX11 shader) · Engine chams · Mesh cache / fetch / parser · Model loader |
+| **World**     | Havoc-style world ESP · Lighting invalidate · No shadow · Fog control · Time changer · WorldEdit · WorldOwn · WorldSlots · WorldExtras · WorldVisuals |
+| **Movement**  | Fly · Speed                                                                  |
+| **Local**     | Third-person · Infinite jump · Noclip · Local mods                           |
+| **Misc**      | Hitbox expander · Hitsounds · Player avatars · MiscCache                     |
+| **Explorer**  | Instance tree · Search · Properties · ValueBase editor                       |
+| **Lua VM**    | Luau executor · VM subprocess · Handlers · Protocol · Drawing bridge · Fission decompiler integration |
+| **MCP**       | MCP bridge · Handlers · Protocol · Execute pipeline                          |
+| **Games**     | Phantom Forces (dedicated hooks) · Apocalypse Rising                         |
+| **Overlay**   | DX11 renderer · ImGui menu (tabs, widgets, windows) · Custom fonts · Icon set · Config save/load + auto-load last used |
 
 ---
 
