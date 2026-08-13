@@ -141,7 +141,7 @@ namespace Offsets {
          inline constexpr uintptr_t GameLoaded = 0x570;
          inline constexpr uintptr_t JobId = 0x118;
          inline constexpr uintptr_t PlaceId = 0x188;
-         inline constexpr uintptr_t PlaceVersion = 0x1ac;
+         inline constexpr uintptr_t PlaceVersion = 0x1a4;
          inline constexpr uintptr_t ServerIP = 0x558;
          inline constexpr uintptr_t ToRenderView1 = 0x100;
          inline constexpr uintptr_t ToRenderView2 = 0x8;
@@ -226,8 +226,8 @@ namespace Offsets {
          inline constexpr uintptr_t SelectionOrder = 0x59c;
          inline constexpr uintptr_t Size = 0x530;
          inline constexpr uintptr_t SizeConstraint = 0x568;
-         inline constexpr uintptr_t Text = 0xde8;
-         inline constexpr uintptr_t TextColor3 = 0xe98;
+         inline constexpr uintptr_t Text = 0xdf8;
+         inline constexpr uintptr_t TextColor3 = 0xea8;
          inline constexpr uintptr_t Visible = 0x5ad;
          inline constexpr uintptr_t ZIndex = 0x5a4;
     }
