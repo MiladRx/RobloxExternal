@@ -11,6 +11,16 @@ std::string Cheat::Instance::GetName() const
 		return "Unknown";
 	}
 
+	// roblox changed name system: string struct now lives at [NameContainer] + Name
+	std::uint64_t container = g_Memory.Read<std::uint64_t>(this->address + Offsets::Instance::NameContainer);
+	if (g_Memory.IsValid(container))
+	{
+		std::string s = g_Memory.ReadString(container + Offsets::Instance::Name);
+		if (s != "Unknown" && !s.empty())
+			return s;
+	}
+
+	// fallback: old direct pointer
 	std::uint64_t name = g_Memory.Read<std::uint64_t>(this->address + Offsets::Instance::Name);
 
 	if (g_Memory.IsValid(name))
