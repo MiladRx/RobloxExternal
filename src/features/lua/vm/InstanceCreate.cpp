@@ -3,6 +3,7 @@
 #include "CallGate.h"
 #include "Reflect.h"
 #include "core/memory/Memory.h"
+#include "core/console/Console.h"
 #include "core/roblox/classes/Classes.h"
 #include "core/roblox/offsets/Offsets.h"
 
@@ -165,17 +166,13 @@ bool SetString(std::uint64_t field, const char* text)
 		return true;
 	}
 
-	const std::uintptr_t base = g_Memory.GetModuleBase(L"RobloxPlayerBeta.exe");
-	if (!base || (!CallGate::Ready() && !CallGate::Install()))
-	{
-		g_last_fail = 6;
-		return false;
-	}
-
-	// старый буфер не освобождаем: движок мог отдать его в рендер
-	std::uint64_t ptr = 0;
-	if (!CallGate::Invoke(base + Offsets::Alloc::Malloc, len + 1, 0, 0, 0, &ptr)
-		|| !ptr)
+	// аллокатор движка через гейт роняет игру (Alloc::Malloc в дампе битый),
+	// поэтому берём свою страницу в процессе. строку движок только читает,
+	// а перезапись идёт сырым memcpy без free — указатель не освобождается.
+	const std::uintptr_t ptr = g_Memory.Alloc(len + 1, PAGE_READWRITE);
+	Console::Log(Console::Color::Gray, "IC alloc len=%llu -> %llx",
+		(unsigned long long)len, (unsigned long long)ptr);
+	if (!ptr)
 	{
 		g_last_fail = 10;
 		return false;
@@ -219,20 +216,8 @@ bool SetParent(std::uint64_t inst, std::uint64_t parent)
 		return false;
 	}
 
-	// правка массива детей снаружи рвала родителю рефкаунты, так что
-	// зовём настоящий SetParent через гейт, а внешний путь — запасной
-	const std::uintptr_t base = g_Memory.GetModuleBase(L"RobloxPlayerBeta.exe");
-	if (base && (CallGate::Ready() || CallGate::Install()))
-	{
-		std::uint64_t ret = 0;
-		if (CallGate::Invoke(base + Offsets::Instance::SetParent,
-			inst, parent, 0, 0, &ret))
-		{
-			g_last_fail = 0;
-			return true;
-		}
-	}
-
+	// гейт отключён: движковый репарент (SetParentInternal) требует 5-й
+	// стековый аргумент, которого гейт не умеет класть. правим детей снаружи.
 	const bool ok = Instance(inst).SetParent(parent);
 	g_last_fail = ok ? 0 : 3;
 	return ok;

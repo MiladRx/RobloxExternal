@@ -225,6 +225,60 @@ std::uintptr_t find_bound_desc(std::uintptr_t base, std::size_t size,
 	return found;
 }
 
+// тот же поиск дескриптора, но без NameRegistry: матчим по строке имени
+// в *(desc+8). Нужен потому, что Reflection::NameRegistry меняется каждый
+// апдейт и Reflect::Name возвращает 0 — тогда гейт вообще не встаёт.
+std::uintptr_t find_bound_desc_text(std::uintptr_t base, std::size_t size,
+                                    const char* text, std::size_t len)
+{
+	if (!text || !len || len >= 60)
+		return 0;
+
+	std::uintptr_t found = 0;
+	walk_committed(base, base + size, false,
+		[&](std::uintptr_t at, const std::vector<std::uint8_t>& b)
+		{
+			if (found || b.size() < 0x88)
+				return;
+
+			for (std::size_t i = 0; i + 0x88 <= b.size(); i += 8)
+			{
+				// у настоящего BoundFuncDesc в +0 vftable модуля; у
+				// reflection FunctionDescriptor её нет — его хукать нельзя
+				std::uint64_t vt = 0;
+				std::memcpy(&vt, b.data() + i, 8);
+				if (vt < base || vt >= base + size)
+					continue;
+
+				// fn в модуле и обязан быть исполняемым
+				std::uint64_t fn = 0;
+				std::memcpy(&fn, b.data() + i + 0x80, 8);
+				if (fn < base || fn >= base + size)
+					continue;
+
+				std::uint64_t nm = 0;
+				std::memcpy(&nm, b.data() + i + 8, 8);
+				if (nm < 0x10000 || nm >= 0x00007FFFFFFFFFFFULL)
+					continue;
+
+				char s[64];
+				if (g_Memory.ReadRaw((std::uintptr_t)nm, s, len + 1) != len + 1)
+					continue;
+
+				if (s[len] != '\0' || std::memcmp(s, text, len) != 0)
+					continue;
+
+				if (!is_exec_protect(query_protect((std::uintptr_t)fn)))
+					continue;
+
+				found = at + i;
+				return;
+			}
+		});
+
+	return found;
+}
+
 // в чужих системных dll меньше шансов, что античит сверит .text роблокса
 std::uintptr_t find_exec_cave(std::size_t need)
 {
@@ -456,8 +510,10 @@ static bool install_impl(const char* method_name, std::size_t from)
 
 		const char* try_name = forced ? method_name : k_candidates[i];
 
+		std::uintptr_t desc = 0;
 		const std::uint64_t name = Reflect::Name(base, try_name);
-		const std::uintptr_t desc = name ? find_bound_desc(base, size, name) : 0;
+		if (name)
+			desc = find_bound_desc(base, size, name);
 		if (desc)
 		{
 			const std::uintptr_t s = desc + Offsets::WorldRoot::RaycastBoundFn;

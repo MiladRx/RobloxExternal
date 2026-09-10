@@ -3,6 +3,7 @@
 #include "WorldOwn.h"
 #include "LightingInvalidate.h"
 #include "core/memory/Memory.h"
+#include "core/console/Console.h"
 #include "core/roblox/offsets/Offsets.h"
 #include "core/roblox/classes/Classes.h"
 #include "core/globals/Globals.h"
@@ -1133,6 +1134,8 @@ void TickSkyboxChanger(std::uint64_t lighting, bool force_off)
 		// движок забирает текстуры в момент, когда Sky попадает в Lighting,
 		// поэтому пишем грани, пока он снаружи, и парентим обратно в конце
 		Cheat::Features::InstanceCreate::SetParent(sky, 0);
+		Console::Log(Console::Color::Cyan, "skybox unparented preset=%d sky=%llx",
+			preset, (unsigned long long)sky);
 
 		const SkyboxPreset& p = k_skybox_presets[preset];
 		bool ok = true;
@@ -1144,6 +1147,7 @@ void TickSkyboxChanger(std::uint64_t lighting, bool force_off)
 		ok &= Cheat::Features::InstanceCreate::SetContent(sky + Offsets::Sky::SkyboxUp, skybox_url(p.up).c_str());
 
 		Cheat::Features::InstanceCreate::SetParent(sky, lighting);
+		Console::Log(Console::Color::Cyan, "skybox reparented ok=%d", (int)ok);
 
 		if (ok)
 		{
