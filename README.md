@@ -10,7 +10,7 @@
 
 ## Credits
 
-Originally developed by **[awaky1337](https://github.com/awaky1337)** as `jew-dick-hack`.
+Originally developed by **[awaky1337](https://github.com/awaky1337)** 
 This fork is maintained by **[MiladRx](https://github.com/MiladRx)** since the upstream stopped shipping updates.
 
 > All credit for the original architecture, feature set, and codebase goes to awaky1337. This fork continues the work with offset resyncs, bug fixes, and small feature additions.
