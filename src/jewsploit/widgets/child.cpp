@@ -27,13 +27,13 @@ namespace
 
 	ImU32 body_bg()
 	{
-		// opacity из темы как есть — не форсим 230
+		// opacity from the theme as is — don't force 230
 		return col::child_bg_u32();
 	}
 
 	ImU32 body_bg_solidish()
 	{
-		// хедер чуть плотнее боди, но без +40 в бетон
+		// header slightly denser than body, but no +40 into concrete
 		col::theme_t& th = col::live();
 		int a = (int)(th.child[3] * 255.f + 0.5f);
 		if (a < 1) a = 1;
@@ -120,7 +120,7 @@ bool ng::child_begin(const char* id, const char* title, float w, float h, float 
 	paint_head(dl, p0, w, round, s.title);
 
 	ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, round);
-	// паддинг на все строки а то после первой всё липнет к левому краю
+	// padding on all rows, otherwise after the first everything sticks to the left edge
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.f, 12.f));
 	ImGuiWindowFlags flags = ImGuiWindowFlags_NoBackground;
 	if (!scroll)
@@ -135,7 +135,7 @@ bool ng::child_begin(const char* id, const char* title, float w, float h, float 
 		flags
 	);
 
-	// контент ниже шапки / выше нижнего скругления
+	// content below the header / above the bottom rounding
 	ImVec2 wp = ImGui::GetWindowPos();
 	float bot = round;
 	if (bot < 8.f) bot = 8.f;
@@ -168,10 +168,10 @@ void ng::child_end()
 
 	ImGui::PopClipRect();
 
-	// шапка сверху поверх строк
+	// header on top over the rows
 	paint_head(dl, wp, s.w, s.round, s.title);
 
-	// низ скруглённый — imgui child иначе рисует квадратные уголки
+	// bottom rounded — imgui child otherwise draws square corners
 	float r = s.round;
 	ImU32 bg = body_bg();
 	dl->AddRectFilled(

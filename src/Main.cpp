@@ -11,7 +11,7 @@
 #include <thread>
 #include <chrono>
 
-// dx11 + меню в отдельном потоке
+// dx11 + menu in a separate thread
 void OverlayThread()
 {
     if (!Cheat::Renderer::Initialize(GetModuleHandle(nullptr)))
@@ -30,7 +30,7 @@ static void ResetGlobals()
     Cheat::Globals::Players = nullptr;
 }
 
-// крутимся пока роблокс не поднимется
+// spin until roblox comes up
 static void WaitForRoblox()
 {
     if (g_Memory.IsAttached() && g_Memory.IsAlive())
@@ -77,10 +77,10 @@ int main()
     { /* attach */
         WaitForRoblox();
         OnRobloxAttached(false);
-        Cheat::PlayerHandler::StartCacheThread(); // кэш игроков
+        Cheat::PlayerHandler::StartCacheThread(); // player cache
     }
 
-    // роблокс сдох, ждём и цепляемся заново
+    // roblox died, wait and reattach
     while (true)
     {
         if (!g_Memory.IsAlive())

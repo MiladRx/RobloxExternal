@@ -111,7 +111,7 @@ std::uint64_t LocalTeamFolder()
         g_sticky_team_folder = 0;
     }
 
-    // 1) TextLabel.TextColor: враг ≈ (255,10,20), своя папка = НЕ вражеская
+    // 1) TextLabel.TextColor: enemy ≈ (255,10,20), own folder = NOT enemy
     if (n == 2) {
         const int s0 = ScoreFolderEnemy(folders[0]);
         const int s1 = ScoreFolderEnemy(folders[1]);
@@ -131,7 +131,7 @@ std::uint64_t LocalTeamFolder()
         }
     }
 
-    // 2) лидерборд: имена с билбордов ↔ Phantom/Ghost board
+    // 2) leaderboard: names from billboards ↔ Phantom/Ghost board
     const std::uint64_t lp = LocalPlayerAddr();
     std::string local_name;
     if (g_Memory.IsValid(lp))
@@ -145,7 +145,7 @@ std::uint64_t LocalTeamFolder()
         }
     }
 
-    // 3) ModelInstance под Workspace.Players
+    // 3) ModelInstance under Workspace.Players
     if (g_Memory.IsValid(lp)) {
         const std::uint64_t mi = g_Memory.Read<std::uint64_t>(
             lp + Offsets::Player::ModelInstance);
@@ -158,7 +158,7 @@ std::uint64_t LocalTeamFolder()
         }
     }
 
-    // 4) Team Color → папка
+    // 4) Team Color → folder
     if (lb.local_side != SideUnknown || LocalSide() != SideUnknown) {
         const TeamSide side = (lb.local_side != SideUnknown) ? lb.local_side : LocalSide();
         const std::uint64_t folder = ResolveTeamFolderForSide(side, ws_players);
@@ -168,7 +168,7 @@ std::uint64_t LocalTeamFolder()
         }
     }
 
-    // 5) sticky (не nearest-to-cam — он переворачивал тимчек)
+    // 5) sticky (not nearest-to-cam — it flipped the teamcheck)
     if (g_Memory.IsValid(g_sticky_team_folder)) {
         auto p = Instance(g_sticky_team_folder).GetParent();
         if (p && p->address == ws_players)

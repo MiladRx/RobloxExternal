@@ -55,7 +55,7 @@ inline bool LoadFileIntoTab(const fs::path& path)
 	}
 
 	std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-	// 256kb хватит
+	// 256kb is enough
 	if (data.size() > 256 * 1024)
 		data.resize(256 * 1024);
 

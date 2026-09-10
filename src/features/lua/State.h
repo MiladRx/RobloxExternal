@@ -40,7 +40,7 @@ inline float g_editor_frac = 0.62f;   // editor share of left column
 inline bool g_out_auto_scroll = true;
 inline bool g_out_wrap = true;
 inline int g_out_sel = -1;
-inline int g_out_sel_end = -1; // range copy, -1 = одна строка
+inline int g_out_sel_end = -1; // range copy, -1 = single line
 inline int g_out_filter_mode = 0; // 0=all 1=print 2=warn 3=error 4=ok/info
 inline char g_out_filter[96] = {};
 inline char g_find_buf[96] = {};

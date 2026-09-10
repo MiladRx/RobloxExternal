@@ -76,7 +76,7 @@ namespace
 		if (t < 0.f) t = 0.f;
 		if (t > 1.f) t = 1.f;
 
-		// красный -> зелёный
+		// red -> green
 		int rr = (int)(220.f * (1.f - t) + 60.f * t);
 		int gg = (int)(55.f * (1.f - t) + 200.f * t);
 		int bb = (int)(55.f * (1.f - t) + 80.f * t);
@@ -157,7 +157,7 @@ namespace
 			return "bot";
 		}
 
-		// враг
+		// enemy
 		if (local_team && c.team_folder && c.team_folder != local_team)
 		{
 			return "frag";
@@ -592,7 +592,7 @@ void ng_players::draw(float alpha)
 			avail_h = 240.f;
 		}
 
-		// узкий лист, правая шире
+		// narrow list, right one wider
 		float list_w = 168.f;
 		if (list_w > avail_w * 0.28f)
 		{

@@ -87,7 +87,7 @@ namespace colors {
         if (theme == Theme_Custom)
             return;
 
-        // база на всё, ниже точечно перетираем
+        // base for everything, overridden pointwise below
         Set4u8(text_active_c, 255, 255, 255);
         Set4u8(text_inactive_c, 136, 136, 136);
         Set4u8(outer_border_c, 0, 0, 0);

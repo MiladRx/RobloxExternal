@@ -58,7 +58,7 @@ bool ng::checkbox(const char* label, bool* v)
 
 	float e = anim::ease_out_cubic(t);
 
-	// рисуем от item rect — совпадает со свотчем по центру
+	// draw from the item rect — matches the swatch at the center
 	ImVec2 r0 = ImGui::GetItemRectMin();
 	float ih = ImGui::GetItemRectSize().y;
 	float by = r0.y + (ih - box) * 0.5f;

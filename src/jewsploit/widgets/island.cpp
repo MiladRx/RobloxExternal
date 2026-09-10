@@ -126,5 +126,5 @@ void ng::island()
 	ImGui::PopStyleColor(2);
 	ImGui::PopStyleVar(3);
 
-	// lua/explorer/players — свои float окна, island ток тумблеры
+	// lua/explorer/players — their own float windows, island is just toggles
 }

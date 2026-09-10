@@ -36,7 +36,7 @@ enum ImageId : int {
     COUNT
 };
 
-// картинки в дропдауне fill image (без sk/us/se)
+// images in the fill image dropdown (without sk/us/se)
 inline constexpr int k_fill_image_count = 22;
 
 void Init(ID3D11Device* device);
@@ -45,7 +45,7 @@ void SetRemoveBg(ID3D11Device* device, bool remove_bg);
 
 ID3D11ShaderResourceView* Get(int id);
 
-// растянуть картинку на бокс
+// stretch the image onto the box
 void Draw(ImDrawList* dl, int id, ImVec2 min, ImVec2 max, float alpha, bool no_plate = false);
 
 } // namespace BoxFill

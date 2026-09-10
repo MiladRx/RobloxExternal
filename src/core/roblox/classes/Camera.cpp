@@ -38,7 +38,7 @@ float Cheat::Camera::GetFieldOfView() const
 		return 0.f;
 	}
 
-	// в памяти часто радианы; наружу как в lua — градусы
+	// often radians in memory; expose like lua — degrees
 	float cur = g_Memory.Read<float>(address + Offsets::Camera::FieldOfView);
 	if (cur > 0.f && cur < 3.2f)
 		return cur * (180.f / 3.14159265f);
@@ -78,7 +78,7 @@ void Cheat::Camera::SetRotation(const Matrix4x4& rot) const
 		return;
 	}
 
-	// обратно в 3x3, движок так хранит
+	// back to 3x3, the engine stores it that way
 	float r[9] = {
 		rot.m[0][0], rot.m[0][1], rot.m[0][2],
 		rot.m[1][0], rot.m[1][1], rot.m[1][2],
@@ -104,7 +104,7 @@ bool Cheat::Camera::WorldToScreen(const Vector3& worldPos, Vector2& screenPos) c
 	float y = rel.x * view.m[1][0] + rel.y * view.m[1][1] + rel.z * view.m[1][2];
 	float z = rel.x * view.m[2][0] + rel.y * view.m[2][1] + rel.z * view.m[2][2];
 
-	// за камерой нахуй
+	// behind the camera
 	if (z > 0.f)
 	{
 		return false;

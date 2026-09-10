@@ -74,7 +74,7 @@ inline bool WorldToScreen(const Matrix4x4& matrix, const Vector2& dimensions,
 	return true;
 }
 
-// текст с чёрной обводкой
+// text with a black outline
 inline void DrawLabel(ImDrawList* dl, ImFont* font, float fs, ImVec2 pos, ImU32 col, const char* text)
 {
 	const ImU32 shadow = IM_COL32(0, 0, 0, 255);
@@ -132,7 +132,7 @@ inline bool IsPartClass(const std::string& cls)
 		|| cls == "CornerWedgePart" || cls == "TrussPart" || cls == "UnionOperation";
 }
 
-// якорь модели, любая парта по приоритету
+// model anchor, any part by priority
 inline std::uint64_t FindAnchor(const Instance& model)
 {
 	static const char* prefs[] = {
@@ -214,7 +214,7 @@ inline void IngestCatalogFolder(const Instance& folder, LootKind kind)
 	}
 }
 
-// каталог из RS, раз в ~8с
+// catalog from RS, every ~8s
 inline void RefreshCatalog()
 {
 	const auto now = std::chrono::steady_clock::now();
@@ -257,7 +257,7 @@ inline bool HasChildNamed(const Instance& node, const char* name)
 	return c && g_Memory.IsValid(c->address);
 }
 
-// каталог потом data-флаги потом угадайка по имени
+// catalog first, then data flags, then guess by name
 inline LootKind ClassifyModel(const Instance& model, const std::string& name)
 {
 	RefreshCatalog();
@@ -337,7 +337,7 @@ inline void CollectFolderModels(const Instance& folder, std::vector<CachedItem>&
 		if (cls != "Model") continue;
 
 		const std::string name = child.GetName();
-		// X / XA.. мусорные плейсхолдеры
+		// X / XA.. garbage placeholders
 		if (name.empty() || name == "X" || (name.size() > 1 && name[0] == 'X'
 			&& (name[1] >= 'A' && name[1] <= 'Z')))
 			continue;
@@ -465,7 +465,7 @@ inline void DrawWorldEntries(ImDrawList* draw_list, ImFont* font, float font_siz
 		const float dy = pos.y - cam_pos.y;
 		const float dz = pos.z - cam_pos.z;
 		const float dist_studs = std::sqrt(dx * dx + dy * dy + dz * dz);
-		// havoc: всегда кап 400m
+		// havoc: always cap 400m
 		if (HavocWorldEsp::BeyondRange(dist_studs))
 			continue;
 
@@ -488,7 +488,7 @@ inline void DrawWorldEntries(ImDrawList* draw_list, ImFont* font, float font_siz
 			DrawShaderObb(draw_list, hull, shader, color);
 
 		char line[192];
-		// havoc: всегда метры
+		// havoc: always meters
 		std::snprintf(line, sizeof(line), "%s [%.0fm]",
 			item.name.c_str(), HavocWorldEsp::StudsToMeters(dist_studs));
 

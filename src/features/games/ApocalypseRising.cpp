@@ -37,7 +37,7 @@ std::shared_ptr<Instance> FindWorkspaceFolder(const char* name)
     return Globals::Workspace->FindFirstChild(name);
 }
 
-// минимальный парсинг R15 — без лишнего
+// minimal R15 parsing — nothing extra
 bool PopulateParts(std::uint64_t model, PlayerCache& cache)
 {
     if (!g_Memory.IsValid(model))
@@ -177,7 +177,7 @@ void MergeEntities(std::unordered_map<std::uint64_t, PlayerCache>& target)
     std::unordered_map<std::uint64_t, Instance> owners;
     BuildModelOwners(owners);
 
-    // игроки: Workspace.Characters (имена с Players.ModelInstance)
+    // players: Workspace.Characters (names from Players.ModelInstance)
     if (auto chars = FindWorkspaceFolder("Characters"))
     {
         for (const auto& model : chars->GetChildren())
@@ -191,7 +191,7 @@ void MergeEntities(std::unordered_map<std::uint64_t, PlayerCache>& target)
         }
     }
 
-    // зомби: Workspace.Zombies → bots (esp.bots)
+    // zombies: Workspace.Zombies → bots (esp.bots)
     if (g_Settings.esp.bots)
     {
         if (auto zombies = FindWorkspaceFolder("Zombies"))

@@ -23,8 +23,8 @@ namespace HitboxExpander {
 namespace {
 
 std::mutex g_mtx;
-std::unordered_map<std::uint64_t, Vector3> g_orig; // оригинал size, ESP отсюда
-std::unordered_set<std::uint64_t> g_active; // сейчас раздуты
+std::unordered_map<std::uint64_t, Vector3> g_orig; // original size, ESP reads from here
+std::unordered_set<std::uint64_t> g_active; // currently inflated
 bool g_was_on = false;
 
 struct PartJob {
@@ -89,7 +89,7 @@ void CollectJobs(const PlayerCache& c, std::vector<PartJob>& out)
 	}
 }
 
-// без лока — вызывающий уже держит g_mtx или один
+// no lock — caller already holds g_mtx or is single-threaded
 void RestoreOneLocked(std::uint64_t addr)
 {
 	auto it = g_orig.find(addr);
@@ -146,7 +146,7 @@ void ApplyPart(std::uint64_t addr, float scale)
 		auto it = g_orig.find(addr);
 		if (it == g_orig.end())
 		{
-			// первый раз — текущий = оригинал (ещё не раздували)
+			// first time — current = original (not yet inflated)
 			g_orig[addr] = cur;
 			orig = cur;
 		}
@@ -263,7 +263,7 @@ void DrawPartViz(ImDrawList* dl, const Matrix4x4& vm, const Vector2& vp, float s
 
 	if (mode == 2)
 	{
-		// filled сначала, потом рёбра
+		// filled first, then edges
 		static const int faces[6][4] = {
 			{0,1,3,2},{4,5,7,6},{0,1,5,4},{2,3,7,6},{0,2,6,4},{1,3,7,5}
 		};
@@ -382,7 +382,7 @@ void Tick()
 		}
 	});
 
-	// сняли галку с парты — рестор
+	// part unchecked — restore
 	std::vector<std::uint64_t> drop;
 	{
 		std::lock_guard<std::mutex> lk(g_mtx);
@@ -491,7 +491,7 @@ void Render()
 		{
 			BasePart bp(j.part->address);
 			Vector3 pos = bp.GetPosition();
-			// визуал — раздутый размер (как в мире)
+			// visual — inflated size (as in the world)
 			Vector3 sz = bp.GetSize();
 			Matrix4x4 rot = bp.GetRotation();
 			DrawPartViz(dl, vm, viewport, sx, sy, pos, sz, rot, mode, hb.viz_color);

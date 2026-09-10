@@ -17,8 +17,8 @@ struct Table
 	std::uint64_t empty = 0;
 };
 
-// ключ в таблице — сырой char*, а не std::string: у длинных имён он
-// смотрит в кучу, мимо объекта, так что Memory::ReadString тут не годится
+// the key in the table is a raw char*, not a std::string: for long names it
+// points into the heap, past the object, so Memory::ReadString won't work here
 bool KeyEquals(std::uint64_t key, const char* text, std::size_t len)
 {
 	char buf[128];
@@ -37,14 +37,14 @@ bool ReadTable(std::uintptr_t at, Table* out)
 	out->end = g_Memory.Read<std::uint64_t>(at + Offsets::Reflection::TableEnd);
 	out->empty = g_Memory.Read<std::uint64_t>(at + Offsets::Reflection::TableEmpty);
 
-	// таблица всегда степень двойки по 16 байт на слот
+	// the table is always a power of two with 16 bytes per slot
 	return out->start && out->end > out->start &&
 	       (out->end - out->start) <= 0x400000;
 }
 
 } // namespace
 
-// открытая адресация: хеш снаружи не посчитать, поэтому линейный проход
+// open addressing: the hash can't be computed externally, so we do a linear scan
 std::uint64_t Name(std::uintptr_t base, const char* text)
 {
 	if (!text || !text[0])

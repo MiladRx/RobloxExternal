@@ -6,7 +6,7 @@ std::uint64_t LocalCharacter()
     const std::uint64_t ws_players = FindWorkspacePlayersFolder();
     const std::uint64_t lp = LocalPlayerAddr();
 
-    // только ModelInstance под Workspace.Players (не труп в Ignore)
+    // only ModelInstance under Workspace.Players (not a corpse in Ignore)
     if (g_Memory.IsValid(lp)) {
         const std::uint64_t mi = g_Memory.Read<std::uint64_t>(
             lp + Offsets::Player::ModelInstance);
@@ -14,7 +14,7 @@ std::uint64_t LocalCharacter()
             return mi;
     }
 
-    // узкий fallback только чтобы не рисовать себя — НЕ для team folder
+    // narrow fallback only so we don't draw ourselves — NOT for team folder
     if (!g_Memory.IsValid(ws_players))
         return 0;
 
@@ -70,7 +70,7 @@ void MergePlayers(std::unordered_map<std::uint64_t, PlayerCache>& target)
     const std::uint64_t local_char = LocalCharacter();
     const std::uint64_t local_team = LocalTeamFolder();
 
-    // имена с доски по стороне, ещё не занятые ModelInstance
+    // names from the board by side, not yet taken by ModelInstance
     std::unordered_set<std::string> used_names;
     for (const auto& [m, n] : model_to_name)
         used_names.insert(n);
@@ -88,7 +88,7 @@ void MergePlayers(std::unordered_map<std::uint64_t, PlayerCache>& target)
         return {};
     };
 
-    // разметить folder → side
+    // mark folder → side
     std::unordered_map<std::uint64_t, TeamSide> folder_side;
     Color3 local_col = FindLocalTeamColorPart();
     for (const auto& folder : Instance(ws_players).GetChildren()) {
@@ -99,9 +99,9 @@ void MergePlayers(std::unordered_map<std::uint64_t, PlayerCache>& target)
         if (side == SideUnknown && local_team == folder.address)
             side = lb.local_side;
         if (side == SideUnknown && local_col.r + local_col.g + local_col.b > 0.01f) {
-            // если цвет папки ближе к локальному Team Color — наша сторона
-            // иначе противоположная
-            // (второй папке назначим позже)
+            // if the folder color is closer to the local Team Color — our side
+            // otherwise the opposite
+            // (we'll assign the second folder later)
             side = SideFromColor(local_col);
             if (folder.address != local_team && side != SideUnknown)
                 side = (side == SidePhantom) ? SideGhost : SidePhantom;
@@ -109,7 +109,7 @@ void MergePlayers(std::unordered_map<std::uint64_t, PlayerCache>& target)
         folder_side[folder.address] = side;
     }
 
-    // если обе unknown — по local_team + lb
+    // if both unknown — by local_team + lb
     if (g_Memory.IsValid(local_team) && lb.local_side != SideUnknown) {
         folder_side[local_team] = lb.local_side;
         for (auto& [fa, s] : folder_side) {
@@ -140,7 +140,7 @@ void MergePlayers(std::unordered_map<std::uint64_t, PlayerCache>& target)
             if (!PopulateCharacter(model.address, cache))
                 continue;
 
-            // имя: Billboard TextLabel → ModelInstance → лидерборд
+            // name: Billboard TextLabel → ModelInstance → leaderboard
             if (cache.name.empty() || cache.name == Instance(model.address).GetName()) {
                 auto it = model_to_name.find(model.address);
                 if (it != model_to_name.end()) {
@@ -160,7 +160,7 @@ void MergePlayers(std::unordered_map<std::uint64_t, PlayerCache>& target)
                 continue;
             used_names.insert(cache.name);
 
-            // ключ = адрес модели (у PF нет нормального Player→Character)
+            // key = model address (PF has no proper Player→Character)
             target[model.address] = std::move(cache);
         }
     }

@@ -12,7 +12,7 @@ namespace mb {
 	constexpr std::uintptr_t desc_rva_z = Offsets::WorldRoot::RaycastBoundDesc;
 	constexpr std::uintptr_t bound_fn_offset = Offsets::WorldRoot::RaycastBoundFn;
 
-	// magic stub, wallbang всегда, оффсеты state не трогать
+	// magic stub, wallbang always, do not touch state offsets
 #pragma pack(push, 4)
 	struct RaycastState {
 		std::uint32_t active = 0;

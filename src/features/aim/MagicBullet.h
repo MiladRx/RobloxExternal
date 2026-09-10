@@ -5,7 +5,7 @@
 namespace Cheat {
     namespace Features {
 
-        // свой хук как RaycastSilent, wallbang всегда
+        // own hook like RaycastSilent, wallbang always
         namespace MagicBullet {
 
             bool Install();

@@ -151,7 +151,7 @@ namespace mb {
 	    }
 	    return 0;
 	}
-	// ищем пещеру в чужих dll, потом по процессу
+	// look for a cave in foreign dlls, then across the process
 	std::uintptr_t find_exec_cave(std::size_t need, std::uintptr_t,
 	                             std::uintptr_t ignore)
 	{

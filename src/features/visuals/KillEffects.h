@@ -21,7 +21,7 @@ namespace Cheat {
 
             void Tick();
 
-            // hit chams fade 0 = нет, иначе 1..0
+            // hit chams fade 0 = none, otherwise 1..0
             void NotifyHitChams(std::uint64_t player_addr);
             float HitChamsFade(std::uint64_t player_addr);
 

@@ -372,7 +372,7 @@ namespace
 		bool script = IsScriptClass(g_detail.cls);
 		bool hum = (g_detail.cls == "Humanoid");
 		float info_h = hum ? 188.f : 148.f;
-		// без actions/bytecode — окно по контенту, без дыры снизу
+		// without actions/bytecode — window fits content, no hole at the bottom
 		float def_h = script ? 500.f : (34.f + 14.f + info_h + 16.f);
 		float min_h = script ? 220.f : def_h;
 
@@ -443,7 +443,7 @@ namespace
 
 			if (script)
 			{
-				// хедер 34 + пад + кнопка 36 + пад снизу
+				// header 34 + pad + button 36 + pad at the bottom
 				float act_h = 108.f;
 				float btn_h = 36.f;
 				ImGui::SetCursorPos(ImVec2(pad, y));
@@ -515,7 +515,7 @@ namespace
 
 					if (g_show_decompiled && !g_decompiled.empty())
 					{
-						// readonly multiline — выделить и ctrl+c как в браузере
+						// readonly multiline — select and ctrl+c like in a browser
 						{
 							const size_t n = g_decompiled.size();
 							g_decompiled.resize(n + 1, '\0');

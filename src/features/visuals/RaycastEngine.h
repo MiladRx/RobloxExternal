@@ -15,13 +15,13 @@ namespace Cheat {
             };
 
             bool IsEnabled();
-            // raycast wallcheck или mesh occluded chams
+            // raycast wallcheck or mesh occluded chams
             bool WantsCache();
             void Reset();
             void Tick();
             Result IsPlayerVisible(const PlayerCache& player, const Vector3& camera_pos);
 
-            // ближайшие окклюдеры (AABB) для world-depth pre-pass
+            // nearest occluders (AABB) for the world-depth pre-pass
             void VisitOccluders(
                 const Vector3& camera,
                 float max_dist,

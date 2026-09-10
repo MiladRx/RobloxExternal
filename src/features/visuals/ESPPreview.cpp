@@ -510,7 +510,7 @@ void DrawFadeDot(ImDrawList* dl, const ImVec2& c, int tier, bool hover)
 
 namespace Cheat::Visuals {
 
-// грузим модельку для превью
+// load the model for the preview
 void ESPPreview::Initialize()
 {
     if (g_InitDone)
@@ -535,7 +535,7 @@ void ESPPreview::Shutdown()
     g_InitDone = false;
 }
 
-// превью есп в меню, драги тут
+// esp preview in the menu, drags here
 void ESPPreview::Render()
 {
     if (!g_InitDone) Initialize();
@@ -802,7 +802,7 @@ void ESPPreview::Render()
                             pc[i] = UV(box[i].first, box[i].second);
                         parts.push_back(pc);
                     }
-                    // mesh preview ≈ filled; engine отдельно в мире
+                    // mesh preview ≈ filled; engine separately in the world
                     const int preview_mode = (s.esp.chams_mode == 4) ? 1
                         : s.esp.chams_mode;
                     const int preview_shader = s.esp.chams_shader;
@@ -811,7 +811,7 @@ void ESPPreview::Render()
                 }
             }
 
-            // skel/chams сначала, fill потом сверху
+            // skel/chams first, fill on top after
             if (s.esp.skeleton) {
                 const int skel_type = s.esp.skeleton_type;
                 if (skel_type >= 1 && skel_type <= 3) {
@@ -864,7 +864,7 @@ void ESPPreview::Render()
                                  Col(s.esp.box_color), box_t, box_ol);
             }
 
-            // если не драгаем компактим слоты (дыры забиваем)
+            // if not dragging, compact the slots (fill the holes)
             if (!(g_LayoutDrag && s_dragged && g_DragElem != ElemHealthBar))
                 EspLayout::ResolveAllSides(s, esp_fs, 1, -1);
 

@@ -60,7 +60,7 @@ Color3 SampleFolderColor(std::uint64_t folder)
     return Color3(sum.r / n, sum.g / n, sum.b / n);
 }
 
-// мин. дистанция цвета папки до ref (для Team Color при камуфляже)
+// min distance from folder color to ref (for Team Color with camouflage)
 float FolderColorDist2(std::uint64_t folder, const Color3& ref)
 {
     float best = 1e9f;
@@ -116,7 +116,7 @@ Color3 FindLocalTeamColorPart()
     return {};
 }
 
-// sticky side (лидерборд / Team Color) + team folder как в roblox-ext
+// sticky side (leaderboard / Team Color) + team folder like in roblox-ext
 static TeamSide g_sticky_side = SideUnknown;
 static std::uint64_t g_sticky_team_folder = 0;
 static std::uint64_t g_sticky_t0 = 0;
@@ -161,7 +161,7 @@ std::uint64_t ResolveTeamFolderForSide(TeamSide side, std::uint64_t ws_players)
     if (g_Memory.IsValid(opposite) && n == 2)
         return (opposite == folders[0]) ? folders[1] : folders[0];
 
-    // ближе к FP Team Color = наша папка (даже при камуфляже)
+    // closest to FP Team Color = our folder (even when camouflaged)
     if (n == 2 && g_Memory.IsValid(closest_local) && best_d < 1e8f) {
         const TeamSide local_from_col = SideFromColor(local_col);
         if (local_from_col == side || local_from_col == SideUnknown)

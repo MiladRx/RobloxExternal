@@ -2,6 +2,6 @@
 
 namespace ng
 {
-	// shown=false -> прячется с анимацией; fill/grab тоже плавно
+	// shown=false -> hides with animation; fill/grab animate too
 	bool slider(const char* id, float* v, float mn, float mx, bool shown);
 }

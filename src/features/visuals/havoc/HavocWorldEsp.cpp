@@ -28,7 +28,7 @@ bool BeyondRange(float dist_studs)
 	return StudsToMeters(dist_studs) > kMaxMeters;
 }
 
-// world esp для havoc (трупы / лут / контейнеры)
+// world esp for havoc (corpses / loot / containers)
 void Render(ImDrawList* draw_list, ImFont* font, float font_size,
 	const Matrix4x4& view, const Vector2& viewport,
 	const Vector3& cam_pos, float overlay_w, float overlay_h,

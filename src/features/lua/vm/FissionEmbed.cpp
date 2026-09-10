@@ -1,4 +1,4 @@
-// Fission in-process — без Server.exe. C++latest, без pch.
+// Fission in-process — without Server.exe. C++latest, without pch.
 #include "FissionEmbed.h"
 
 #include "Decompiler.hpp"
@@ -27,7 +27,7 @@ namespace FissionEmbed {
 namespace {
 
 constexpr size_t k_max_beautify = 2u << 20;
-// std::regex у MSVC рекурсивен по числу повторений — длинную строку не отдаём движку
+// MSVC's std::regex recurses per repetition — we don't hand a long line to the engine
 constexpr size_t k_max_line = 1024;
 
 void EnableLuauFFlags()
@@ -40,14 +40,14 @@ void EnableLuauFFlags()
 		if (flag->name && std::strncmp(flag->name, "Luau", 4) == 0)
 			flag->value = true;
 	}
-	// assert → throw, не abort весь процесс
+	// assert → throw, don't abort the whole process
 	libassert::set_failure_handler([](const libassert::assertion_info& info) -> void {
 		throw std::runtime_error(info.to_string(0, libassert::color_scheme::blank));
 	});
 	done = true;
 }
 
-// fission срёт в cout "generated source code" — глушим
+// fission dumps "generated source code" to cout — we mute it
 struct CoutMute
 {
 	std::ostringstream sink;
@@ -92,7 +92,7 @@ void EachLine(const char* b, const char* e, F fn)
 	}
 }
 
-// весь пост-процесс идёт построчно: regex по мегабайтному буферу — и квадрат, и переполнение стека
+// the whole post-process runs line by line: regex over a megabyte buffer is both quadratic and stack-overflowing
 template <class F>
 void ScanLines(const std::string& view, const std::regex& re, std::string_view needle, F fn)
 {
@@ -126,7 +126,7 @@ void ReplaceAll(std::string& s, std::string_view from, std::string_view to)
 	s.swap(out);
 }
 
-// один проход лексера вместо find() по всему тексту на каждое имя
+// one lexer pass instead of find() over the whole text for each name
 struct NameSet
 {
 	std::unordered_set<std::string_view> names;
@@ -417,7 +417,7 @@ void RenameArgs(const std::string& view, std::string& target)
 		if (!have.insert(arg).second)
 			return;
 		static const char letters[] = "abcdefghij";
-		// stoi бросает на arg99999999999 и валит весь декомпил
+		// stoi throws on arg99999999999 and crashes the whole decompile
 		const unsigned long idx = std::strtoul(m[1].first, nullptr, 10);
 		renames.emplace_back(std::move(arg), TakeName(taken, claimed, std::string(1, letters[idx % 10])));
 	});
@@ -692,7 +692,7 @@ void RenameGenericLocals(const std::string& view, std::string& target)
 	ApplyRenames(target, renames);
 }
 
-// пара соседних строк вместо regex_search по всему тексту с нуля на каждую замену
+// a pair of adjacent lines instead of regex_search over the whole text from scratch for each replacement
 template <class F>
 void FoldLinePairs(std::string& src, const std::regex& re, F repl)
 {
@@ -903,7 +903,7 @@ std::string DecompileLuauBytecode(const std::uint8_t* data, std::size_t n)
 	{
 		beautified = false;
 	}
-	// проходы меняют строку только через swap в самом конце, так что out остался целым
+	// the passes change the string only via swap at the very end, so out stayed intact
 	if (!beautified)
 		out.insert(0, "-- beautify aborted (exception), output is only partially processed\n");
 	return out;
@@ -951,7 +951,7 @@ void UnescapeLuaByteEscapes(std::string& src)
 
 		const char n1 = src[i + 1];
 
-		// fission: deserializer пишет \208, generator ещё раз \\ → \\208
+		// fission: the deserializer writes \208, the generator escapes it again \\ → \\208
 		if (n1 == '\\')
 		{
 			int val = 0;
@@ -999,7 +999,7 @@ void UnescapeLuaByteEscapes(std::string& src)
 			}
 		}
 
-		// \n \t \\ \" — как есть
+		// \n \t \\ \" — as is
 		out.push_back(c);
 		out.push_back(n1);
 		i += 2;

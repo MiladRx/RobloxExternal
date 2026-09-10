@@ -94,7 +94,7 @@ struct occluder_cache {
     double build_time = 0.0;
 };
 
-// кэш стен билдим кусками, иначе фпс в ноль
+// build the wall cache in chunks, otherwise fps drops to zero
 struct occluder_builder {
     std::uint64_t primitives_base = 0;
     std::size_t cursor = 0;
@@ -208,7 +208,7 @@ bool has_valid_signature(std::uint64_t prim)
         return false;
 
     std::uint32_t raw = g_Memory.Read<std::uint32_t>(prim + Offsets::Primitive::Validate);
-    // 0x6 где-то в байтах
+    // 0x6 somewhere in the bytes
     if (raw == 0x6)
         return true;
     if ((raw & 0xFFu) == 0x6)
@@ -229,7 +229,7 @@ bool can_collide(std::uint64_t prim)
     return (flags & (std::uint8_t)Offsets::PrimitiveFlags::CanCollide) != 0;
 }
 
-// луч vs obb (сначала сфера, дешёвый отсев)
+// ray vs obb (sphere first, cheap rejection)
 bool ray_intersects_obb(const Vector3& origin, const Vector3& dir,
                         const occluder_part& part, float max_distance, float* out_hit)
 {
@@ -303,7 +303,7 @@ int cell_coord(float value, float inv_cell)
         return INT_MIN / 4;
     }
 
-    // без этого grid улетает
+    // without this the grid flies off
     if (scaled < -1000000.f) scaled = -1000000.f;
     if (scaled > 1000000.f) scaled = 1000000.f;
     return (int)std::floor(scaled);
@@ -330,7 +330,7 @@ void insert_part_into_grid(occluder_cache& cache, std::uint32_t index, const occ
     int min_x = cell_coord(min.x, inv), min_y = cell_coord(min.y, inv), min_z = cell_coord(min.z, inv);
     int max_x = cell_coord(max.x, inv), max_y = cell_coord(max.y, inv), max_z = cell_coord(max.z, inv);
 
-    // огромные партсы не кладём, убьют сетку
+    // don't insert huge parts, they'll kill the grid
     if ((max_x - min_x) > 512 || (max_y - min_y) > 512 || (max_z - min_z) > 512)
         return;
 
@@ -350,7 +350,7 @@ bool append_occluder(std::uint64_t primitive, occluder_cache& cache)
     if (!read_size(primitive, size) || !read_position(primitive, position))
         return false;
 
-    // мусорные / гигантские партсы
+    // garbage / gigantic parts
     if (size.x <= 0.f || size.y <= 0.f || size.z <= 0.f)
         return false;
     if (size.x > 500.f || size.y > 500.f || size.z > 500.f)
@@ -386,7 +386,7 @@ void step_builder(occluder_builder& builder, std::size_t step_count)
         if (!primitive)
         {
             ++builder.consecutive_null_slots;
-            // длинная дыра после живых слотов = конец массива
+            // a long gap after live slots = end of the array
             if (builder.found_non_null_slot && builder.consecutive_null_slots >= 16384)
             {
                 builder.complete = true;
@@ -482,7 +482,7 @@ std::uint64_t primitives_root()
     if (g_Memory.IsValid(p2))
         return p2;
 
-    // фоллбек если оффсет уехал
+    // fallback if the offset moved
     std::uint64_t p1 = g_Memory.Read<std::uint64_t>(world + 0x240);
     if (g_Memory.IsValid(p1))
         return p1;
@@ -534,7 +534,7 @@ std::shared_ptr<occluder_cache> get_occluder_cache()
     return cache_ref.load(std::memory_order_acquire);
 }
 
-// видна ли точка сквозь кэш стен
+// whether the point is visible through the wall cache
 bool line_of_sight_clear(const Vector3& from, const Vector3& to,
                          const occluder_cache& cache,
                          const std::unordered_set<std::uint64_t>& ignore)
@@ -557,7 +557,7 @@ bool line_of_sight_clear(const Vector3& from, const Vector3& to,
         float hit = 0.0f;
         if (!ray_intersects_obb(from, delta, part, distance, &hit))
             return false;
-        // края луча не считаем, иначе стены на камере/таргете
+        // don't count ray edges, otherwise walls at the camera/target
         if (hit <= 0.15f) return false;
         if ((distance - hit) <= 0.55f) return false;
         return true;
@@ -671,7 +671,7 @@ bool is_visible_impl(const PlayerCache& player, const Vector3& camera_pos,
     std::unordered_set<std::uint64_t> ignore;
     collect_cache_primitives(player, ignore);
 
-    // локал тоже в игнор, иначе сам себя перекрывает
+    // ignore local too, otherwise it occludes itself
     if (Globals::Players && g_Memory.IsValid(Globals::Players->address))
     {
         std::uint64_t lp = g_Memory.Read<std::uint64_t>(
@@ -778,7 +778,7 @@ void Reset() {
     builder_storage().reset();
 }
 
-// подкачиваем окклюдеры потихоньку
+// gradually load the occluders
 void Tick() {
     if (!WantsCache())
         return;
@@ -845,7 +845,7 @@ void VisitOccluders(
     }
 }
 
-// видно ли игрока, сверху ещё сглаживание чтоб не дёргалось
+// whether the player is visible, plus smoothing on top so it doesn't jitter
 Result IsPlayerVisible(const PlayerCache& player, const Vector3& camera_pos)
 {
     if (!IsEnabled())
@@ -869,7 +869,7 @@ Result IsPlayerVisible(const PlayerCache& player, const Vector3& camera_pos)
     smoothed_state& state = smooth_map[player.address];
     double now = now_sec();
 
-    // не долбим каждый кадр
+    // don't hammer it every frame
     if (state.last_query_time != 0.0 && (now - state.last_query_time) < 0.015)
         return state.last_result;
 
@@ -907,7 +907,7 @@ Result IsPlayerVisible(const PlayerCache& player, const Vector3& camera_pos)
         state.visible_confirmation = 0;
     }
 
-    // гистерезис, on/off пороги разные
+    // hysteresis, different on/off thresholds
     if (state.visible)
     {
         if (!visible_raw && state.smoothed <= 0.22f && state.occluded_confirmation >= 4)

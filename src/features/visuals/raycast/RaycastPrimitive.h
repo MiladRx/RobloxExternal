@@ -50,7 +50,7 @@ bool has_valid_signature(std::uint64_t prim)
         return false;
 
     std::uint32_t raw = g_Memory.Read<std::uint32_t>(prim + Offsets::Primitive::Validate);
-    // 0x6 где-то в байтах
+    // 0x6 somewhere in the bytes
     if (raw == 0x6)
         return true;
     if ((raw & 0xFFu) == 0x6)

@@ -10,7 +10,7 @@
 namespace Cheat {
     namespace Features {
 
-        // просто вырубаем collide на частях
+        // just disable collide on parts
         void LocalMods::Noclip(std::uint64_t character, bool enabled)
         {
 			if (!enabled || !g_Memory.IsValid(character))
@@ -29,7 +29,7 @@ namespace Cheat {
 			}
         }
 
-        // space жмёт Jump=true, только edge
+        // space triggers Jump=true, edge only
         void LocalMods::InfiniteJump(std::uint64_t humanoid, bool enabled)
         {
 			if (!enabled || !g_Memory.IsValid(humanoid))

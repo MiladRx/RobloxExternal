@@ -1,7 +1,7 @@
 #pragma once
 
 // player query — team / getters
-// только из PlayerHandler.cpp
+// only from PlayerHandler.cpp
 
 std::uint64_t Cheat::PlayerHandler::ResolveTeamFolder(std::uint64_t character_address)
 {

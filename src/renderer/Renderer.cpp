@@ -16,7 +16,7 @@
 
 namespace Cheat {
 
-    // окно роблокса по пиду, берём самое жирное
+    // the Roblox window by pid, take the fattest one
     HWND Renderer::FindGameWindow()
     {
         DWORD pid = g_Memory.GetPID();
@@ -108,13 +108,13 @@ namespace Cheat {
         Visuals::MeshDxShader::Resize((unsigned)w, (unsigned)h);
     }
 
-    // клеим оверлей к клиентской области
+    // glue the overlay to the client area
     void Renderer::SyncToGameWindow()
     {
         DWORD pid = g_Memory.GetPID();
         DWORD now = GetTickCount();
 
-        // раз в 300мс пересканируем, иначе держим кэш
+        // rescan every 300ms, otherwise keep the cache
         bool need_enum =
             !m_GameHwnd ||
             !IsWindow(m_GameHwnd) ||
@@ -140,8 +140,8 @@ namespace Cheat {
         }
 
         HWND fg = GetForegroundWindow();
-        // меню открыто ок тока если фокус на игре или на оверлее
-        // иначе Win+Shift+S / чужое окно — гуй в скрине
+        // menu is open only if focus is on the game or on the overlay
+        // otherwise Win+Shift+S / another window — the gui ends up in the screenshot
         bool focused =
             (fg == m_GameHwnd) ||
             IsChild(m_GameHwnd, fg) ||
@@ -287,7 +287,7 @@ namespace Cheat {
 
             GUI::Menu::Render();
 
-            // клик-тру / фокус под imgui
+            // click-through / focus under imgui
             {
                 POINT pt{};
                 GetCursorPos(&pt);
@@ -314,7 +314,7 @@ namespace Cheat {
                 }
             }
 
-            // 0 = без vsync оверлея: меньше задержка относительно камеры игры
+            // 0 = no overlay vsync: lower latency relative to the game camera
             m_SwapChain->Present(0, 0);
         }
 
@@ -341,7 +341,7 @@ namespace Cheat {
             want = (LONG)(WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE);
         }
 
-        // без NOACTIVATE текст в imgui не фокусится
+        // without NOACTIVATE text in imgui does not focus
         if (want_text && !click_through)
         {
             want &= ~WS_EX_NOACTIVATE;

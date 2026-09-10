@@ -104,7 +104,7 @@ bool ng::strlist(
 	char cid[64]{};
 	snprintf(cid, sizeof(cid), "##slbody_%s", id);
 
-	// тело строго под шапкой — скролл клипается окном
+	// body strictly under the header — scroll is clipped by the window
 	ImGui::SetCursorScreenPos(ImVec2(p0.x, p0.y + head));
 	ImGui::BeginChild(
 		cid,
@@ -166,7 +166,7 @@ bool ng::strlist(
 
 	ImGui::Dummy(ImVec2(0.f, bot_pad));
 
-	// края списка тухнут когда есть куда скроллить
+	// list edges fade when there's room to scroll
 	{
 		int ra = (int)(col::live().child[0] * 255.f + 0.5f);
 		int ga = (int)(col::live().child[1] * 255.f + 0.5f);
@@ -176,7 +176,7 @@ bool ng::strlist(
 
 	ImGui::EndChild();
 
-	// шапка сверху после контента — всегда поверх
+	// header on top after the content — always on top
 	draw_head(dl, p0, w, ttl);
 
 	ImGui::SetCursorScreenPos(ImVec2(p0.x, p0.y + h));

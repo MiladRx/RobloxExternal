@@ -48,7 +48,7 @@ std::uint64_t local_chara()
 	return chara;
 }
 
-// раз в ~400мс подтягиваем локала / лайтинг
+// refresh local player / lighting about every 400ms
 void refresh_cache()
 {
 	std::uint64_t now = GetTickCount64();

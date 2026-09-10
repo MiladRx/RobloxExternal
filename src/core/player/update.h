@@ -1,7 +1,7 @@
 #pragma once
 
-// player update — парты / UpdateCache / corpse
-// только из PlayerHandler.cpp
+// player update — parts / UpdateCache / corpse
+// only from PlayerHandler.cpp
 
 namespace {
 
@@ -78,7 +78,7 @@ bool PopulatePartsFromChildren(const std::vector<Cheat::Instance>& parts, Cheat:
 
         std::string nm = part.GetName();
 
-        // r15 / r6 имена, просто мапим
+        // r15 / r6 names, just map them
         if (nm == "Head")
         {
             cache.head = std::make_shared<Cheat::Instance>(part);
@@ -159,7 +159,7 @@ bool PopulatePartsFromChildren(const std::vector<Cheat::Instance>& parts, Cheat:
             cache.rightFoot = std::make_shared<Cheat::Instance>(part);
         }
 
-        // r6 имена другие
+        // r6 names are different
         else if (nm == "Torso")
         {
             cache.upperTorso = std::make_shared<Cheat::Instance>(part);
@@ -197,7 +197,7 @@ bool PopulatePartsFromChildren(const std::vector<Cheat::Instance>& parts, Cheat:
     return AnyBodyPartValid(cache) || hum_addr != 0;
 }
 
-// собираем хэд/руки/ноги по детям модели
+// gather head/arms/legs from the model's children
 bool PopulateParts(std::uint64_t characterAddress, Cheat::PlayerCache& cache)
 {
     if (!g_Memory.IsValid(characterAddress))
@@ -206,7 +206,7 @@ bool PopulateParts(std::uint64_t characterAddress, Cheat::PlayerCache& cache)
     auto kids = Cheat::Instance(characterAddress).GetChildren();
     bool ok = PopulatePartsFromChildren(kids, cache);
 
-    // иногда тело сидит во вложенных Model/Folder
+    // sometimes the body sits in nested Model/Folder
     for (const auto& child : kids)
     {
         std::string cls = child.GetClassName();
@@ -224,7 +224,7 @@ bool IsPlayerDead(const Cheat::PlayerCache& cache)
         return false;
 
     Cheat::Humanoid hum(cache.humanoid->address);
-    // 15 = dead, ну или хп уже 0
+    // 15 = dead, or hp is already 0
     if (hum.GetStateId() == 15)
         return true;
     return hum.GetHealth() <= 0.f;
@@ -257,7 +257,7 @@ bool RetainCorpseEntry(Cheat::PlayerCache& out, const Cheat::PlayerCache& prev)
     if (RefreshCorpseFromCharacter(out, prev.character))
         return AnyBodyPartValid(out);
 
-    // чара уже нет, держим последние парты пока живы в памяти
+    // character is gone, keep the last parts while they're still valid in memory
     if (AnyBodyPartValid(prev))
     {
         CopyBodyParts(out, prev);
@@ -309,7 +309,7 @@ void Cheat::PlayerHandler::UpdateCache(const Instance& player,
     cache.is_player = true;
     PopulateParts(char_addr, cache);
 
-    // player dn / humanoid dn / username (после parts, humanoid уже есть)
+    // player dn / humanoid dn / username (after parts, humanoid already exists)
     cache.displayName = Player(player.address).GetDisplayName();
     if ((cache.displayName.empty() || cache.displayName == "Unknown") && cache.humanoid)
         cache.displayName = Humanoid(cache.humanoid->address).GetDisplayName();

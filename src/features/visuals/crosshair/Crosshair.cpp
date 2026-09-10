@@ -97,7 +97,7 @@ bool IsRobloxFocused()
     return false;
 }
 
-// пустой курсор, системный иначе мигает
+// blank cursor, otherwise the system one flickers
 HCURSOR EnsureBlankCursor()
 {
     if (g_blank_cursor)
@@ -186,7 +186,7 @@ void RestoreOsCursor()
 
 void ForceHideOsCursor(HCURSOR blank)
 {
-    // счётчик в минус держим, роблокс его поднимает
+    // keep the counter negative, Roblox raises it
     for (int i = 0; i < 8; ++i)
     {
         if (ShowCursor(FALSE) < 0)
@@ -200,7 +200,7 @@ void ForceHideOsCursor(HCURSOR blank)
     }
 }
 
-// глушим виндовый курсор пока свой рисуем
+// suppress the Windows cursor while we draw our own
 DWORD WINAPI CursorSuppressThread(LPVOID)
 {
     timeBeginPeriod(1);
@@ -228,12 +228,12 @@ DWORD WINAPI CursorSuppressThread(LPVOID)
             EnsureAttached(game);
         }
 
-        // оверлей тоже иногда мигает при click-through
+        // the overlay also flickers sometimes on click-through
         HWND overlay = Renderer::GetHwnd();
         if (overlay && IsWindow(overlay) && blank)
             SetClassLongPtrW(overlay, GCLP_HCURSOR, (LONG_PTR)blank);
 
-        // два раза, роблокс между кадрами курсор возвращает
+        // twice, Roblox restores the cursor between frames
         ForceHideOsCursor(blank);
         ForceHideOsCursor(blank);
 
@@ -291,7 +291,7 @@ void NotifyInactive()
     g_want_suppress.store(false, std::memory_order_release);
 }
 
-// свой прицел поверх
+// draw our own crosshair on top
 void Render()
 {
     EnsureAtExit();
@@ -311,7 +311,7 @@ void Render()
 
     ImGui::GetIO().MouseDrawCursor = false;
     ImGui::SetMouseCursor(ImGuiMouseCursor_None);
-    // сразу прячем, не ждём тик треда
+    // hide immediately, don't wait for the thread tick
     ForceHideOsCursor(EnsureBlankCursor());
 
     ImDrawList* dl = ImGui::GetForegroundDrawList();

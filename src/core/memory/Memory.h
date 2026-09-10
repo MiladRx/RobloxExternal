@@ -17,18 +17,18 @@ public:
     Memory(const Memory&) = delete;
     Memory& operator=(const Memory&) = delete;
 
-    // цепляемся к роблоксу
+    // attach to roblox
     bool Attach(const wchar_t* processName);
     bool Attach(DWORD pid);
     void Detach();
 
     bool IsAttached() const { return m_handle != nullptr; }
-    bool IsAlive() const; // жив ли процесс
+    bool IsAlive() const; // is the process alive
     bool GetExitCode(DWORD* out_code) const;
     DWORD GetPID() const { return m_pid; }
     HANDLE GetHandle() const { return m_handle; }
 
-    // база модуля, кэшится
+    // module base, cached
     uintptr_t GetModuleBase(const wchar_t* moduleName = nullptr) const;
 
     template<typename T>

@@ -67,8 +67,8 @@ struct ConnEntry {
 };
 std::vector<ConnEntry> g_conns;
 
-// слоты переиспользуются и чистятся на каждый execute — без seq старый
-// Connection/Task токен убил бы чужую запись
+// slots are reused and cleared on every execute — without seq an old
+// Connection/Task token would kill someone else's entry
 std::uint32_t g_token_seq = 0;
 
 struct ConnUd {
@@ -108,7 +108,7 @@ unsigned g_poll_tick = 0;
 
 void schedule_wait(lua_State* L, float sec)
 {
-	// resume главного стейта = смерть vm, туда попасть можно из delay-колбэка
+	// resuming the main state = death of the vm, which a delay callback can reach
 	if (!lua_isyieldable(L))
 		return;
 
@@ -202,7 +202,7 @@ int l_spawn(lua_State* L)
 		LogErr(lua_tostring(co, -1));
 		lua_pop(co, 1);
 	}
-	// thread наружу — task.cancel(thread)
+	// thread out — task.cancel(thread)
 	return 1;
 }
 
@@ -281,7 +281,7 @@ int l_cancel(lua_State* L)
 		return 0;
 	}
 
-	// yielded thread из wait/spawn
+	// a yielded thread from wait/spawn
 	if (lua_isthread(L, 1))
 	{
 		lua_State* co = lua_tothread(L, 1);
@@ -326,7 +326,7 @@ int l_getmousepos(lua_State* L)
 	GetCursorPos(&pt);
 	if (HWND hwnd = Renderer::GetHwnd())
 		ScreenToClient(hwnd, &pt);
-	// два number — как в большинстве executor api
+	// two numbers — like in most executor apis
 	lua_pushnumber(L, static_cast<lua_Number>(pt.x));
 	lua_pushnumber(L, static_cast<lua_Number>(pt.y));
 	return 2;
@@ -377,7 +377,7 @@ void OpenSafeLibs(lua_State* L)
 	luaL_requiref(L, LUA_COLIBNAME, luaopen_coroutine, 1);
 	lua_pop(L, 1);
 
-	// убрать опасное из base
+	// remove the dangerous ones from base
 	lua_pushnil(L);
 	lua_setglobal(L, "dofile");
 	lua_pushnil(L);
@@ -450,7 +450,7 @@ void kill_conn(ConnEntry& c)
 	}
 }
 
-// nargs уже на g_L сверху. не жрём их — caller pop
+// nargs are already on top of g_L. we don't consume them — the caller pops
 void fire_conns(int kind, std::uint64_t owner, const char* prop, int nargs)
 {
 	if (!g_L)
@@ -463,7 +463,7 @@ void fire_conns(int kind, std::uint64_t owner, const char* prop, int nargs)
 	const size_t n = g_conns.size();
 	for (size_t i = 0; i < n && i < g_conns.size(); ++i)
 	{
-		// хендлер может звать Connect и растить g_conns — держать ссылку нельзя
+		// the handler may call Connect and grow g_conns — we can't hold a reference
 		if (!g_conns[i].alive || g_conns[i].fn_ref == LUA_NOREF)
 			continue;
 		if (!conn_owner_ok(g_conns[i], kind, owner, prop))
@@ -498,7 +498,7 @@ void wake_waits(int kind, std::uint64_t owner, const char* prop, int nargs)
 	const size_t n = g_sigwaits.size();
 	for (size_t i = 0; i < n && i < g_sigwaits.size(); ++i)
 	{
-		// резюм может добавить новых ждунов — индекс, не ссылка
+		// a resume may add new waiters — use an index, not a reference
 		if (!wait_owner_ok(g_sigwaits[i], kind, owner, prop))
 			continue;
 
@@ -663,7 +663,7 @@ bool has_kind(int k0, int k1 = -1);
 
 void poll_players()
 {
-	// без коннектов это чистый обход детей Players каждый тик — дорого
+	// without connections this is a pure walk of Players' children every tick — expensive
 	if (!has_kind(1, 2) && !has_kind(3))
 	{
 		if (g_plr_seeded)
@@ -845,7 +845,7 @@ void poll_input()
 
 void collect_desc(std::uint64_t root, std::unordered_set<std::uint64_t>& out, size_t& nodes, int depth = 0)
 {
-	// workspace DescendantAdded без лимита = смерть
+	// workspace DescendantAdded without a limit = death
 	if (!g_Memory.IsValid(root) || nodes > 1500 || depth > 24)
 		return;
 	for (const auto& c : Instance(root).GetChildren())
@@ -907,7 +907,7 @@ std::string read_prop_snap(std::uint64_t addr, const std::string& prop)
 
 	if (prop == "Text")
 	{
-		// gui text — если StringValue-like string at Value
+		// gui text — if StringValue-like, string at Value
 		if (cls == "StringValue")
 			return g_Memory.ReadString(addr + Offsets::Misc::Value);
 	}
@@ -942,13 +942,13 @@ void poll_hierarchy()
 			watch_desc.insert(w.owner);
 	}
 
-	// снапшоты живут по адресу — без чистки мапы растут всю сессию
+	// snapshots are keyed by address — without pruning the maps grow all session
 	for (auto it = g_kids_snap.begin(); it != g_kids_snap.end();)
 		it = watch_kids.count(it->first) ? std::next(it) : g_kids_snap.erase(it);
 	for (auto it = g_desc_snap.begin(); it != g_desc_snap.end();)
 		it = watch_desc.count(it->first) ? std::next(it) : g_desc_snap.erase(it);
 
-	// каждый тик обходить детей всех watched = сотни ReadProcessMemory в секунду
+	// walking the children of all watched every tick = hundreds of ReadProcessMemory per second
 	if ((g_poll_tick % 2) == 0)
 	{
 		for (std::uint64_t owner : watch_kids)
@@ -984,7 +984,7 @@ void poll_hierarchy()
 		}
 	}
 
-	// DescendantAdded — раз в N тиков, а то workspace жрёт всё
+	// DescendantAdded — once every N ticks, otherwise workspace eats everything
 	if (!watch_desc.empty() && (g_poll_tick % 8) == 0)
 	{
 		for (std::uint64_t owner : watch_desc)
@@ -1018,8 +1018,8 @@ void poll_hierarchy()
 				++fired;
 				it->second.insert(a);
 			}
-			// упёрлись в лимит — остаток добираем следующим проходом,
-			// swap проглотил бы их навсегда
+			// hit the limit — we pick up the rest on the next pass,
+			// a swap would swallow them forever
 			if (!capped)
 				it->second.swap(now);
 		}
@@ -1068,8 +1068,8 @@ void poll_props()
 			it = seen.count(it->first) ? std::next(it) : g_prop_snap.erase(it);
 	}
 
-	// каждый ключ = чтение чужого процесса; за тик берём фиксированный кусок
-	// по кругу, иначе 500 Changed-коннектов вешают тикер
+	// each key = a foreign process read; per tick we take a fixed chunk
+	// round-robin, otherwise 500 Changed connections would hang the ticker
 	if (g_prop_cursor >= keys.size())
 		g_prop_cursor = 0;
 
@@ -1098,7 +1098,7 @@ std::uint64_t g_bus_pay_addr = 0;
 std::int32_t g_bus_last_seq = 0;
 bool g_bus_seeded = false;
 
-// ReplicatedStorage.JewsploitTest.Bus — LocalScript кладёт ивенты, мы poll
+// ReplicatedStorage.JewsploitTest.Bus — a LocalScript puts events, we poll
 std::uint64_t find_child_named(std::uint64_t parent, const char* name)
 {
 	if (!g_Memory.IsValid(parent) || !name || !name[0])
@@ -1129,7 +1129,7 @@ std::uint64_t find_jp_bus()
 	return find_child_named(folder, "Bus");
 }
 
-// JP_Prompt лежит в Workspace.JP_Pad, не в корне
+// JP_Prompt lives in Workspace.JP_Pad, not at the root
 std::uint64_t find_child_deep(std::uint64_t parent, const char* name, int depth)
 {
 	if (!g_Memory.IsValid(parent) || !name || !name[0] || depth < 0)
@@ -1208,7 +1208,7 @@ void poll_jp_bus()
 		return;
 	}
 
-	// три поиска по имени на каждый тик — держим адреса, пока валидны
+	// three name lookups per tick — we keep the addresses while they're valid
 	if (!g_bus_seq_addr || !g_bus_pay_addr
 		|| !g_Memory.IsValid(g_bus_seq_addr) || !g_Memory.IsValid(g_bus_pay_addr))
 	{
@@ -1297,7 +1297,7 @@ void RegisterRunService(lua_State* L)
 	push_signal(L, 0, 0, nullptr);
 	lua_setfield(L, -2, "RenderStepped");
 
-	// старые скрипты иногда Stepped жрут
+	// old scripts sometimes consume Stepped
 	push_signal(L, 0, 0, nullptr);
 	lua_setfield(L, -2, "Stepped");
 
@@ -1385,7 +1385,7 @@ int l_bit_lrotate(lua_State* L)
 {
 	std::uint32_t x = bit_to_u32(L, 1);
 	int d = static_cast<int>(luaL_checkinteger(L, 2)) & 31;
-	// сдвиг на 32 — UB, при d==0 вторая половина обязана быть нулём
+	// a shift by 32 is UB, at d==0 the second half must be zero
 	lua_pushinteger(L, static_cast<lua_Integer>((x << d) | (x >> ((32 - d) & 31))));
 	return 1;
 }
@@ -1464,7 +1464,7 @@ int l_tween_create(lua_State* L)
 	lua_setfield(L, -2, "Pause");
 	lua_pushcfunction(L, l_tween_play);
 	lua_setfield(L, -2, "Destroy");
-	// Completed — мёртвый signal (kind 99 никто не файрит)
+	// Completed — a dead signal (nobody fires kind 99)
 	push_signal(L, 99, 0, nullptr);
 	lua_setfield(L, -2, "Completed");
 	return 1;
@@ -1686,8 +1686,8 @@ int l_httpget(lua_State* L)
 	const char* url = luaL_checkstring(L, 1);
 	int status = 0;
 	{
-		// lua собран как C: luaL_error делает longjmp мимо деструкторов,
-		// поэтому тело должно умереть до ошибки
+		// lua is built as C: luaL_error does a longjmp past destructors,
+		// so the body must die before the error
 		std::string out;
 		if (http_request_raw("GET", url, {}, {}, out, status)
 			&& status >= 200 && status < 300)
@@ -1711,7 +1711,7 @@ int l_httpservice_getasync(lua_State* L)
 {
 	const int i = http_arg(L);
 	luaL_checkstring(L, i);
-	// нельзя держать const char* и чистить стек — строку соберёт gc
+	// we can't hold a const char* and clear the stack — the gc will collect the string
 	lua_pushvalue(L, i);
 	lua_replace(L, 1);
 	lua_settop(L, 1);
@@ -1948,7 +1948,7 @@ bool Initialize()
 	OpenSafeLibs(g_L);
 	RegisterApi(g_L);
 
-	// wait resume не на render — иначе hold/findgc душат esp
+	// wait resume not on render — otherwise hold/findgc choke the esp
 	if (!g_tick_run.load())
 	{
 		g_tick_run.store(true);
@@ -2041,7 +2041,7 @@ void wipe_script_signals()
 	if (!g_L)
 		return;
 
-	// каждый execute — иначе Connect копится и server_tick x3
+	// every execute — otherwise Connect accumulates and server_tick x3
 	for (auto& c : g_conns)
 	{
 		if (c.fn_ref != LUA_NOREF)
@@ -2060,8 +2060,8 @@ void wipe_script_signals()
 	}
 	g_sigwaits.clear();
 
-	// корутины прошлого запуска иначе живут вечно: их ref в реестре не даёт
-	// gc собрать тред, а тикер продолжает их крутить
+	// otherwise coroutines from the previous run live forever: their ref in the registry prevents
+	// the gc from collecting the thread and the ticker keeps spinning them
 	for (auto& w : g_waits)
 	{
 		if (w.ref != LUA_NOREF)
@@ -2185,7 +2185,7 @@ void Tick(float dt)
 		fire_sig(0, 0, nullptr, 1);
 	}
 
-	// task.delay / defer — колбэк может звать task.delay, вектор переедет
+	// task.delay / defer — the callback may call task.delay, the vector will reallocate
 	const size_t ndelay = g_delays.size();
 	for (size_t i = 0; i < ndelay && i < g_delays.size(); ++i)
 	{
@@ -2214,8 +2214,8 @@ void Tick(float dt)
 	// cap resumes/frame so wait(0) loops cannot freeze the UI thread
 	constexpr int k_max_resumes = 64;
 
-	// сначала выдёргиваем готовых, потом резюмим: resume внутри цикла
-	// добавляет новые wait'ы и ломает индексы
+	// first we pull out the ready ones, then resume: resuming inside the loop
+	// adds new waits and breaks the indices
 	static std::vector<int> ready;
 	ready.clear();
 

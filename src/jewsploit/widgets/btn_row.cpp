@@ -42,7 +42,7 @@ int ng::btn_row(const char* id, const char* const labels[], int n, float h)
 		}
 
 		char bid[24]{};
-		// короткий id
+		// short id
 		bid[0] = '#'; bid[1] = '#'; bid[2] = 'b';
 		bid[3] = (char)('0' + (i % 10));
 		bid[4] = 0;

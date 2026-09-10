@@ -22,7 +22,7 @@ extern std::mutex g_mtx;
 extern std::unordered_map<uintptr_t, std::uint32_t> g_saved;
 extern std::unordered_map<uintptr_t, LayerBackup> g_layers;
 extern std::unordered_map<uintptr_t, std::vector<uintptr_t>> g_ent_layers;
-extern std::unordered_map<uintptr_t, int> g_miss; // дохлый ent — не сразу дропаем
+extern std::unordered_map<uintptr_t, int> g_miss; // dead ent — don't drop right away
 extern uintptr_t g_vt;
 extern int g_applied_style;
 

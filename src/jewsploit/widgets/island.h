@@ -2,6 +2,6 @@
 
 namespace ng
 {
-	// пилл сверху: lua / explorer / players (только при открытом меню)
+	// pill on top: lua / explorer / players (only when menu is open)
 	void island();
 }

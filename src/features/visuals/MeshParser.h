@@ -19,23 +19,23 @@ enum class Kind : std::uint8_t {
 };
 
 struct Entry {
-	std::uint64_t part{ 0 };          // BasePart / Handle (рисовать)
-	std::uint64_t special_mesh{ 0 };  // SpecialMesh, если есть
+	std::uint64_t part{ 0 };          // BasePart / Handle (draw)
+	std::uint64_t special_mesh{ 0 };  // SpecialMesh, if present
 	std::uint64_t character{ 0 };
 	Kind kind{ Kind::Other };
 	std::string name;
 	std::string class_name;
 	std::string mesh_id;
-	std::string container; // Accessory / Folder имя
+	std::string container; // Accessory / Folder name
 };
 
-// все визуальные меши персонажа: body + accessory/hair/face + SpecialMesh
+// all visual meshes of the character: body + accessory/hair/face + SpecialMesh
 std::vector<Entry> Collect(std::uint64_t character);
 
-// только то, по чему можно рисовать AABB (есть part)
+// only what an AABB can be drawn for (has part)
 std::vector<Entry> CollectDrawable(std::uint64_t character);
 
-// для bounding box: все BasePart (включая Kind::Other), без HRP/collision
+// for the bounding box: all BasePart (including Kind::Other), without HRP/collision
 std::vector<Entry> CollectForBounds(std::uint64_t character);
 
 const char* KindName(Kind k);

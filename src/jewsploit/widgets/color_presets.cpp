@@ -10,7 +10,7 @@
 
 namespace
 {
-	// дефолт кружки как на рефе
+	// default circles as in the reference
 	static const ImU32 g_presets[] = {
 		IM_COL32(121, 134, 203, 255),
 		IM_COL32(245, 220, 130, 255),
@@ -21,7 +21,7 @@ namespace
 		IM_COL32(120, 80, 180, 255),
 	};
 
-	// engine charm Param 1..7 — 1:1 с nearest
+	// engine charm Param 1..7 — 1:1 with nearest
 	static const ImU32 g_engine_presets[] = {
 		IM_COL32(255, 0, 0, 255),
 		IM_COL32(0, 255, 0, 255),
@@ -132,7 +132,7 @@ bool ng::color_presets(const char* id, const char* title, const char* desc, floa
 	float dot_r = 7.f;
 	float hex_w = 72.f;
 
-	// top gap как у слайдера — иначе дыра/слипание с чекбоксом
+	// top gap like the slider — otherwise a hole/sticking with the checkbox
 	float top = item_gap * e;
 	float body_h = title_h + gap_td + desc_h + gap_bar + bar_h;
 	float total_h = top + body_h * e;
@@ -190,7 +190,7 @@ bool ng::color_presets(const char* id, const char* title, const char* desc, floa
 		brush_hit = ImGui::IsItemClicked() && e > 0.55f;
 		bool brush_hov = ImGui::IsItemHovered();
 
-		// кисть = текущий цвет, не accent
+		// brush = current color, not accent
 		int ba = (int)((brush_hov ? 255.f : 220.f) * e * col[3] + 0.5f);
 		if (ba < 0) ba = 0;
 		if (ba > 255) ba = 255;
@@ -262,7 +262,7 @@ bool ng::color_presets(const char* id, const char* title, const char* desc, floa
 
 	if (show_brush)
 	{
-		// якорь для попапа = кисть
+		// anchor for the popup = brush
 		ImGui::SetCursorScreenPos(ImVec2(brush_x, mid_y - brush_sz * 0.5f));
 		ImGui::InvisibleButton("##cp_anchor", ImVec2(brush_sz, brush_sz));
 		if (ng::colorpicker("##cp", col, true, 0, false, brush_hit))

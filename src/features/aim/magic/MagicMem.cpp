@@ -171,7 +171,7 @@ namespace mb {
 	    }
 	    return wrote;
 	}
-	// иначе CFG орёт на наш stub
+	// otherwise CFG complains about our stub
 	bool mark_cfg(std::uintptr_t t)
 	{
 	    auto resolve = []() -> FARPROC

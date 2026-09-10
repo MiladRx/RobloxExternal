@@ -11,7 +11,7 @@ std::string Cheat::Player::GetDisplayName() const
 		return "Unknown";
 	}
 
-	// displayname лежит как rbx-string по оффсету, не через указатель
+	// displayname is stored as an rbx-string at an offset, not via a pointer
 	return g_Memory.ReadString(address + Offsets::Player::DisplayName);
 }
 

@@ -28,7 +28,7 @@ bool PointOnOverlay(const Vector2& screen, float overlay_w, float overlay_h, flo
 
 float CameraFovDegrees(float raw)
 {
-	// raw иногда в радианах
+	// raw is sometimes in radians
 	if (raw > 0.f && raw < 3.2f)
 		return raw * (180.f / g_pi);
 
@@ -58,7 +58,7 @@ bool IsInsideCameraFov(const Vector3& origin, const Matrix4x4& cam_rot,
 	return std::fabs(sx) <= half_h * 1.02f && std::fabs(sy) <= half_v * 1.02f;
 }
 
-// стрелка по yaw, сзади вниз, +x вправо от камеры
+// arrow by yaw, downward when behind, +x to the right of the camera
 void ArrowDirYaw(const Vector3& origin, const Matrix4x4& cam_rot,
 	const Vector3& target, float& out_dx, float& out_dy)
 {
@@ -94,7 +94,7 @@ void ArrowDirYaw(const Vector3& origin, const Matrix4x4& cam_rot,
 	out_dy = dy / len;
 }
 
-// стрелки когда чел за экраном
+// arrows when the player is off-screen
 void DrawOffscreenArrow(ImDrawList* dl, float overlay_w, float overlay_h,
 	float dx, float dy, ImU32 color,
 	float size, float radius,
@@ -180,7 +180,7 @@ void BuildArrowInfo(const Cheat::PlayerCache& cache, float dist_studs, char* buf
 	if (ai[Cheat::Settings::ARROW_DISTANCE])
 	{
 		char dbuf[32];
-		// havoc — всегда метры
+		// havoc — always meters
 		if (Cheat::Visuals::HavocWorldEsp::IsActivePlace() ||
 			Cheat::g_Settings.esp.distance_unit == 1)
 			std::snprintf(dbuf, sizeof(dbuf), "%.0fm",

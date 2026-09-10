@@ -1,5 +1,5 @@
 #pragma once
-// только из Renderer.cpp
+// only from Renderer.cpp
 
 #include "Renderer.h"
 #include <d3d11.h>
@@ -44,7 +44,7 @@ namespace Cheat {
 
 			GUI::Menu::Render();
 
-			// клик-тру / фокус под imgui
+			// click-through / focus under imgui
 			{
 				POINT pt{};
 				GetCursorPos(&pt);
@@ -71,7 +71,7 @@ namespace Cheat {
 				}
 			}
 
-			// 0 = без vsync оверлея: меньше задержка относительно камеры игры
+			// 0 = no overlay vsync: lower latency relative to the game camera
 			m_SwapChain->Present(0, 0);
 		}
 

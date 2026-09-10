@@ -22,11 +22,11 @@ namespace HitboxExpander {
 namespace {
 
 std::mutex g_mtx;
-std::unordered_map<std::uint64_t, Vector3> g_orig; // оригинал size, ESP отсюда
-std::unordered_set<std::uint64_t> g_active; // сейчас раздуты
+std::unordered_map<std::uint64_t, Vector3> g_orig; // original size, ESP reads from here
+std::unordered_set<std::uint64_t> g_active; // currently inflated
 bool g_was_on = false;
 
-// без лока — вызывающий уже держит g_mtx или один
+// no lock — caller already holds g_mtx or is single-threaded
 void RestoreOneLocked(std::uint64_t addr)
 {
 	auto it = g_orig.find(addr);
@@ -83,7 +83,7 @@ void ApplyPart(std::uint64_t addr, float scale)
 		auto it = g_orig.find(addr);
 		if (it == g_orig.end())
 		{
-			// первый раз — текущий = оригинал (ещё не раздували)
+			// first time — current = original (not yet inflated)
 			g_orig[addr] = cur;
 			orig = cur;
 		}
@@ -244,7 +244,7 @@ void Tick()
 		}
 	});
 
-	// сняли галку с парты — рестор
+	// part unchecked — restore
 	std::vector<std::uint64_t> drop;
 	{
 		std::lock_guard<std::mutex> lk(g_mtx);

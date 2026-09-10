@@ -2,6 +2,6 @@
 
 namespace ng
 {
-	// один отступ между всеми контролами
+	// single gap between all controls
 	inline constexpr float item_gap = 6.f;
 }

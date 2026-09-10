@@ -17,10 +17,10 @@ enum TeamSide : int {
     SideGhost = 1,
 };
 
-// placeId == 292439477 (авто, без чекбокса)
+// placeId == 292439477 (automatic, no checkbox)
 bool IsActivePlace();
 
-// мержит живых из Workspace.Players в кэш (имена с лидерборда / Players)
+// merges alive players from Workspace.Players into cache (names from leaderboard / Players)
 void MergePlayers(std::unordered_map<std::uint64_t, PlayerCache>& target);
 
 std::uint64_t LocalTeamFolder();

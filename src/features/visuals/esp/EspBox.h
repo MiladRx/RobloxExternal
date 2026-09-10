@@ -6,7 +6,7 @@ namespace Cheat {
 namespace Visuals {
 namespace EspBox {
 
-// рёбра куба (углы 0..7) — и 3d бокс и chams wire
+// cube edges (corners 0..7) — both the 3d box and chams wire
 inline constexpr int k_box_edges[12][2] = {
 	{0,1},{0,2},{0,4},{1,3},{1,5},{2,3},
 	{2,6},{3,7},{4,5},{4,6},{5,7},{6,7}
@@ -21,7 +21,7 @@ void DrawBox(ImDrawList* draw_list, ImVec2 top_left, ImVec2 bottom_right,
 void DrawCornerBox(ImDrawList* draw_list, ImVec2 top_left, ImVec2 bottom_right,
 	ImU32 color, float thick, bool outline);
 
-// 8 экранных углов уже посчитаны
+// the 8 screen corners are already computed
 void DrawBox3DEdges(ImDrawList* draw_list, const ImVec2 pts[8],
 	ImU32 color, float thick, bool outline);
 

@@ -18,7 +18,7 @@ namespace EspLayout {
         Right = 3
     };
 
-    // айдишники для превью (хпбар отдельно, в стек не лезет)
+    // ids for the preview (healthbar separate, doesn't go into the stack)
     enum ElemId : int {
         IdName = 0,
         IdDistance = 1,
@@ -66,7 +66,7 @@ namespace EspLayout {
 
     inline int ClampHealthBarSide(int side)
     {
-        // хпбар тока слева/справа
+        // healthbar only on the left/right
         if (side == Right)
             return Right;
 
@@ -80,7 +80,7 @@ namespace EspLayout {
         return off;
     }
 
-    // текст сбоку от бокса
+    // text to the side of the box
     inline void PlaceText(int side, const Box& b, float offset,
                           float textW, float textH, float padL, float padR, float pad,
                           float& outX, float& outY)
@@ -108,7 +108,7 @@ namespace EspLayout {
         }
     }
 
-    // из позиции текста обратно в offset
+    // from the text position back to offset
     inline float OffsetFromPos(int side, float tx, float ty, float textH,
                                const Box& b, float pad)
     {
@@ -150,7 +150,7 @@ namespace EspLayout {
         outY2 = b.y2;
     }
 
-    // жмём стек без дыр, pinned сверху при драге
+    // squeeze the stack without gaps, pinned on top while dragging
     inline void ResolveStack(std::vector<StackItem>& items, int pinned_id, float gap)
     {
         if (items.empty())

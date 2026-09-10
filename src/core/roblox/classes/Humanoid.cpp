@@ -80,7 +80,7 @@ std::string Cheat::Humanoid::GetDisplayName() const
 		return "Unknown";
 	}
 
-	// humanoid displayname тоже inline rbx-string
+	// humanoid displayname is also an inline rbx-string
 	return g_Memory.ReadString(address + Offsets::Humanoid::DisplayName);
 }
 
@@ -111,7 +111,7 @@ std::int32_t Cheat::Humanoid::GetStateId() const
 		return -1;
 	}
 
-	// стейт через указатель, не напрямую
+	// state goes through a pointer, not directly
 	std::uint64_t state = g_Memory.Read<std::uint64_t>(address + Offsets::Humanoid::HumanoidState);
 	if (!g_Memory.IsValid(state))
 	{

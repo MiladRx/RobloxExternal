@@ -17,7 +17,7 @@ namespace Visuals {
 namespace EngineChams {
 namespace detail {
 
-// для записи: vtable + writable
+// for writing: vtable + writable
 bool EntAlive(uintptr_t ent)
 {
 	if (!g_vt || !g_Memory.IsValid(ent) || !g_Memory.IsValid(ent + 8))
@@ -33,7 +33,7 @@ bool EntAlive(uintptr_t ent)
 	return g_Memory.IsWritable(ent + Offsets::FastClusterEntity::RenderQueueId, sizeof(std::uint32_t));
 }
 
-// для refresh: тока vtable, IsWritable иногда врёт и гасит чамсы
+// for refresh: only vtable, IsWritable sometimes lies and kills chams
 bool EntKnown(uintptr_t ent)
 {
 	if (!g_vt || !g_Memory.IsValid(ent))
@@ -286,7 +286,7 @@ void ApplyEntity(uintptr_t ent)
 	int style = Cheat::g_Settings.esp.engine_chams_style;
 	int color_idx = Cheat::g_Settings.esp.engine_ghost_color_idx;
 
-	// движок сбрасывает queue — пишем каждый тик
+	// the engine resets the queue — write every tick
 	g_Memory.Write<std::uint32_t>(rq, StyleQueue(style));
 
 	if (ApplyStyleLayers(ent, style, color_idx))
@@ -294,7 +294,7 @@ void ApplyEntity(uintptr_t ent)
 		return;
 	}
 
-	// default: тока queue 13
+	// default: only queue 13
 	std::lock_guard<std::mutex> lk(g_mtx);
 	if (g_ent_layers.count(ent))
 	{

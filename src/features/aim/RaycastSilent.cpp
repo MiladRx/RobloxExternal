@@ -28,7 +28,7 @@ namespace Cheat {
                 constexpr std::uintptr_t desc_rva_z = Offsets::WorldRoot::RaycastBoundDesc;
                 constexpr std::uintptr_t bound_fn_offset = Offsets::WorldRoot::RaycastBoundFn;
 
-                // шарится со stub'ом, оффсеты не трогать
+                // shared with the stub, do not touch offsets
 #pragma pack(push, 4)
                 struct RaycastState {
                     std::uint32_t active = 0;
@@ -38,7 +38,7 @@ namespace Cheat {
                     float target_z = 0.f;
                     float scale = 1.15f;
                     std::uint64_t calls = 0;
-                    float cam_x = 0.f; // 0x20 — skip wallbang если origin ~ cam
+                    float cam_x = 0.f; // 0x20 — skip wallbang if origin ~ cam
                     float cam_y = 0.f;
                     float cam_z = 0.f;
                 };
@@ -224,7 +224,7 @@ namespace Cheat {
                     return wrote;
                 }
 
-                // иначе CFG орёт на наш stub
+                // otherwise CFG complains about our stub
                 bool mark_cfg(std::uintptr_t t)
                 {
                     auto resolve = []() -> FARPROC
@@ -297,7 +297,7 @@ namespace Cheat {
                     return c;
                 }
 
-                // asm stub, переписывает dir/origin под цель
+                // asm stub, rewrites dir/origin toward the target
                 std::vector<std::uint8_t> make_hook_thunk(std::uintptr_t state, std::uintptr_t orig)
                 {
                     std::vector<std::uint8_t> c;
@@ -385,7 +385,7 @@ namespace Cheat {
                     const std::size_t wallbang_off = c.size();
                     patch_rel32(c, wallbang_jmp, wallbang_off);
 
-                    // origin ~ cam: не двигаем origin, тока dir (камера)
+                    // origin ~ cam: don't move origin, only dir (camera)
                     c.insert(c.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x20 });
                     c.insert(c.end(), { 0xF3, 0x41, 0x0F, 0x5C, 0x62, 0x20 });
                     c.insert(c.end(), { 0xF3, 0x0F, 0x59, 0xE4 });
@@ -592,7 +592,7 @@ namespace Cheat {
                     return 0;
                 }
 
-                // ищем пещеру в чужих dll, потом по процессу
+                // look for a cave in foreign dlls, then across the process
                 std::uintptr_t find_exec_cave(std::size_t need, std::uintptr_t,
                                              std::uintptr_t ignore = 0)
                 {
@@ -738,7 +738,7 @@ namespace Cheat {
                     return false;
                 }
 
-                // не долбим install каждые 2 мс если упало
+                // don't hammer install every 2 ms if it failed
                 auto now = std::chrono::steady_clock::now();
                 if (g_lastFail.time_since_epoch().count() != 0 &&
                     now - g_lastFail < std::chrono::milliseconds(1500))
@@ -768,7 +768,7 @@ namespace Cheat {
                     return false;
                 }
 
-                // jmp-only оставлял раньше, щас полный stub
+                // used to leave jmp-only before, now a full stub
                 //auto thunk = make_jmp_thunk(fn);
                 auto thunk = make_hook_thunk(g_hook.state, fn);
 
@@ -783,7 +783,7 @@ namespace Cheat {
                 std::uintptr_t stub = 0;
                 std::uintptr_t ignore_cave = 0;
 
-                // несколько попыток, иногда cave не пишется
+                // several attempts, sometimes the cave doesn't get written
                 for (int attempt = 0; attempt < 8 && !stub; ++attempt)
                 {
                     std::uintptr_t cand = find_exec_cave(0x200, base, ignore_cave);
@@ -1008,7 +1008,7 @@ namespace Cheat {
                     }
                 }
 
-                // reserved бит = wallbang, active в конце чтобы stub сразу видел
+                // reserved bit = wallbang, active at the end so the stub sees it immediately
                 w_mem(g_hook.state + offsetof(RaycastState, reserved), &flags, sizeof(flags));
                 w_mem(g_hook.state + offsetof(RaycastState, target_x), pos, sizeof(pos));
                 w_mem(g_hook.state + offsetof(RaycastState, scale), &scale, sizeof(scale));

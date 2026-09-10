@@ -9,7 +9,7 @@
                     return c;
                 }
 
-                // asm stub, переписывает dir/origin под цель
+                // asm stub, rewrites dir/origin toward the target
                 std::vector<std::uint8_t> make_hook_thunk(std::uintptr_t state, std::uintptr_t orig)
                 {
                     std::vector<std::uint8_t> c;

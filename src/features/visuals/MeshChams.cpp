@@ -139,7 +139,7 @@ ResolveResult Resolve(const MeshParser::Entry& e)
 			r.fit_to_part = true;
 	}
 
-	// Head: своего меша нет в MCP — classic head.mesh из памяти (обычно всегда в LRU)
+	// Head: no own mesh in MCP — classic head.mesh from memory (usually always in LRU)
 	if (e.name == "Head")
 	{
 		const bool have = !r.mesh_id.empty() && (bool)MeshCache::Get().FindShared(r.mesh_id);
@@ -225,7 +225,7 @@ bool MeshAabb(const CachedMesh& mesh, const Vector3& ms, float out_min[3], float
 	const int n = (int)mesh.vertices.size();
 	if (n <= 0)
 		return false;
-	// stride по всему мешу — первые N вершин часто кучка у origin → ложный AABB → гигантский fit
+	// stride over the whole mesh — the first N vertices are often a cluster at origin → false AABB → giant fit
 	int step = 1;
 	if (n > 16000)
 		step = (n + 15999) / 16000;
@@ -239,7 +239,7 @@ bool MeshAabb(const CachedMesh& mesh, const Vector3& ms, float out_min[3], float
 		out_min[1] = (std::min)(out_min[1], py); out_max[1] = (std::max)(out_max[1], py);
 		out_min[2] = (std::min)(out_min[2], pz); out_max[2] = (std::max)(out_max[2], pz);
 	}
-	// всегда крайние вершины
+	// always the extreme vertices
 	if (n > 1)
 	{
 		for (int i : { 0, n - 1 })
@@ -266,7 +266,7 @@ void FitScaleToPart(const CachedMesh& mesh, Vector3& ms, const Vector3& sz)
 	if (ax < 1e-5f || ay < 1e-5f || az < 1e-5f)
 		return;
 	const float rx = sz.x / ax, ry = sz.y / ay, rz = sz.z / az;
-	// уже ≈ Size — не плющить non-uniform'ом
+	// already ≈ Size — don't squash with non-uniform
 	if (rx > 0.88f && rx < 1.12f && ry > 0.88f && ry < 1.12f && rz > 0.88f && rz < 1.12f)
 		return;
 	auto apply = [](float& m, float r) {
@@ -279,7 +279,7 @@ void FitScaleToPart(const CachedMesh& mesh, Vector3& ms, const Vector3& sz)
 	apply(ms.z, rz);
 }
 
-// MeshPart: после fit AABB часто не в origin → сдвиг относительно брони. Центрируем.
+// MeshPart: after fit the AABB is often not at origin → offset relative to the armor. We center it.
 void RecenterOffset(const CachedMesh& mesh, const Vector3& ms, Vector3& off)
 {
 	float mn[3], mx[3];
@@ -290,7 +290,7 @@ void RecenterOffset(const CachedMesh& mesh, const Vector3& ms, Vector3& off)
 	off.z -= (mn[2] + mx[2]) * 0.5f;
 }
 
-// SpecialMesh без fit: если меш всё равно огромный vs Handle — подогнать к Size
+// SpecialMesh without fit: if the mesh is still huge vs Handle — fit it to Size
 void SanityFitIfHuge(const CachedMesh& mesh, Vector3& ms, const Vector3& sz, bool is_acc)
 {
 	float mn[3], mx[3];
@@ -309,9 +309,9 @@ bool IsClassicHeadMesh(const std::string& id)
 	       CleanAssetId(id) == "head.mesh";
 }
 
-// R6 Head Size=(2,1,1) — collision box, не визуал.
-// MCP head.mesh часто уже в студиях; * SpecialMesh.Scale → огромный шар.
-// Uniform fit: max AABB → Size.Y * Scale.Y (типично 1 * 1.25).
+// R6 Head Size=(2,1,1) — collision box, not visual.
+// MCP head.mesh is often already in studs; * SpecialMesh.Scale → huge ball.
+// Uniform fit: max AABB → Size.Y * Scale.Y (typically 1 * 1.25).
 void FitClassicR6Head(const CachedMesh& mesh, Vector3& ms, const Vector3& sz,
                       const Vector3& sm_scale)
 {
@@ -335,9 +335,9 @@ void FitClassicR6Head(const CachedMesh& mesh, Vector3& ms, const Vector3& sz,
 	ms = { s, s, s };
 }
 
-// MeshPart body: Size + recenter (как limb box).
-// MeshPart hair/acc: Size fit, pivot Handle — БЕЗ recenter (иначе волосы уезжают).
-// SpecialMesh: только Scale/Offset — SanityFit ломает Offset.
+// MeshPart body: Size + recenter (like limb box).
+// MeshPart hair/acc: Size fit, pivot Handle — WITHOUT recenter (otherwise the hair drifts).
+// SpecialMesh: only Scale/Offset — SanityFit breaks Offset.
 void ApplyVisualFit(
 	const MeshParser::Entry& e,
 	const ResolveResult& rr,
@@ -373,7 +373,7 @@ void ApplyVisualFit(
 		SanityFitIfHuge(mesh, ms, sz, false);
 }
 
-// R*(S*p + offset) + pos — тот же трансформ, что и у color-пути
+// R*(S*p + offset) + pos — same transform as the color path
 Matrix4x4 MakeWorld(const Vector3& pos, const Matrix4x4& rot,
                     const Vector3& ms, const Vector3& off)
 {
@@ -450,7 +450,7 @@ void DrawBoxFallback(
 			continue;
 		ImVec2 a = sp[t[0]], b = sp[t[1]], c = sp[t[2]];
 		float cr = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-		// только фронт (двусторонний fabs давал двойные «скорлупы»)
+		// only front (two-sided fabs gave double "shells")
 		if (cr < 0.15f)
 			continue;
 		dl->AddTriangleFilled(a, b, c, fill);
@@ -461,7 +461,7 @@ struct ScreenTri {
 	ImVec2 a, b, c;
 };
 
-// дешёвый силуэт для outline при GPU mesh: OBB части (8 углов), без W2S всех вершин
+// cheap silhouette for outline with GPU mesh: OBB of parts (8 corners), without W2S of all vertices
 void PushOutlineFromPartBox(
 	std::vector<ScreenTri>& out,
 	const Vector3& pos,
@@ -580,7 +580,7 @@ ImU32 OutlineCol(float r, float g, float b, float a)
 	return IM_COL32(R, G, B, A);
 }
 
-// soft fade: меньше слоёв = не роняем оверлей в ~30fps
+// soft fade: fewer layers = don't drop the overlay to ~30fps
 void SoftBrush(ImDrawList* dl, const ImVec2& c, float radius, float cr, float cg, float cb, float ca)
 {
 	if (radius < 0.5f || ca < 0.003f)
@@ -620,7 +620,7 @@ void SoftStroke(
 	dl->AddLine(a, b, OutlineCol(cr, cg, cb, ca * 0.55f), 1.8f);
 }
 
-// faded glow по силуэту: мягкие strokes + brushes (не cell rects)
+// faded glow along the silhouette: soft strokes + brushes (not cell rects)
 void DrawCharacterContour(
 	ImDrawList* dl,
 	const std::vector<ScreenTri>& tris,
@@ -653,7 +653,7 @@ void DrawCharacterContour(
 	if (body_w < 2.f || body_h < 2.f)
 		return;
 
-	// маска умеренная: силуэт ок, без просадки в 30fps
+	// moderate mask: silhouette is fine, no drop to 30fps
 	constexpr int k_max_dim = 192;
 	float cell = (std::max)(body_w, body_h) / (float)k_max_dim;
 	if (cell < 0.7f) cell = 0.7f;
@@ -686,7 +686,7 @@ void DrawCharacterContour(
 	std::vector<ImVec2> joints;
 	joints.reserve(512);
 
-	// сливаем коллинеарные рёбра → длинные гладкие strokes
+	// merge collinear edges → long smooth strokes
 	for (int y = 0; y < gh; ++y)
 	{
 		int x = 0;
@@ -792,17 +792,17 @@ void DrawCharacterContour(
 
 	switch (style)
 	{
-	case 1: // pulse — дышащий радиус/яркость
+	case 1: // pulse — breathing radius/brightness
 	{
 		const float p = 0.55f + 0.45f * (0.5f + 0.5f * std::sin(tsec * 3.6f));
 		intensity *= 0.55f + 0.7f * p;
 		glow_mul = 0.75f + 0.45f * p;
 		break;
 	}
-	case 2: // flow — мягкая бегущая волна яркости
+	case 2: // flow — soft traveling brightness wave
 		intensity *= 0.85f;
 		break;
-	case 3: // neon — шире ореол + ярче ядро
+	case 3: // neon — wider halo + brighter core
 		glow_mul = 1.28f;
 		intensity *= 0.95f;
 		break;
@@ -831,13 +831,13 @@ void DrawCharacterContour(
 		return 1.f;
 	};
 
-	// сначала широкий мягкий ореол
+	// first a wide soft halo
 	for (const auto& e : edges)
 	{
 		const float mod = edge_mod(e.a, e.b);
 		SoftStroke(dl, e.a, e.b, glow, cr, cg, cb, intensity * mod);
 	}
-	// только углы — mid-edge brushes жрали FPS
+	// only corners — mid-edge brushes ate FPS
 	const float brush_r = glow * 0.58f;
 	for (std::size_t i = 0; i < joints.size(); i += 4)
 	{
@@ -891,7 +891,7 @@ bool ExpandBounds(
 		return false;
 
 	MeshCache::Get().Refresh(false);
-	// CollectDrawable режет Kind::Other — для бокса нужны все парты + аксы
+	// CollectDrawable cuts Kind::Other — for the box we need all parts + accessories
 	const auto parts = MeshParser::CollectForBounds(character);
 	if (parts.empty())
 		return false;
@@ -912,7 +912,7 @@ bool ExpandBounds(
 		any = true;
 	};
 
-	// 8 углов + near-plane клип рёбер (без этого при повороте камеры бокс жмётся)
+	// 8 corners + near-plane edge clipping (without it the box squashes when the camera rotates)
 	auto push_obb8 = [&](const Vector3 world[8]) {
 		float cw[8];
 		for (int i = 0; i < 8; ++i)
@@ -988,7 +988,7 @@ bool ExpandBounds(
 		auto mesh = LookupMesh(rr.mesh_id);
 		const bool have = mesh && !mesh->vertices.empty();
 
-		// всегда Size OBB — руки/ноги не потеряются даже без MCP
+		// always Size OBB — arms/legs won't get lost even without MCP
 		push_part_obb(pos, rot, sz);
 
 		if (!have)
@@ -999,7 +999,7 @@ bool ExpandBounds(
 		(void)is_acc;
 		ApplyVisualFit(e, rr, *mesh, ms, off, sz);
 
-		// сэмпл вершин меша (аксы торчат за Size Handle)
+		// sample mesh vertices (accessories stick out past Size Handle)
 		const int n = (int)mesh->vertices.size();
 		int step = n / 96;
 		if (step < 1) step = 1;
@@ -1035,7 +1035,7 @@ void Draw(
 	if (!g_Memory.IsValid(character))
 		return;
 
-	// GPU: shader / occluded / outline (outline = depth edge, не ImGui)
+	// GPU: shader / occluded / outline (outline = depth edge, not ImGui)
 	const bool use_shader =
 		g_Settings.esp.mesh_chams_style == 1 ||
 		g_Settings.esp.mesh_chams_occlusion ||
@@ -1045,7 +1045,7 @@ void Draw(
 	if (!use_shader && !dl)
 		return;
 
-	// свежая ViewMatrix: ESP читает её рано, mesh тяжёлый → иначе chams отстают от камеры
+	// fresh ViewMatrix: ESP reads it early, mesh is heavy → otherwise chams lag behind the camera
 	Matrix4x4 live_view = view;
 	auto refresh_view = [&]() {
 		static const uintptr_t s_base = g_Memory.GetModuleBase();
@@ -1056,10 +1056,10 @@ void Draw(
 	};
 	refresh_view();
 
-	// MCP Refresh — в cache-thread (PlayerHandler), не на overlay-кадре
+	// MCP Refresh — on the cache thread (PlayerHandler), not on the overlay frame
 	const ULONGLONG now = GetTickCount64();
 
-	// CollectDrawable тяжёлый (walk children) — короткий кэш
+	// CollectDrawable is heavy (walk children) — short cache
 	struct PartsCache {
 		ULONGLONG t{ 0 };
 		std::vector<MeshParser::Entry> parts;
@@ -1139,7 +1139,7 @@ void Draw(
 
 		ResolveResult rr;
 		auto it = s_resolve.find(e.part);
-		// пустой mesh_id / аксы — не кэшируем надолго (MeshId появляется с задержкой)
+		// empty mesh_id / accessories — don't cache for long (MeshId appears with a delay)
 		if (it != s_resolve.end() && !it->second.r.mesh_id.empty() && !is_acc)
 			rr = it->second.r;
 		else
@@ -1151,7 +1151,7 @@ void Draw(
 				s_resolve.erase(e.part);
 		}
 
-		// head: когда свой MeshId появится в MCP LRU — переключиться с classic head.mesh
+		// head: when its own MeshId appears in the MCP LRU — switch from classic head.mesh
 		if (e.name == "Head")
 		{
 			std::string real;
@@ -1207,7 +1207,7 @@ void Draw(
 			}
 			else
 			{
-				// аксы: ждём MCP LRU; тело: временный бокс
+				// accessories: wait for MCP LRU; body: temporary box
 				if (!is_acc && e.name != "Head")
 				{
 					if (use_shader)
@@ -1259,7 +1259,7 @@ void Draw(
 		if (fac_total <= 0)
 			continue;
 
-		// outline-only при shader: прореживаем фейсы (силуэт по мешу, не OBB-коробки)
+		// outline-only with shader: thin out faces (silhouette by mesh, not OBB boxes)
 		int fac_stride = 1;
 		int fac_budget = want_fill_imgui ? 12000 : 1800;
 		if (fac_total > fac_budget)
@@ -1341,7 +1341,7 @@ void Draw(
 		if (now - s_force_mcp > 400ull)
 		{
 			s_force_mcp = now;
-			// флаг: следующий Tick cache-thread подтянет MCP
+			// flag: the next Tick on the cache thread will pull MCP
 			MeshCache::Get().Refresh(true);
 		}
 	}

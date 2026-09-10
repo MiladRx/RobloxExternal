@@ -100,7 +100,7 @@ std::vector<Cheat::Instance> Cheat::Instance::GetChildren() const
 	std::vector<Cheat::Instance> out;
 	out.reserve(32);
 
-	// 10k потолок на всякий, а то улетим
+	// 10k cap just in case, or we'll blow up
 	int count = 0;
 	for (std::uint64_t ptr = start; ptr < end && count < 10000; ptr += 16, ++count)
 	{
@@ -227,7 +227,7 @@ bool kids_add(std::uint64_t parent, std::uint64_t child)
 
 	const std::size_t stride = sizeof(sp_t);
 
-	// уже есть
+	// already present
 	if (g_Memory.IsValid(first) && last > first)
 	{
 		std::size_t n = (std::size_t)(last - first) / stride;
@@ -288,7 +288,7 @@ bool kids_add(std::uint64_t parent, std::uint64_t child)
 	g_Memory.Write<std::uint64_t>(
 		cow + Offsets::Instance::ChildrenEnd, nf + new_n * stride);
 	g_Memory.Write<std::uint64_t>(cow + 0x10, nf + new_cap * stride);
-	// старый буфер не free — лучше утечка чем краш
+	// don't free the old buffer — a leak is better than a crash
 	return true;
 }
 

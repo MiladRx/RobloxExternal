@@ -19,7 +19,7 @@ using namespace Cheat::Features::Speed::helpers;
 std::atomic<bool> g_run{ false };
 std::thread g_th;
 
-// спид крч либо ws либо позицию дёргаем
+// speed: either walkspeed or we spam position
 void speed_loop()
 {
 	bool was_on = false;
@@ -132,7 +132,7 @@ void speed_loop()
 
 		backup_ws(hum);
 
-		// 0 = pos spam, 1 = чистый walkspeed
+		// 0 = pos spam, 1 = pure walkspeed
 		if (mode == ws_mode::humanoid)
 		{
 			write_ws(hum, spd);

@@ -17,7 +17,7 @@ namespace gui
         constexpr float margin = 3.f;
         constexpr float gap = 8.f;
 
-        // размер держим свой, к меню привязана только позиция
+        // keep our own size, only the position is tied to the menu
         constexpr float win_w = 356.f;
         constexpr float win_h = 504.f;
 

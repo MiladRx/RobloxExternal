@@ -15,7 +15,7 @@ bool Memory::Attach(const wchar_t* processName)
     return Attach(pid);
 }
 
-// открываем хендл на пид
+// open a handle to the pid
 bool Memory::Attach(DWORD pid)
 {
     Detach();
@@ -49,7 +49,7 @@ bool Memory::IsAlive() const
 {
     if (!m_handle)
         return false;
-    // WAIT_TIMEOUT = ещё крутится
+    // WAIT_TIMEOUT = still running
     return WaitForSingleObject(m_handle, 0) == WAIT_TIMEOUT;
 }
 
@@ -62,7 +62,7 @@ bool Memory::GetExitCode(DWORD* out_code) const
 
 bool Memory::IsValid(uintptr_t address) const
 {
-    // нулевой указатель сразу мимо, остальное rpm разберётся
+    // null pointer is skipped immediately, rpm handles the rest
     if (!address)
         return false;
     return true;
@@ -98,7 +98,7 @@ std::string Memory::ReadString(std::uint64_t address) const
     if (!IsValid(address))
         return "Unknown";
 
-    // roblox string: длина на +0x10, SSO если < 16
+    // roblox string: length at +0x10, SSO if < 16
     std::int32_t len = Read<std::int32_t>(address + 0x10);
     if (len <= 0 || len > 511)
         return "Unknown";
@@ -169,7 +169,7 @@ uintptr_t Memory::ResolvePointer(uintptr_t base,
 
     for (auto it = offsets.begin(); it != offsets.end(); ++it)
     {
-        // последний оффсет, просто прибавляем
+        // last offset, just add it
         if (std::next(it) == offsets.end())
             return addr + *it;
 
@@ -179,7 +179,7 @@ uintptr_t Memory::ResolvePointer(uintptr_t base,
     return addr;
 }
 
-// база RobloxPlayerBeta, отсюда все оффсеты
+// RobloxPlayerBeta base, all offsets come from here
 uintptr_t Memory::GetModuleBase(const wchar_t* moduleName) const
 {
     if (!m_pid)

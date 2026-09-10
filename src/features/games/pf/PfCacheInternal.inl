@@ -26,7 +26,7 @@ bool PopulateCharacter(std::uint64_t model, PlayerCache& cache)
 {
     std::vector<std::uint64_t> all_parts;
     for (const auto& child : Instance(model).GetChildren()) {
-        // в roblox-ext только Part (не MeshPart)
+        // in roblox-ext only Part (not MeshPart)
         if (child.GetClassName() == "Part")
             all_parts.push_back(child.address);
     }
@@ -73,7 +73,7 @@ bool PopulateCharacter(std::uint64_t model, PlayerCache& cache)
         cache.head = MakePart(head_part);
     if (torso_part) {
         cache.upperTorso = MakePart(torso_part);
-        // отдельный shared_ptr — ESP is_hrp не должен скипать torso в chams
+        // separate shared_ptr — ESP is_hrp should not skip torso in chams
         cache.humanoidRootPart = MakePart(torso_part);
     }
 
@@ -81,7 +81,7 @@ bool PopulateCharacter(std::uint64_t model, PlayerCache& cache)
         BasePart torso_bp(torso_part);
         const Vector3 torso_pos = torso_bp.GetPosition();
         const Matrix4x4 rot = torso_bp.GetRotation();
-        // как matrix3 в roblox-ext: right=col0, up=col1
+        // like matrix3 in roblox-ext: right=col0, up=col1
         const float rx = rot.m[0][0], ry_r = rot.m[1][0], rz_r = rot.m[2][0];
         const float ux = rot.m[0][1], uy = rot.m[1][1], uz = rot.m[2][1];
 
@@ -210,7 +210,7 @@ std::unordered_map<std::uint64_t, std::string> BuildModelToPlayerName()
             p.address + Offsets::Player::ModelInstance);
         if (!g_Memory.IsValid(model))
             continue;
-        // только живые под Workspace.Players (не труп в Ignore)
+        // only alive under Workspace.Players (not a corpse in Ignore)
         if (g_Memory.IsValid(ws_players) &&
             !ModelUnderWorkspacePlayers(model, ws_players))
             continue;

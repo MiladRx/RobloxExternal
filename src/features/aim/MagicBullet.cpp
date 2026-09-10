@@ -26,7 +26,7 @@ namespace Cheat {
                 constexpr std::uintptr_t desc_rva_z = Offsets::WorldRoot::RaycastBoundDesc;
                 constexpr std::uintptr_t bound_fn_offset = Offsets::WorldRoot::RaycastBoundFn;
 
-                // magic stub, wallbang всегда, оффсеты state не трогать
+                // magic stub, wallbang always, do not touch state offsets
 #pragma pack(push, 4)
                 struct RaycastState {
                     std::uint32_t active = 0;
@@ -218,7 +218,7 @@ namespace Cheat {
                     return wrote;
                 }
 
-                // иначе CFG орёт на наш stub
+                // otherwise CFG complains about our stub
                 bool mark_cfg(std::uintptr_t t)
                 {
                     auto resolve = []() -> FARPROC
@@ -291,7 +291,7 @@ namespace Cheat {
                     return c;
                 }
 
-                // asm stub, переписывает dir/origin под цель
+                // asm stub, rewrites dir/origin toward the target
                 std::vector<std::uint8_t> make_hook_thunk(std::uintptr_t state, std::uintptr_t orig)
                 {
                     std::vector<std::uint8_t> c;
@@ -564,7 +564,7 @@ namespace Cheat {
                     return 0;
                 }
 
-                // ищем пещеру в чужих dll, потом по процессу
+                // look for a cave in foreign dlls, then across the process
                 std::uintptr_t find_exec_cave(std::size_t need, std::uintptr_t,
                                              std::uintptr_t ignore = 0)
                 {
@@ -707,7 +707,7 @@ namespace Cheat {
                     return false;
                 }
 
-                // не долбим install каждые 2 мс если упало
+                // don't hammer install every 2 ms if it failed
                 auto now = std::chrono::steady_clock::now();
                 if (g_lastFail.time_since_epoch().count() != 0 &&
                     now - g_lastFail < std::chrono::milliseconds(1500))
@@ -737,7 +737,7 @@ namespace Cheat {
                     return false;
                 }
 
-                // jmp-only оставлял раньше, щас полный stub
+                // used to leave jmp-only before, now a full stub
                 //auto thunk = make_jmp_thunk(fn);
                 auto thunk = make_hook_thunk(g_hook.state, fn);
 
@@ -752,7 +752,7 @@ namespace Cheat {
                 std::uintptr_t stub = 0;
                 std::uintptr_t ignore_cave = 0;
 
-                // несколько попыток, иногда cave не пишется
+                // several attempts, sometimes the cave doesn't get written
                 for (int attempt = 0; attempt < 8 && !stub; ++attempt)
                 {
                     std::uintptr_t cand = find_exec_cave(0x200, base, ignore_cave);
@@ -910,7 +910,7 @@ namespace Cheat {
                         return;
                     }
 
-                    // слот могли перетереть, переставить без Remove каждый кадр
+                    // the slot could have been overwritten, re-install without Remove every frame
                     if (g_hook.installed && g_hook.thunk)
                     {
                         std::uintptr_t slot = base + desc_rva_z + bound_fn_offset;
@@ -956,7 +956,7 @@ namespace Cheat {
                 }
 
                 float pos[3]{ world_target.x, world_target.y, world_target.z };
-                // wallbang; camera-ray режет RaycastSilent stub
+                // wallbang; camera-ray is clipped by the RaycastSilent stub
                 std::uint32_t flags = 1u;
                 float scale = 1.15f;
                 std::uint32_t one = 1;

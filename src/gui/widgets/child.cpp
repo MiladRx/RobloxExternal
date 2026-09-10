@@ -55,7 +55,7 @@ namespace {
         layout.inner = ImRect(
             ImVec2((float)(ol + 1), (float)(ot + 1)),
             ImVec2((float)(orr - 1), (float)(ob - 1)));
-        // fill чуть уже а то бордер едет
+        // fill slightly narrower, otherwise the border shifts
         layout.fill = ImRect(
             ImVec2((float)(ol + 2), (float)(ot + 1)),
             ImVec2((float)(orr - 2), (float)(ob - 2)));

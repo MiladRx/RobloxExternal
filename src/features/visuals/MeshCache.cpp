@@ -109,7 +109,7 @@ void MeshCache::Refresh(bool force)
 	if (!g_Memory.IsValid(mcp))
 		return;
 
-	// theo иногда врёт (0xf0 = модуль); live обычно 0xd8
+	// theo sometimes lies (0xf0 = module); live is usually 0xd8
 	static const uintptr_t k_cache_offs[] = {
 		Offsets::MeshContentProvider::Cache, 0xd8, 0xf0, 0xc8, 0xe0, 0xe8
 	};
@@ -166,7 +166,7 @@ void MeshCache::Refresh(bool force)
 					pointer + Offsets::MeshContentProvider::MeshData);
 				if (!LooksLikeMeshData(mesh_data, vtx_count, fac_count, vtx_start, fac_start))
 				{
-					// иногда ToMeshData уже указывает на MeshData
+					// sometimes ToMeshData already points to MeshData
 					if (LooksLikeMeshData(pointer, vtx_count, fac_count, vtx_start, fac_start))
 						mesh_data = pointer;
 					else

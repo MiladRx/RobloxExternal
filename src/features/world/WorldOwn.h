@@ -61,7 +61,7 @@ enum class Field : std::uint8_t
 	Count
 };
 
-// last enable wins — claim на включении
+// last enable wins — claim on enable
 std::uint64_t Claim(Feat f, const Field* fields, int n);
 bool Owns(Feat f, Field field);
 void Release(Feat f, const Field* fields, int n);

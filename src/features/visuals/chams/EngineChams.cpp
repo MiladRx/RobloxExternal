@@ -271,7 +271,7 @@ void RefreshKnown()
 			std::lock_guard<std::mutex> lk(g_mtx);
 			int& n = g_miss[ent];
 			++n;
-			// не сразу дропаем — иначе мигает
+			// don't drop right away — otherwise it flickers
 			if (n >= 25)
 			{
 				DropDeadLocked(ent);
@@ -290,7 +290,7 @@ void RefreshKnown()
 			continue;
 		}
 
-		// каждый тик заново — иначе пропадают
+		// reapply every tick — otherwise they disappear
 		g_Memory.Write<std::uint32_t>(rq, StyleQueue(style));
 
 		ApplyStyleLayers(ent, style, color_idx);
@@ -375,8 +375,8 @@ void ScanOnce(uintptr_t vt)
 
 					uintptr_t ent = base + i;
 
-					// локал не красим, но Restore не трогаем —
-					// иначе в упор чужие мигают (false local)
+					// don't paint the local player, but don't touch Restore —
+					// otherwise others flicker at point-blank (false local)
 					if (skip_local && have_local && IsLocalEntity(ent, local_a, other_a))
 					{
 						continue;
@@ -440,7 +440,7 @@ void Loop()
 				g_vt = base + Offsets::FastClusterEntity::VTableRva;
 			}
 
-			// известные — каждый тик, фуллскан чаще
+			// known ones — every tick, full scan more often
 			RefreshKnown();
 
 			if ((tick % 2) == 0 && base)

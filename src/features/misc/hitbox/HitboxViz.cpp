@@ -108,7 +108,7 @@ void DrawPartViz(ImDrawList* dl, const Matrix4x4& vm, const Vector2& vp, float s
 
 	if (mode == 2)
 	{
-		// filled сначала, потом рёбра
+		// filled first, then edges
 		static const int faces[6][4] = {
 			{0,1,3,2},{4,5,7,6},{0,1,5,4},{2,3,7,6},{0,2,6,4},{1,3,7,5}
 		};
@@ -244,7 +244,7 @@ void Render()
 		{
 			BasePart bp(j.part->address);
 			Vector3 pos = bp.GetPosition();
-			// визуал — раздутый размер (как в мире)
+			// visual — inflated size (as in the world)
 			Vector3 sz = bp.GetSize();
 			Matrix4x4 rot = bp.GetRotation();
 			DrawPartViz(dl, vm, viewport, sx, sy, pos, sz, rot, mode, hb.viz_color);

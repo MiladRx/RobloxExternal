@@ -11,16 +11,16 @@ namespace LuaVM {
 bool Initialize();
 void Shutdown();
 
-// true = ok; ошибка уже в output executor
+// true = ok; the error is already in the output executor
 bool Execute(const std::string& source, const char* chunk_name = "script");
 
 lua_State* State();
 bool Ready();
 
-// resume yields (task.wait) — крутит фоновый тикер из Initialize
+// resumes yields (task.wait) — driven by the background ticker from Initialize
 void Tick(float dt);
 
-// только в очередь resume (без yield) — потом lua_yield / lua_yieldk
+// only into the resume queue (without yield) — then lua_yield / lua_yieldk
 void ScheduleWait(lua_State* L, float sec);
 
 // kind: 0 hb  1 PlayerAdded  2 PlayerRemoving  3 CharacterAdded
@@ -28,7 +28,7 @@ void ScheduleWait(lua_State* L, float sec);
 // 10 BindableEvent.Event  11 OnClientEvent  12 ProximityPrompt.Triggered
 void PushSignal(lua_State* L, int kind, std::uint64_t owner = 0, const char* prop = nullptr);
 
-// args уже на L (self + ...); локальный fire, не RemoteEvent
+// args already on L (self + ...); local fire, not RemoteEvent
 void FireSignal(lua_State* L, int kind, std::uint64_t owner, const char* prop);
 
 } // namespace LuaVM

@@ -18,7 +18,7 @@ void SnapEspBox(float min_x, float min_y, float max_x, float max_y,
 	if (y2 <= y1) y2 = y1 + 1.0f;
 }
 
-// обычный бокс, опционально с чёрной обводкой
+// regular box, optionally with a black outline
 void DrawBox(ImDrawList* draw_list, ImVec2 top_left, ImVec2 bottom_right,
 	ImU32 color, float thick, bool outline)
 {

@@ -8,7 +8,7 @@
 #endif
 
 #include <Windows.h>
-// winapi GetClassName жрёт наше имя метода
+// winapi GetClassName eats our method name
 #ifdef GetClassName
 #undef GetClassName
 #endif

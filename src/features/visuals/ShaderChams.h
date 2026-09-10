@@ -28,7 +28,7 @@ enum Style : int {
 const char* const* StyleNames();
 inline int StyleNameCount() { return StyleCount; }
 
-// color_override rgba[4], если дали то стиль пофиг (трупы)
+// color_override rgba[4], if given the style doesn't matter (corpses)
 ImU32 OutlineColor(int style, bool aim_highlight = false,
                    const float* color_override = nullptr);
 

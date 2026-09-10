@@ -8,7 +8,7 @@ namespace Cheat {
 namespace Features {
 namespace InfiniteJump {
 
-// space жмёт Jump=true, только edge
+// space triggers Jump=true, edge only
 inline void Apply(std::uint64_t humanoid, bool enabled)
 {
 	if (!enabled || !g_Memory.IsValid(humanoid))

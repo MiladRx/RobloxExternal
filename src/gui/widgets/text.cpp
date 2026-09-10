@@ -29,7 +29,7 @@ namespace {
         float y = std::floor(pos.y);
         ImU32 shadow = IM_COL32(0, 0, 0, 255);
 
-        // 8 направлений тени, дешево и читаемо
+        // 8 shadow directions, cheap and readable
         for (int i = -1; i <= 1; ++i)
         {
             for (int j = -1; j <= 1; ++j)

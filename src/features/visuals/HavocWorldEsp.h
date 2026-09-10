@@ -12,7 +12,7 @@ namespace Cheat {
 
             bool IsActivePlace();
 
-            // havoc: всегда метры, кап 400m (люди)
+            // havoc: always meters, cap 400m (people)
             inline float StudsToMeters(float studs)
             {
                 return studs * kStudToMeter;
@@ -23,7 +23,7 @@ namespace Cheat {
                 return kMaxMeters / kStudToMeter;
             }
 
-            // true = слишком далеко (только на havoc place)
+            // true = too far (only on a havoc place)
             bool BeyondRange(float dist_studs);
 
             void Render(ImDrawList* draw_list, ImFont* font, float font_size,

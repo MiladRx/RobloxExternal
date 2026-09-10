@@ -15,6 +15,6 @@ std::shared_ptr<Cheat::Instance> Cheat::Character::GetRootPart() const
 
 std::shared_ptr<Cheat::Instance> Cheat::Character::GetHead() const
 {
-	// банальщина но пусть будет
+	// trivial but whatever
 	return FindFirstChild("Head");
 }

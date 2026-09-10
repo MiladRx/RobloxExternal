@@ -43,7 +43,7 @@ bool ng::label_color(const char* id, const char* label, float col[4], bool shown
 	ImVec2 pos = ImGui::GetCursorScreenPos();
 	float right = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
 
-	// не жрём зону свотча а то клик не доходит
+	// don't eat the swatch area or the click won't get through
 	float label_w = right - pad_r - sw - gap - pos.x;
 	if (label_w < 40.f) label_w = 40.f;
 

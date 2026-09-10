@@ -14,24 +14,24 @@ namespace Features {
 namespace CallGate {
 namespace {
 
-// раскладка страницы состояния в чужом процессе
-constexpr std::uintptr_t st_pending = 0x00; // u32, 1 = команда ждёт
-constexpr std::uintptr_t st_done    = 0x04; // u32, 1 = stub отработал
+// layout of the state page in the foreign process
+constexpr std::uintptr_t st_pending = 0x00; // u32, 1 = command pending
+constexpr std::uintptr_t st_done    = 0x04; // u32, 1 = stub completed
 constexpr std::uintptr_t st_fn      = 0x08;
 constexpr std::uintptr_t st_a0      = 0x10;
 constexpr std::uintptr_t st_a1      = 0x18;
 constexpr std::uintptr_t st_a2      = 0x20;
 constexpr std::uintptr_t st_a3      = 0x28;
 constexpr std::uintptr_t st_ret     = 0x30;
-constexpr std::uintptr_t st_calls   = 0x38; // счётчик попаданий в слот
-constexpr std::uintptr_t st_tid     = 0x40; // 0 = любой поток
+constexpr std::uintptr_t st_calls   = 0x38; // number of hits on the slot
+constexpr std::uintptr_t st_tid     = 0x40; // 0 = any thread
 constexpr std::uintptr_t st_scratch = 0x100;
 
 constexpr std::size_t stub_bytes = 0x120;
 
-// в stub'е orig лежит сразу за jmp, а начало опознаётся по mov r10, imm64.
-// по этим двум фактам мы узнаём свой же stub, оставшийся от прошлого
-// запуска чита, и достаём из него настоящий оригинал
+// in the stub, orig sits right after the jmp, and the start is recognized by mov r10, imm64.
+// from these two facts we recognize our own stub left over from a previous
+// run of the cheat, and pull the real original out of it
 constexpr std::size_t stub_orig_off = 0x1F;
 
 struct Gate
@@ -46,7 +46,7 @@ struct Gate
 	std::string   method;
 };
 
-// движок зовёт их из скриптов чаще всего; порядок = ожидаемая горячесть
+// the engine calls these from scripts most often; order = expected hotness
 const char* const k_candidates[] = {
 	"IsA", "FindFirstChild", "GetChildren", "WaitForChild",
 	"FindFirstChildOfClass", "GetDescendants", "GetAttribute", "Clone",
@@ -58,7 +58,7 @@ constexpr std::size_t k_candidate_count =
 Gate g_gate;
 int  g_last_fail = 0;
 
-// слот, по которому не пришло ни одного вызова, второй раз не пробуем
+// a slot that received no calls at all we don't try a second time
 bool g_cold[k_candidate_count]{};
 
 std::size_t page_sz()
@@ -101,7 +101,7 @@ bool write_protected(std::uintptr_t addr, const void* data, std::size_t size)
 	return wrote;
 }
 
-// без этого CFG убивает процесс на первом же вызове нашего stub
+// without this CFG kills the process on the very first call of our stub
 bool mark_cfg(std::uintptr_t t)
 {
 	HMODULE h = GetModuleHandleA("kernelbase.dll");
@@ -143,8 +143,8 @@ bool module_range(const wchar_t* name, std::uintptr_t* out_base, std::size_t* ou
 	return true;
 }
 
-// пробегаем закоммиченные куски диапазона; want_exec отсекает регионы
-// до чтения, иначе тянули бы десятки мегабайт .text впустую
+// walk the committed chunks of the range; want_exec filters out regions
+// before reading, otherwise we'd pull tens of megabytes of .text for nothing
 template <typename Cb>
 void walk_committed(std::uintptr_t from, std::uintptr_t to, bool want_exec, Cb cb)
 {
@@ -180,8 +180,8 @@ void walk_committed(std::uintptr_t from, std::uintptr_t to, bool want_exec, Cb c
 	}
 }
 
-// Descriptor кладёт в +0x8 не строку, а интернированный RBX::Name*,
-// поэтому ищем в .data именно его, а дескриптор начинается на 8 раньше
+// Descriptor stores at +0x8 not a string, but an interned RBX::Name*,
+// so we look for exactly that in .data, and the descriptor starts 8 earlier
 std::uintptr_t find_bound_desc(std::uintptr_t base, std::size_t size,
                                std::uint64_t name)
 {
@@ -204,14 +204,14 @@ std::uintptr_t find_bound_desc(std::uintptr_t base, std::size_t size,
 
 				const std::uintptr_t desc = at + i - 8;
 
-				// у настоящего дескриптора в +0 vftable модуля,
-				// а в +0x80 исполняемый указатель на реализацию
+				// a real descriptor has the module's vftable at +0,
+				// and at +0x80 an executable pointer to the implementation
 				const auto vt = g_Memory.Read<std::uint64_t>(desc);
 				if (vt < base || vt >= base + size)
 					continue;
 
-				// в самом слоте может лежать не оригинал, а чей-то stub,
-				// поэтому тут проверяем только исполняемость
+				// the slot itself may hold not the original, but someone else's stub,
+				// so here we only check executability
 				const auto fn = g_Memory.Read<std::uint64_t>(
 					desc + Offsets::WorldRoot::RaycastBoundFn);
 				if (fn && is_exec_protect(query_protect((std::uintptr_t)fn)))
@@ -225,9 +225,9 @@ std::uintptr_t find_bound_desc(std::uintptr_t base, std::size_t size,
 	return found;
 }
 
-// тот же поиск дескриптора, но без NameRegistry: матчим по строке имени
-// в *(desc+8). Нужен потому, что Reflection::NameRegistry меняется каждый
-// апдейт и Reflect::Name возвращает 0 — тогда гейт вообще не встаёт.
+// same descriptor search, but without NameRegistry: we match by the name string
+// in *(desc+8). Needed because Reflection::NameRegistry changes every
+// update and Reflect::Name returns 0 — then the gate doesn't install at all.
 std::uintptr_t find_bound_desc_text(std::uintptr_t base, std::size_t size,
                                     const char* text, std::size_t len)
 {
@@ -243,14 +243,14 @@ std::uintptr_t find_bound_desc_text(std::uintptr_t base, std::size_t size,
 
 			for (std::size_t i = 0; i + 0x88 <= b.size(); i += 8)
 			{
-				// у настоящего BoundFuncDesc в +0 vftable модуля; у
-				// reflection FunctionDescriptor её нет — его хукать нельзя
+				// a real BoundFuncDesc has the module's vftable at +0; a
+				// reflection FunctionDescriptor doesn't — it can't be hooked
 				std::uint64_t vt = 0;
 				std::memcpy(&vt, b.data() + i, 8);
 				if (vt < base || vt >= base + size)
 					continue;
 
-				// fn в модуле и обязан быть исполняемым
+				// fn is in the module and must be executable
 				std::uint64_t fn = 0;
 				std::memcpy(&fn, b.data() + i + 0x80, 8);
 				if (fn < base || fn >= base + size)
@@ -279,7 +279,7 @@ std::uintptr_t find_bound_desc_text(std::uintptr_t base, std::size_t size,
 	return found;
 }
 
-// в чужих системных dll меньше шансов, что античит сверит .text роблокса
+// in foreign system dlls there's less chance the anticheat checks .text of Roblox
 std::uintptr_t find_exec_cave(std::size_t need)
 {
 	static const wchar_t* pref[] = {
@@ -343,9 +343,9 @@ void emit_u64(std::vector<std::uint8_t>& c, std::uint64_t v)
 	c.insert(c.end(), b, b + 8);
 }
 
-// stub не знает сигнатуру перехваченного метода: он сохраняет все
-// регистры аргументов, выполняет одну нашу команду и уходит jmp'ом в
-// оригинал с нетронутым стеком — поэтому годится для любого слота
+// the stub doesn't know the signature of the intercepted method: it saves all
+// argument registers, executes one of our commands and jumps to
+// the original with an untouched stack — so it works for any slot
 std::vector<std::uint8_t> build_stub(std::uintptr_t state, std::uintptr_t orig)
 {
 	std::vector<std::uint8_t> c;
@@ -375,7 +375,7 @@ std::vector<std::uint8_t> build_stub(std::uintptr_t state, std::uintptr_t orig)
 	const std::size_t fix_pass1 = c.size();
 	emit_u32(c, 0);
 
-	// забираем команду атомарно, иначе два потока выполнят её дважды
+	// take the command atomically, otherwise two threads would execute it twice
 	const std::size_t take = c.size();
 	emit(c, { 0xB8, 0x01, 0x00, 0x00, 0x00 });    // mov eax, 1
 	emit(c, { 0x45, 0x31, 0xDB });                // xor r11d, r11d
@@ -453,8 +453,8 @@ std::uint64_t Calls()
 	return g_Memory.Read<std::uint64_t>(g_gate.state + st_calls);
 }
 
-// чит мог упасть, не сняв хук: тогда в слоте наш прошлый stub, а
-// настоящий оригинал зашит внутри него
+// the cheat could have crashed without removing the hook: then the slot holds our previous stub, and
+// the real original is embedded inside it
 static std::uint64_t unwrap_stale(std::uint64_t fn, std::uintptr_t base,
                                   std::size_t size)
 {
@@ -519,9 +519,9 @@ static bool install_impl(const char* method_name, std::size_t from)
 			const std::uintptr_t s = desc + Offsets::WorldRoot::RaycastBoundFn;
 			auto fn = g_Memory.Read<std::uint64_t>(s);
 
-			// указатель наружу модуля = слот уже подменён. если это наш
-			// собственный stub, достаём из него оригинал и садимся заново,
-			// иначе слот чужой и трогать его нельзя
+			// a pointer outside the module = the slot is already swapped. if it's our
+			// own stub, we pull the original out of it and install again,
+			// otherwise the slot is foreign and must not be touched
 			if (fn < base || fn >= base + size)
 				fn = unwrap_stale(fn, base, size);
 
@@ -654,7 +654,7 @@ static bool invoke_once(std::uint64_t fn, std::uint64_t a0, std::uint64_t a1,
 	g_Memory.Write<std::uint64_t>(s + st_a2, a2);
 	g_Memory.Write<std::uint64_t>(s + st_a3, a3);
 
-	// pending пишем последним, чтобы stub не подхватил недописанную команду
+	// we write pending last so the stub doesn't pick up a half-written command
 	if (!g_Memory.Write<std::uint32_t>(s + st_pending, 1))
 	{
 		g_last_fail = 11;
@@ -689,8 +689,8 @@ static bool invoke_once(std::uint64_t fn, std::uint64_t a0, std::uint64_t a1,
 	return false;
 }
 
-// слот, по которому за всё ожидание не пришло ни одного вызова, бесполезен:
-// молча переезжаем на следующего кандидата и пробуем ещё раз
+// a slot that received no calls during the whole wait is useless:
+// we silently move on to the next candidate and try again
 bool Invoke(std::uint64_t fn, std::uint64_t a0, std::uint64_t a1,
             std::uint64_t a2, std::uint64_t a3,
             std::uint64_t* out_ret, unsigned timeout_ms)
@@ -706,8 +706,8 @@ bool Invoke(std::uint64_t fn, std::uint64_t a0, std::uint64_t a1,
 
 		g_cold[g_gate.cand] = true;
 		Remove();
-		// stub живёт в code cave: движок мог ещё исполнять старый код.
-		// без паузы install_impl перезапишет страницу под ногами — AV.
+		// the stub lives in a code cave: the engine might still be executing old code.
+		// without a pause install_impl would overwrite the page under our feet — AV.
 		Sleep(15);
 		if (!install_impl(nullptr, 0))
 			return false;

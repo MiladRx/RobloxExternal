@@ -5,7 +5,7 @@ namespace Cheat {
 namespace Features {
 namespace ViewportSilent {
 
-// writer thread долбит Camera::Viewport
+// writer thread hammers Camera::Viewport
 void SetActive(bool on, const Vector3& world_target = {});
 void Restore();
 void Shutdown();

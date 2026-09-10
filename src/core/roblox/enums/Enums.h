@@ -55,7 +55,7 @@ namespace utils
             Rubber = 2311
         };
 
-        // эти idшные значения из клиента
+        // these id values come from the client
         enum class camera_type : int
         {
             Fixed = 0,

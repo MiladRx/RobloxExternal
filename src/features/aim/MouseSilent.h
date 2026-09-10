@@ -6,7 +6,7 @@ namespace Cheat {
 namespace Features {
 namespace MouseSilent {
 
-    // пишем экранную позу в InputObject
+    // write the screen pose into InputObject
     void SetActive(bool on, const Vector3& world_target = {});
     void Restore();
     bool Aiming();

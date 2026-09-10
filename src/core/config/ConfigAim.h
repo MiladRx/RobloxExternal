@@ -7,7 +7,7 @@ namespace Cheat {
 namespace Config {
 namespace detail {
 
-// aimbot блок, префикс типа aim.mouse
+// aimbot block, prefix like aim.mouse
 inline void WriteAimCfg(std::ostringstream& out, const char* prefix, const Settings::AimbotConfig& c)
 {
     auto k = [&](const char* name)
@@ -129,7 +129,7 @@ inline void ReadAim(const KV& kv, Settings& s)
     ReadAimCfg(kv, "aim.camera", s.aim.camera);
     ReadAimCfg(kv, "aim.silent", s.aim.silent);
 
-	// старые конфиги: type==2 был silent, теперь silent_enabled + type off
+	// old configs: type==2 used to be silent, now silent_enabled + type off
 	if (kv.count("aim.silent_enabled"))
 	{
 		GetBool(kv, "aim.silent_enabled", s.aim.silent_enabled);

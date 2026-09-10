@@ -84,7 +84,7 @@ inline void CloseTab(int idx)
 	if (idx < 0 || idx >= (int)g_tabs.size())
 		return;
 
-	// последний таб не убиваем, просто чистим
+	// don't kill the last tab, just clear it
 	if (g_tabs.size() == 1)
 	{
 		auto& t = g_tabs[0];

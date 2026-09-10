@@ -167,7 +167,7 @@ static void PaintXYCell(ImDrawList* dl, const std::vector<std::vector<ImVec2>>& 
 	}
 }
 
-// сами полоски/пульсы
+// the stripes/pulses themselves
 static void RunAnim(ImDrawList* dl,
              const std::vector<std::vector<ImVec2>>& pieces,
              const ImVec2& mn, const ImVec2& mx,
@@ -396,7 +396,7 @@ void Bounds(const std::vector<ImVec2>& poly, ImVec2& mn, ImVec2& mx)
 
 }
 
-// филл полигонов шейдер-чамсами
+// fill polygons with shader chams
 void DrawFill(ImDrawList* draw_list,
               const std::vector<std::vector<ImVec2>>& pieces,
               float time,

@@ -60,7 +60,7 @@ namespace Cheat {
 
                 if (part == Settings::AIM_LOWER_TORSO)
                 {
-                    // R6: один Torso
+                    // R6: single Torso
                     if (c.lowerTorso)
                         return c.lowerTorso.get();
                     return c.upperTorso.get();
@@ -104,7 +104,7 @@ namespace Cheat {
                 return nullptr;
             }
 
-            // xorshift, пойдёт
+            // xorshift, good enough
             std::uint32_t next_rng() {
                 s_rng ^= s_rng << 13;
                 s_rng ^= s_rng >> 17;
@@ -120,7 +120,7 @@ namespace Cheat {
                 }
 
                 int t = cfg.part_tier[part];
-                // старый чекбокс parts[] ещё живёт
+                // the old parts[] checkbox is still alive
                 if (t == Settings::PART_OFF && cfg.parts[part])
                 {
                     t = Settings::PART_PRIMARY;
@@ -197,7 +197,7 @@ namespace Cheat {
                 if (chance < 1.f) chance = 1.f;
                 if (chance > 100.f) chance = 100.f;
 
-                // 0..100, хватит
+                // 0..100, enough
                 float roll = (float)(next_rng() % 10000u) / 100.f;
                 return roll <= chance;
             }
@@ -321,7 +321,7 @@ namespace Cheat {
 
                 float x = (float)p.x;
                 float y = (float)p.y;
-                // вне оверлея в центр, похуй
+                // outside the overlay goes to center, doesn't matter
                 if (x < 0.f || y < 0.f || x > sz.x || y > sz.y)
                 {
                     return ImVec2(sz.x * 0.5f, sz.y * 0.5f);
@@ -429,7 +429,7 @@ namespace Cheat {
                 out.x = (dim.x * 0.5f) + (x * inv * dim.x * 0.5f);
                 out.y = (dim.y * 0.5f) - (y * inv * dim.y * 0.5f);
 
-                // оверлей может быть не того размера что viewport камеры
+                // the overlay may not be the same size as the camera viewport
                 HWND oh = Renderer::GetHwnd();
                 if (oh)
                 {
@@ -449,7 +449,7 @@ namespace Cheat {
                 Vector2 viewport{};
                 Camera camera{ 0 };
                 Vector3 cam_pos{};
-                Vector3 local_pos{}; // hrp, для дистанции
+                Vector3 local_pos{}; // hrp, for distance
                 std::uint64_t local_player = 0;
                 std::uint64_t local_char = 0;
                 std::uint64_t local_team_folder = 0;
@@ -578,7 +578,7 @@ namespace Cheat {
                 for (int part = 0; part < Settings::AIM_PART_COUNT; ++part)
                 {
                     int tier = part_tier_of(cfg, part);
-                    // ничего не выбрано, дефолт голова
+                    // nothing selected, default to head
                     if (!has_parts)
                     {
                         if (part == Settings::AIM_HEAD)
@@ -617,7 +617,7 @@ namespace Cheat {
 
                         else
                         {
-                            lead = 0.05f; // скорость не задана, чуть-чуть
+                            lead = 0.05f; // speed not set, just a little
                         }
                         world.x += vel.x * lead;
                         world.y += vel.y * lead;
@@ -626,7 +626,7 @@ namespace Cheat {
 
                     {
                         float dist = (world - sc.local_pos).Length();
-                        // havoc: кап 400m всегда
+                        // havoc: cap 400m always
                         if (Visuals::HavocWorldEsp::BeyondRange(dist))
                         {
                             continue;
@@ -720,7 +720,7 @@ namespace Cheat {
                 std::uint64_t best_addr = 0;
                 PartSample best_pick{};
 
-                // локала не целимся, даже если залип
+                // don't aim at the local player, even if stuck
                 if (s_target && (s_target == sc.local_player || s_target == sc.local_char))
                 {
                     s_target = 0;
@@ -846,7 +846,7 @@ namespace Cheat {
                     return commit(best_addr, best_pick);
                 }
 
-                // humanize, ждём reaction_ms перед свапом
+                // humanize, wait reaction_ms before swapping
                 double now = ImGui::GetTime();
                 if (cfg.humanize && cfg.reaction_ms > 0.0f && best_addr != s_target)
                 {
@@ -880,7 +880,7 @@ namespace Cheat {
                 float dx = (target_screen.x - cur.x) / sx;
                 float dy = (target_screen.y - cur.y) / sy;
 
-                // без этого мышь улетает
+                // without this the mouse flies away
                 if (dx > 80.f) dx = 80.f;
                 if (dx < -80.f) dx = -80.f;
                 if (dy > 80.f) dy = 80.f;
@@ -994,8 +994,8 @@ namespace Cheat {
 				(g_Settings.aim.type == 1) ? g_Settings.aim.camera : g_Settings.aim.mouse;
 			Config& silent_cfg = g_Settings.aim.silent;
 
-            // один слот BoundFunc, magic и raycast шарят RaycastSilent
-            // (два хука на слот = Install thrash, работает 1 из 10).
+            // one BoundFunc slot, magic and raycast share RaycastSilent
+            // (two hooks on one slot = install thrash, works 1 out of 10).
             if (g_Settings.aim.silent_uses_raycast_hook())
             {
                 if (MagicBullet::Ready())
@@ -1058,7 +1058,7 @@ namespace Cheat {
 				s_toggled = false;
 			}
 
-			// silent key (0 = тот же aim.bind, шарим состояние)
+			// silent key (0 = same aim.bind, shared state)
 			bool silent_on = false;
 			{
 				int sk = g_Settings.aim.silent_bind;
@@ -1072,7 +1072,7 @@ namespace Cheat {
 				if (sk != 0 && g_Settings.aim.silent_bind == 0 &&
 				    g_Settings.aim.type != 2)
 				{
-					// один бинд с аимом — не дёргаем второй toggle
+					// one bind with aim — don't trigger a second toggle
 					silent_on = aim_on;
 					s_silent_was = s_was_pressed;
 					s_silent_tog = s_toggled;
@@ -1130,7 +1130,7 @@ namespace Cheat {
                 return;
             }
 
-			// таргет: если оба — aim cfg, иначе кто активен
+			// target: if both — aim cfg, otherwise whoever is active
 			Config& tgt_cfg = aim_on ? aim_cfg : silent_cfg;
 
             Vector3 world{};
@@ -1203,7 +1203,7 @@ namespace Cheat {
                 MouseSilent::SetActive(false);
                 PhantomSilent::SetActive(false);
 
-                // force magic поверх raycast
+                // force magic on top of raycast
                 bool force_mb = false;
                 int fk = g_Settings.aim.force_magic_key;
                 if (g_Settings.aim.force_magic_mode == 2)
@@ -1257,7 +1257,7 @@ namespace Cheat {
                 MouseSilent::SetActive(false);
                 PhantomSilent::SetActive(false);
                 MagicBullet::SetActive(false);
-                // wallbang, camera-ray stub скипает (origin ~ cam)
+                // wallbang, camera-ray stub skips (origin ~ cam)
                 RaycastSilent::SetActive(true, world, true);
             }
 

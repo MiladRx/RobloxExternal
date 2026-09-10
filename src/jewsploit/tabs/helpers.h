@@ -7,7 +7,7 @@ namespace ng_tabs
 	void lab(const char* text);
 
 	bool row_cb_color(const char* label, bool* v, float col[4], const char* id);
-	// colors_always — свотчи/пресеты даже если чекбокс выкл (chams)
+	// colors_always — swatches/presets even if checkbox is off (chams)
 	bool row_cb_color2(
 		const char* label,
 		bool* v,

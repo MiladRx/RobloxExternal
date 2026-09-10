@@ -19,7 +19,7 @@ void ng_tabs::pad()
 
 void ng_tabs::gap()
 {
-	// сначала X, потом dummy — иначе после colorpicker лестница вправо
+	// X first, then dummy — otherwise after colorpicker there's a staircase to the right
 	ImGui::SetCursorPosX(14.f);
 	ImGui::Dummy(ImVec2(0.01f, ng::item_gap));
 	ImGui::SetCursorPosX(14.f);
@@ -57,7 +57,7 @@ bool ng_tabs::row_cb_color(const char* label, bool* v, float col[4], const char*
 			ch = true;
 	}
 
-	// свотч уводит курсор вправо — вернуть под чекбокс
+	// swatch moves the cursor right — put it back under the checkbox
 	ImGui::SetCursorScreenPos(ImVec2(r0.x, r1.y));
 	ImGui::Dummy(ImVec2(0.01f, 0.01f));
 	pad();
@@ -117,7 +117,7 @@ void ng_tabs::row_keybind(const char* id, const char* label, int* vk, int* mode)
 	pad();
 	ImGui::PushID(id);
 
-	// как чекбокс+keybind: короткий item слева, справа дырка под kb/mode
+	// like checkbox+keybind: short item on the left, gap on the right for kb/mode
 	ImVec2 p = ImGui::GetCursorScreenPos();
 	float h = 28.f;
 	ImVec2 ts = ImGui::CalcTextSize(label ? label : "");
@@ -169,7 +169,7 @@ bool ng_tabs::row_slider(const char* id, const char* label, float* v, float mn, 
 {
 	if (!v) return false;
 
-	// лейбл вместе со слайдером, а то fog start торчит при выкл
+	// label together with the slider, otherwise fog start sticks out when off
 	ImGui::PushID(id);
 	ImGuiStorage* st = ImGui::GetStateStorage();
 	ImGuiID oid = ImGui::GetID("lab_open");

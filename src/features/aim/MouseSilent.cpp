@@ -56,7 +56,7 @@ std::uint64_t resolve_mouse()
     return g_mouse_service;
 }
 
-// InputObject + MousePosition, сначала 2 потом 1
+// InputObject + MousePosition, try 2 first then 1
 bool write_mouse_pos(std::uint64_t mouse_service, float x, float y)
 {
     auto try_input = [&](std::uintptr_t input_off) -> bool
@@ -157,7 +157,7 @@ void SetActive(bool on, const Vector3& world_target)
 
     if (!write_mouse_pos(ms, target.x, target.y))
     {
-        g_mouse_service = 0; // сброс, на след кадре ищем заново
+        g_mouse_service = 0; // reset, look it up again next frame
         return;
     }
 

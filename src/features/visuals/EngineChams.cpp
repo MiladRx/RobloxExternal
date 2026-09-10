@@ -43,13 +43,13 @@ std::unordered_map<uintptr_t, std::uint32_t> g_saved;
 std::unordered_map<uintptr_t, std::uint8_t> g_alpha;
 std::unordered_map<uintptr_t, LayerBackup> g_layers;
 std::unordered_map<uintptr_t, std::vector<uintptr_t>> g_ent_layers;
-std::unordered_map<uintptr_t, int> g_miss; // дохлый ent — не сразу дропаем
+std::unordered_map<uintptr_t, int> g_miss; // dead ent — don't drop immediately
 uintptr_t g_vt = 0;
 int g_applied_style = -1;
 
-// фаза2 StyleQueue — alpha не пишем, ток queue+layers
+// phase 2 StyleQueue — we don't write alpha, only queue+layers
 static constexpr int k_style_max = 7;
-// для записи: vtable + writable
+// for writing: vtable + writable
 bool EntAlive(uintptr_t ent)
 {
 	if (!g_vt || !g_Memory.IsValid(ent) || !g_Memory.IsValid(ent + 8))
@@ -65,7 +65,7 @@ bool EntAlive(uintptr_t ent)
 	return g_Memory.IsWritable(ent + Offsets::FastClusterEntity::RenderQueueId, sizeof(std::uint32_t));
 }
 
-// для refresh: тока vtable, IsWritable иногда врёт и гасит чамсы
+// for refresh: only vtable, IsWritable sometimes lies and kills the chams
 bool EntKnown(uintptr_t ent)
 {
 	if (!g_vt || !g_Memory.IsValid(ent))
@@ -398,7 +398,7 @@ std::uint64_t LocalPlayerAddr()
 	return lp;
 }
 
-// все парты локал-чара — чамсы на мир, локал скипаем
+// all parts of the local character — chams for the world, skip local
 bool GetLocalPartCenters(std::vector<Vector3>& out)
 {
 	out.clear();
@@ -455,7 +455,7 @@ float MinDistSq(const Vector3& p, const std::vector<Vector3>& anchors)
 	return best;
 }
 
-// центр entity рядом с партом локала — не весь мир в 6 stub
+// entity center near the local part — not the whole world in 6 stubs
 bool IsLocalEntity(uintptr_t ent, const std::vector<Vector3>& local_a)
 {
 	if (local_a.empty())
@@ -513,7 +513,7 @@ bool StyleUsesPicker(int style)
 	return false;
 }
 
-// aarrggbb — a всегда ff, тока rgb из пикера
+// aarrggbb — a is always ff, only rgb from the picker
 std::uint32_t PackColorData(const float c[4])
 {
 	float r = c[0];
@@ -533,7 +533,7 @@ std::uint32_t PackColorData(const float c[4])
 	return (0xFFu << 24) | (rr << 16) | (gg << 8) | bb;
 }
 
-// ближайший из палитры под Param
+// nearest from the palette for Param
 int NearestColorIdx(const float c[4])
 {
 	static const float tab[7][3] = {
@@ -572,7 +572,7 @@ std::uint8_t PackAlphaByte(const float c[4])
 	if (a > 1.f) a = 1.f;
 
 	std::uint8_t v = (std::uint8_t)(a * 255.f + 0.5f);
-	// совсем тонкий — пропадает
+	// too thin — disappears
 	if (v < 40)
 	{
 		v = 40;
@@ -587,13 +587,13 @@ std::uint32_t StyleQueue(int style)
 
 	if (style == 4)
 	{
-		// colored (был glass)
+		// colored (was glass)
 		return RQ::Glass;
 	}
 
 	if (style == 5)
 	{
-		// smoke no shadow (был glaze)
+		// smoke no shadow (was glaze)
 		return RQ::GlassTint;
 	}
 
@@ -692,7 +692,7 @@ bool ApplyStyleLayers(uintptr_t ent, int style)
 
 	if (style == 1)
 	{
-		// ghost — цвет тока Param, ColorData white (rgb движок жрёт)
+		// ghost — only Param color, ColorData white (engine consumes rgb)
 		ApplyLayers(ent, 0, ColorParam(NearestColorIdx(pc)), 0u, 0xFFFFFFFFu);
 		return true;
 	}
@@ -734,7 +734,7 @@ bool ApplyStyleLayers(uintptr_t ent, int style)
 
 	if (style == 7)
 	{
-		// invisible — без цвета, белый param
+		// invisible — no color, white param
 		ApplyLayers(ent, 0, ColorParam(6), 0u, 0xFFFFFFFFu);
 		return true;
 	}
@@ -777,7 +777,7 @@ void ApplyEntity(uintptr_t ent)
 		style = k_style_max;
 	}
 
-	// движок сбрасывает queue — пишем каждый тик. alpha не трогаем
+	// engine resets queue — write every tick. we don't touch alpha
 	g_Memory.Write<std::uint32_t>(rq, StyleQueue(style));
 
 	{
@@ -794,7 +794,7 @@ void ApplyEntity(uintptr_t ent)
 		return;
 	}
 
-	// default: тока queue 13
+	// default: only queue 13
 	std::lock_guard<std::mutex> lk(g_mtx);
 	if (g_ent_layers.count(ent))
 	{
@@ -854,7 +854,7 @@ void RefreshKnown()
 			std::lock_guard<std::mutex> lk(g_mtx);
 			int& n = g_miss[ent];
 			++n;
-			// не сразу дропаем — иначе мигает
+			// don't drop immediately — otherwise it blinks
 			if (n >= 25)
 			{
 				DropDeadLocked(ent);
@@ -867,14 +867,14 @@ void RefreshKnown()
 			g_miss[ent] = 0;
 		}
 
-		// локал без draw local — откат, мир красим
+		// local without draw local — revert, paint the world
 		if (skip_local && IsLocalEntity(ent, local_a))
 		{
 			RestoreOne(ent);
 			continue;
 		}
 
-		// ApplyEntity сам queue+layers
+		// ApplyEntity does queue+layers itself
 		ApplyEntity(ent);
 	}
 
@@ -956,7 +956,7 @@ void ScanOnce(uintptr_t vt)
 
 					uintptr_t ent = base + i;
 
-					// мир/чужие всегда; локал-парты тока с draw local
+					// world/others always; local parts only with draw local
 					if (skip_local && IsLocalEntity(ent, local_a))
 					{
 						continue;
@@ -1015,7 +1015,7 @@ void Loop()
 				g_vt = base + Offsets::FastClusterEntity::VTableRva;
 			}
 
-			// известные — каждый тик, фуллскан чаще
+			// known — every tick, full scan more often
 			RefreshKnown();
 
 			if ((tick % 2) == 0 && base)

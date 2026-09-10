@@ -137,7 +137,7 @@ void Cheat::Features::ThirdPerson::Tick()
 		g_on = true;
 	}
 
-	// CameraOffset: +Z назад, +Y вверх. один слайдер крутит оба
+	// CameraOffset: +Z backward, +Y upward. one slider controls both
 	float dist = Cheat::g_Settings.misc.third_person_distance;
 	if (dist < 0.5f) dist = 0.5f;
 	if (dist > 120.f) dist = 120.f;

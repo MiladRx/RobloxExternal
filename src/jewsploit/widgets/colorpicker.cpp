@@ -164,7 +164,7 @@ bool ng::colorpicker(const char* id, float col[4], bool shown, int slot, bool sh
 	ImGuiIO& io = ImGui::GetIO();
 	ImGuiStorage* st = ImGui::GetStateStorage();
 
-	// якорь строки чекбокса — второй свотч иначе цепляется за dummy
+	// checkbox row anchor — otherwise the second swatch hooks onto the dummy
 	ImGuiID mid_id = ImGui::GetID("##cp_row_mid");
 	ImGuiID r_id = ImGui::GetID("##cp_row_r");
 	ImGuiID y0_id = ImGui::GetID("##cp_row_y0");
@@ -231,7 +231,7 @@ bool ng::colorpicker(const char* id, float col[4], bool shown, int slot, bool sh
 	float sx = right - pad_r - sw - (float)slot * (sw + gap_s) + (1.f - e) * 14.f;
 	float sy = mid_y - sh * 0.5f;
 
-	// без свотча якорим попап к кисти / прошлому item
+	// without a swatch we anchor the popup to the brush / previous item
 	if (!show_swatch)
 	{
 		sx = row0.x;
@@ -445,14 +445,14 @@ bool ng::colorpicker(const char* id, float col[4], bool shown, int slot, bool sh
 			col[3] = 1.f;
 		}
 
-		// закрытие по пустому месту — даже если dim/search словили клик
+		// close on empty space — even if dim/search caught the click
 		bool hover_win = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
 		bool hold_inside = ImGui::IsMouseDown(0) && hover_win;
 		ImGui::End();
 		ImGui::PopStyleColor(2);
 		ImGui::PopStyleVar(3);
 
-		// open_now = клик по кисти, не закрывать в том же кадре
+		// open_now = brush click, don't close in the same frame
 		if (io.MouseClicked[0] && !hover_win && !hov && !hold_inside && !open_now)
 		{
 			pop = 0;

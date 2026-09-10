@@ -69,7 +69,7 @@ struct occluder_cache {
     double build_time = 0.0;
 };
 
-// кэш стен билдим кусками, иначе фпс в ноль
+// build the wall cache in chunks, otherwise fps drops to zero
 struct occluder_builder {
     std::uint64_t primitives_base = 0;
     std::size_t cursor = 0;

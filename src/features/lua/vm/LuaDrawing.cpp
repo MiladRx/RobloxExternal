@@ -193,8 +193,8 @@ int l_newindex(lua_State* L)
 	if (!ud->obj)
 		return 0;
 
-	// всё, что может кинуть lua-ошибку, читаем до захвата мьютекса:
-	// luaL_error делает longjmp мимо деструктора lock_guard
+	// everything that can throw a lua error we read before taking the mutex:
+	// luaL_error does a longjmp past the lock_guard destructor
 	const bool isnum = lua_isnumber(L, 3) != 0;
 	const float num = isnum ? sane(lua_tonumber(L, 3)) : 0.f;
 	const bool flag = lua_toboolean(L, 3) != 0;
@@ -445,8 +445,8 @@ void Render()
 	ImFont* font = ImGui::GetFont();
 	const float base_fs = ImGui::GetFontSize();
 
-	// луа-поток мутирует объекты в любой момент, поэтому держим лок на весь проход:
-	// снапшот shared_ptr спасал только от free, но не от гонки по полям (text особенно)
+	// the lua thread mutates objects at any moment, so we hold the lock for the whole pass:
+	// the shared_ptr snapshot only protected against free, not against field races (text especially)
 	std::lock_guard lock(g_mutex);
 	g_objects.erase(
 		std::remove_if(g_objects.begin(), g_objects.end(),

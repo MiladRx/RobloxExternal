@@ -2,8 +2,8 @@
 
 namespace ng
 {
-	// float окно в стиле shell: header + close, drag, resize
-	// open == nullptr -> без креста
+	// float window in shell style: header + close, drag, resize
+	// open == nullptr -> no close cross
 	bool float_panel_begin(
 		const char* id,
 		const char* title,

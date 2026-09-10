@@ -43,7 +43,7 @@ namespace AimFov {
 
 		float x = (float)p.x;
 		float y = (float)p.y;
-		// вне оверлея в центр, похуй
+		// outside the overlay goes to center, doesn't matter
 		if (x < 0.f || y < 0.f || x > sz.x || y > sz.y)
 		{
 			return ImVec2(sz.x * 0.5f, sz.y * 0.5f);

@@ -36,7 +36,7 @@ float Cheat::Workspace::GetGravity() const
 		return 0.f;
 	}
 
-	// гравитация не в workspace а в world
+	// gravity isn't in workspace but in world
 	std::uint64_t world = g_Memory.Read<std::uint64_t>(address + Offsets::Workspace::World);
 	if (!g_Memory.IsValid(world))
 	{

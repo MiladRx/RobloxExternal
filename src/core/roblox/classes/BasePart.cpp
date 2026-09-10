@@ -53,7 +53,7 @@ Matrix4x4 Cheat::BasePart::GetRotation() const
 		return {};
 	}
 
-	// 3x3 лежит плоско, в матрицу 4x4 пихаем сами
+	// 3x3 lies flat, we stuff it into a 4x4 matrix ourselves
 	float rot[9];
 	g_Memory.ReadRaw(prim + Offsets::Primitive::Rotation, &rot, sizeof(rot));
 
@@ -174,7 +174,7 @@ void Cheat::BasePart::SetCanCollide(bool value) const
 		next = flags & ~bit;
 	}
 
-	// не дёргаем write если и так ок
+	// skip the write if it's already fine
 	if (next != flags)
 	{
 		g_Memory.Write<std::uint8_t>(prim + Offsets::Primitive::Flags, next);
@@ -232,8 +232,8 @@ void Cheat::BasePart::SetColor(const Color3& value) const
 		return;
 	}
 
-	// пишем только в BasePart: Color/Transparency не живут в Primitive,
-	// иначе рендер не пересчитывается — дергаем Validate
+	// write only to BasePart: Color/Transparency don't live in Primitive,
+	// otherwise the render isn't recalculated — trigger Validate
 	g_Memory.Write<Color3>(address + Offsets::BasePart::Color3, value);
 	Invalidate();
 }
@@ -251,7 +251,7 @@ void Cheat::BasePart::Invalidate() const
 		return;
 	}
 
-	// дергаем Validate-флаг, чтобы движок пересчитал рендер
+	// trigger the Validate flag so the engine recalculates the render
 	const auto flags = g_Memory.Read<std::uint8_t>(prim + Offsets::Primitive::Validate);
 	g_Memory.Write<std::uint8_t>(prim + Offsets::Primitive::Validate, flags ^ 1);
 	g_Memory.Write<std::uint8_t>(prim + Offsets::Primitive::Validate, flags);

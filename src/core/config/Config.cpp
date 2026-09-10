@@ -13,7 +13,7 @@ namespace Cheat {
 namespace Config {
 namespace {
 
-// имя файла без мусора
+// file name without junk
 std::string SanitizeName(std::string name)
 {
     for (char& c : name)
@@ -30,7 +30,7 @@ std::string SanitizeName(std::string name)
         name.pop_back();
     if (name.empty())
         name = "config";
-    // слишком длинное, обрежем
+    // too long, truncate it
     if (name.size() > 48)
         name.resize(48);
     return name;
@@ -97,7 +97,7 @@ bool GetInt(const KV& kv, const char* key, int& out)
     return true;
 }
 
-// legacy 0..13 → базовый набор
+// legacy 0..13 → base set
 int RemapMeshDxMode(int old)
 {
     switch (old)
@@ -117,12 +117,12 @@ int RemapMeshDxMode(int old)
     }
 }
 
-// v2 имел glow@8; сейчас: glass@8 ropes@9 liquid@10
+// v2 had glow@8; now: glass@8 ropes@9 liquid@10
 int CompactMeshDxModeV2(int m)
 {
     if (m < 0) return 0;
     if (m <= 7) return m;
-    if (m == 8) return 0;  // glow удалён
+    if (m == 8) return 0;  // glow removed
     if (m == 9) return 8;  // glass
     if (m == 10) return 9; // ropes
     if (m == 11) return 10; // liquid metal
@@ -216,7 +216,7 @@ bool GetF2(const KV& kv, const char* key, float out[2])
     return false;
 }
 
-// aimbot блок, префикс типа aim.mouse
+// aimbot block, prefix like aim.mouse
 void WriteAimCfg(std::ostringstream& out, const char* prefix, const Settings::AimbotConfig& c)
 {
     auto k = [&](const char* name)
@@ -338,7 +338,7 @@ std::vector<std::string> List()
             continue;
 
         std::string name = fd.cFileName;
-        // срезаем .cfg
+        // strip .cfg
         if (name.size() > 4 && name.substr(name.size() - 4) == ".cfg")
             name.resize(name.size() - 4);
         out.push_back(name);
@@ -350,7 +350,7 @@ std::vector<std::string> List()
     return out;
 }
 
-// сейв всего g_Settings в .cfg
+// save all of g_Settings to .cfg
 bool Save(const std::string& name)
 {
     const std::string dir = Directory();
@@ -651,7 +651,7 @@ bool Save(const std::string& name)
     return true;
 }
 
-// грузим key=value поверх того что есть
+// load key=value on top of what already exists
 bool Load(const std::string& name)
 {
     std::string path = PathFor(name);

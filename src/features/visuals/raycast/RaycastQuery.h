@@ -1,6 +1,6 @@
 // pulled into RaycastEngine.cpp anon ns — dont compile alone
 
-// видна ли точка сквозь кэш стен
+// is the point visible through the wall cache
 bool line_of_sight_clear(const Vector3& from, const Vector3& to,
                          const occluder_cache& cache,
                          const std::unordered_set<std::uint64_t>& ignore)
@@ -23,7 +23,7 @@ bool line_of_sight_clear(const Vector3& from, const Vector3& to,
         float hit = 0.0f;
         if (!ray_intersects_obb(from, delta, part, distance, &hit))
             return false;
-        // края луча не считаем, иначе стены на камере/таргете
+        // don't count the ray edges, otherwise walls on the camera/target
         if (hit <= 0.15f) return false;
         if ((distance - hit) <= 0.55f) return false;
         return true;
@@ -137,7 +137,7 @@ bool is_visible_impl(const PlayerCache& player, const Vector3& camera_pos,
     std::unordered_set<std::uint64_t> ignore;
     collect_cache_primitives(player, ignore);
 
-    // локал тоже в игнор, иначе сам себя перекрывает
+    // also ignore the local player, otherwise it occludes itself
     if (Globals::Players && g_Memory.IsValid(Globals::Players->address))
     {
         std::uint64_t lp = g_Memory.Read<std::uint64_t>(

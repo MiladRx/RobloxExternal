@@ -59,12 +59,12 @@ namespace Cheat {
             float box_fill_color[4]{ 1.f, 1.f, 1.f, 0.2f };
             bool name{ false };
             bool skeleton{ false };
-            // 0 funny (линии) / 1 anton (SK) / 2 unfunny (US) / 3 egor (SE)
+            // 0 funny (lines) / 1 anton (SK) / 2 unfunny (US) / 3 egor (SE)
             int  skeleton_type{ 0 };
             bool chams{ false };
 
             // 0 box, 1 filled, 2 clipper, 3 shader, 4 mesh
-            // engine — отдельный чекбокс (комбо с mesh/shader/…)
+            // engine - separate checkbox (combo with mesh/shader/...)
             int  chams_mode{ 0 };
             int  chams_shader{ 0 };
             bool engine_chams{ false };
@@ -73,27 +73,27 @@ namespace Cheat {
             // 0 flat 1 chrome 2 rainbow 3 pearl 4 glossy 5 holographic
             // 6 fade 7 wireframe 8 glass 9 ropes 10 liquid metal
             int  mesh_chams_dx_mode{ 4 };
-            // world-depth occluded (отдельный чекбокс)
+            // world-depth occluded (separate checkbox)
             bool  mesh_chams_occlusion{ false };
-            // тот же список mode, что mesh_chams_dx_mode
+            // same mode list as mesh_chams_dx_mode
             int   mesh_chams_occluded_dx_mode{ 0 };
-            // перезаписывают шейдер: fill + outline/fresnel
+            // override the shader: fill + outline/fresnel
             float mesh_chams_occluded_color[4]{ 1.f, 1.f, 1.f, 1.f };
             float mesh_chams_occluded_outline_color[4]{ 1.f, 1.f, 1.f, 1.f };
-            // контур-силуэт (faded glow) поверх mesh chams
+            // outline silhouette (faded glow) over mesh chams
             bool  mesh_chams_outline{ false };
             // 0 soft fade 1 pulse 2 flow 3 neon wave
             int   mesh_chams_outline_style{ 0 };
-            float mesh_chams_outline_fade{ 1.8f }; // сила/ширина фейда
+            float mesh_chams_outline_fade{ 1.8f }; // fade strength/width
             float mesh_chams_outline_color[4]{ 1.f, 1.f, 1.f, 1.f };
             // 0 default 1 ghost 2 simple wire 3 colored frame 4 colored 5 smoke no shadow 6 smoke
             int  engine_chams_style{ 0 };
-            // colored / colored frame — старая палитра Param
+            // colored / colored frame - old Param palette
             // 0 red 1 green 2 orange 3 blue 4 pink 5 cyan 6 white
             int  engine_ghost_color_idx{ 6 };
             // ghost / simple wire / smoke / smoke no shadow — picker
             float engine_chams_color[4]{ 1.f, 1.f, 1.f, 1.f };
-            bool preview{ false }; // окно превью рядом с меню, тумблер в settings
+            bool preview{ false }; // preview window next to the menu, toggle in settings
 
             bool healthbar{ false };
             bool health_text{ false };
@@ -110,7 +110,7 @@ namespace Cheat {
             float china_hat_height{ 1.0f };
             float china_hat_radius{ 1.5f };
 
-            // hit flash на clipper/shader/mesh
+            // hit flash on clipper/shader/mesh
             bool  hit_chams{ false };
             float hit_chams_color[4]{ 1.f, 1.f, 1.f, 0.85f };
             float hit_chams_duration{ 0.55f };
@@ -121,8 +121,8 @@ namespace Cheat {
             float arrow_color[4]{ 1.f, 1.f, 1.f, 0.95f };
             bool  arrow_info[ARROW_INFO_COUNT]{ true, false, false, false };
 
-            // стороны элементов: 0 top 1 bottom 2 left 3 right
-            // *_off слот на стороне, всегда без дыр
+            // element sides: 0 top 1 bottom 2 left 3 right
+            // *_off slot on the side, always gap-free
             int   name_side{ 0 };
             float name_off{ 0.f };
             int   distance_side{ 1 };
@@ -133,12 +133,12 @@ namespace Cheat {
             float flags_off{ 0.f };
             int   health_text_side{ 2 };
             float health_text_off{ 0.f };
-            int   healthbar_side{ 2 }; // только left/right
+            int   healthbar_side{ 2 }; // left/right only
 
             int   font{ 4 }; // verdana
             float font_size{ 13.f };
             int   box_mode{ 0 };
-            // 0 parts (тело) 1 mesh (все меши + аксы)
+            // 0 parts (body) 1 mesh (all meshes + accessories)
             int   bounding_type{ 0 };
             // outline: skeleton / box
             bool  esp_outline[ESP_OUTLINE_COUNT]{ true, true };
@@ -154,8 +154,8 @@ namespace Cheat {
             float corpse_color[4]{ 1.f, 1.f, 1.f, 0.90f };
 
             bool  bots{ true };
-            float bot_max_distance{ 300.f }; // havoc bots, метры
-            bool  apocalypse{ true }; // AR place: зомби/кастомный кэш
+            float bot_max_distance{ 300.f }; // havoc bots, meters
+            bool  apocalypse{ true }; // AR place: zombies/custom cache
             bool  corpses{ false };
             bool  ground_loot{ false };
             bool  containers{ false };
@@ -221,8 +221,8 @@ namespace Cheat {
         };
 
         enum TargetSelect {
-            TARGET_FOV_CENTER = 0, // ближайший к центру фова
-            TARGET_DISTANCE = 1,   // ближайший по 3d
+            TARGET_FOV_CENTER = 0, // closest to FOV center
+            TARGET_DISTANCE = 1,   // closest by 3d distance
             TARGET_LOWEST_HP = 2
         };
 
@@ -235,7 +235,7 @@ namespace Cheat {
             bool  distance_check{ false };
             float max_distance{ 1000.0f };
             bool  visible_only{ false };
-            bool  dead_check{ false }; // мёртвых скип
+            bool  dead_check{ false }; // skip dead
 
             bool  parts[AIM_PART_COUNT]{ false, false, false, false,
                                          false, false, false, false };
@@ -256,12 +256,12 @@ namespace Cheat {
             float sticky_fov_scale{ 1.5f };
 
             bool  prediction{ false };
-            float bullet_speed{ 1200.f }; // studs/sec; 0 = без лида
+            float bullet_speed{ 1200.f }; // studs/sec; 0 = no lead
 
             float fov_color[4]{ 1.f, 1.f, 1.f, 0.86f };
             float fov_outline_color[4]{ 1.f, 1.f, 1.f, 0.78f };
 
-            // линия до залоченной парты
+            // line to the locked part
             bool  tracer{ true };
             float tracer_color[4]{ 1.f, 1.f, 1.f, 0.9f };
 
@@ -296,16 +296,16 @@ namespace Cheat {
         struct {
             int  bind{ 0 };
             int  bind_mode{ 0 };
-            int  type{ 0 }; // 0 mouse, 1 camera, 2 off (без аимбота, silent отдельно)
+            int  type{ 0 }; // 0 mouse, 1 camera, 2 off (no aimbot, silent separate)
             int  silent_method{ SILENT_RAYCAST };
-            bool silent_enabled{ true }; // всегда on, рубит silent key
-            int  silent_bind{ 0 }; // 0 = тот же что aim.bind
+            bool silent_enabled{ true }; // always on, gated by silent key
+            int  silent_bind{ 0 }; // 0 = same as aim.bind
             int  silent_bind_mode{ 0 };
 
             bool force_magic_bullet{ false };
             int  force_magic_key{ 0 };
             int  force_magic_mode{ 0 };
-            bool target_bots{ true }; // havoc нпц из кэша
+            bool target_bots{ true }; // havoc NPCs from cache
 
             AimbotConfig mouse;
             AimbotConfig camera;
@@ -341,7 +341,7 @@ namespace Cheat {
             float fog_start{ 0.f };
             float fog_end{ 2000.f };
             float fog_color[4]{ 1.f, 1.f, 1.f, 1.f };
-            // clock+sun+moon+grad отдельно от amb/bri/light
+            // clock+sun+moon+grad separate from amb/bri/light
             bool  time_changer{ false };
             float clock_time{ 14.f }; // 0..24
 
@@ -356,7 +356,7 @@ namespace Cheat {
             bool  light{ false };
             float light_col[4]{ 1.f, 1.f, 1.f, 1.f };
             float light_dir[3]{ 0.f, -1.f, 0.f };
-            bool  time_manual{ false }; // старый конфиг, не юзаем
+            bool  time_manual{ false }; // legacy config, unused
 
             bool  env{ false };
             float env_diffuse{ 1.f };
@@ -375,14 +375,14 @@ namespace Cheat {
             float atmo_color[4]{ 1.f, 1.f, 1.f, 1.f };
             float atmo_decay[4]{ 1.f, 1.f, 1.f, 1.f };
 
-            // sky цепочка (Lighting.Sky) — один тоггл
+            // sky chain (Lighting.Sky) - one toggle
             bool  sky{ false };
             float sun_angular{ 21.f };
             float moon_angular{ 11.f };
             float sky_orient_xyz[3]{ 0.f, 0.f, 0.f };
             bool  skybox_changer{ false };
             int   skybox_mode{ 1 }; // 0 shader 1 roblox
-            int   skybox_shader{ 0 }; // заглушка, ещё не реализовано
+            int   skybox_shader{ 0 }; // stub, not implemented yet
             int   skybox_preset{ 0 };
 
             // 20-24 postfx
@@ -405,7 +405,7 @@ namespace Cheat {
             float dof_focus{ 20.f };
             float dof_radius{ 50.f };
 
-            // terrain цепочка (Workspace.Terrain) — один тоггл
+            // terrain chain (Workspace.Terrain) - one toggle
             bool  terrain{ false };
             float grass_len{ 0.2f };
             float grass_col[4]{ 1.f, 1.f, 1.f, 1.f };
@@ -420,7 +420,7 @@ namespace Cheat {
         } killfx;
 
         struct {
-            bool  enabled{ false }; // всегда на мыши, вместо виндового курсора
+            bool  enabled{ false }; // always on the mouse, instead of the Windows cursor
             float length{ 8.f };
             float gap{ 4.f };
             float thickness{ 1.5f };
@@ -473,7 +473,7 @@ namespace Cheat {
             bool  visualize{ false };
             int   viz_mode{ 0 }; // 0 2d, 1 3d, 2 3d filled
             float viz_color[4]{ 1.f, 1.f, 1.f, 0.55f };
-            int   part{ HB_HEAD }; // какой парт раздуваем
+            int   part{ HB_HEAD }; // which part to scale
             float scale{ 2.f };
         } hitbox;
 
@@ -493,7 +493,7 @@ namespace Cheat {
             bool  explorer{ false };
             bool  esp_preview{ false };
             bool  players{ false }; // island -> float players_ui
-            bool  mcp{ false }; // localhost bridge для cursor mcp
+            bool  mcp{ false }; // localhost bridge for cursor mcp
             bool  custom_support{ false };
 
             int   freecam_key{ 0 };
@@ -514,7 +514,7 @@ namespace Cheat {
         } misc;
 
         struct {
-            bool executor{ false }; // отдельное окно lua
+            bool executor{ false }; // separate lua window
         } lua;
 
         enum {

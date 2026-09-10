@@ -154,7 +154,7 @@ struct Color3
     bool operator==(const Color3& other) const { return r == other.r && g == other.g && b == other.b; }
     bool operator!=(const Color3& other) const { return !(*this == other); }
 
-    // 0..1, иначе цвет уезжает в космос
+    // 0..1, otherwise the color flies off into space
     Color3 Clamp() const
     {
         float rr = r;

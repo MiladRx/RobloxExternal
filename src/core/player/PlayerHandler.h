@@ -18,11 +18,11 @@ namespace Cheat {
         std::uint64_t address;
         std::uint64_t character = 0;
         std::uint64_t team_folder = 0;
-        std::uint64_t player_address = 0; // реальный Player instance, для GetUserId/GetAccountAge/GetTeam
+        std::uint64_t player_address = 0; // real Player instance, for GetUserId/GetAccountAge/GetTeam
         std::int64_t user_id = 0;
         bool is_player = false;
         bool isR6 = false;
-        bool is_corpse = false; // труп после смерти, для body-corpse esp
+        bool is_corpse = false; // corpse after death, for body-corpse esp
 
         std::shared_ptr<Instance> head;
         std::shared_ptr<Instance> humanoidRootPart;

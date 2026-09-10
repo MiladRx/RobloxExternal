@@ -8,7 +8,7 @@ namespace WorldSlots {
 
 std::uint64_t FindLighting();
 
-// force_off = true на стопе треда (откат бэкапа)
+// force_off = true on thread stop (rollback of backup)
 void TickNoShadow(std::uint64_t lighting, bool force_off = false);
 void TickTime(std::uint64_t lighting, bool force_off = false);
 void TickAmbient(std::uint64_t lighting, bool force_off = false);
@@ -28,7 +28,7 @@ void TickDof(std::uint64_t lighting, bool force_off = false);
 void TickTerrain(std::uint64_t lighting, bool force_off = false);
 void TickSkyboxChanger(std::uint64_t lighting, bool force_off = false);
 
-// имена пресетов для GUI — источник истины тут же, рядом с самими айдишниками
+// preset names for the GUI — source of truth right here, next to the ids themselves
 int SkyboxPresetCount();
 const char* const* SkyboxPresetNames();
 

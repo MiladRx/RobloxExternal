@@ -4,7 +4,7 @@
 namespace Cheat {
 namespace Features {
 
-// world ушёл в WorldEdit треды
+// world moved to WorldEdit threads
 void WorldExtras::Apply(std::uint64_t lighting)
 {
 	(void)lighting;

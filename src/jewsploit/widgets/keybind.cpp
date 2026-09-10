@@ -34,7 +34,7 @@ namespace
 			ignore_key[k] = (GetAsyncKeyState(k) & 0x8000) != 0;
 		}
 
-		// клик по виджету всегда lmb — не брать его пока не отпустят и нажмут снова
+		// widget click is always lmb — don't take it until released and pressed again
 		ignore_key[VK_LBUTTON] = true;
 	}
 
@@ -113,7 +113,7 @@ bool ng::keybind(const char* id, int* vk, int* mode, bool shown)
 	float md_h = 24.f;
 	float rnd = 7.f;
 
-	// dummy на всю строку -> row1.x; после чекбокса короткий -> content right
+	// dummy across the whole row -> row1.x; after checkbox short -> content right
 	float right = row1.x;
 	float cr = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
 	if (right < cr - 1.f)
@@ -138,7 +138,7 @@ bool ng::keybind(const char* id, int* vk, int* mode, bool shown)
 	ImGui::InvisibleButton("kb", ImVec2(kb_w, kb_h));
 	ImVec2 kb0 = ImGui::GetItemRectMin();
 	ImVec2 kb1 = ImGui::GetItemRectMax();
-	// HoveredRect+click — IsItemClicked врёт когда сверху/снизу чужой ActiveId
+	// HoveredRect+click — IsItemClicked lies when another ActiveId is on top/bottom
 	bool kb_hov = ImGui::IsMouseHoveringRect(kb0, kb1);
 	bool kb_hit = kb_hov && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
 
@@ -164,7 +164,7 @@ bool ng::keybind(const char* id, int* vk, int* mode, bool shown)
 
 	if (waiting && skip_cap)
 	{
-		// кадр клика / пока лкм ещё зажат — не жрем клавиши
+		// click frame / while lmb is still held — don't swallow keys
 		if ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0)
 		{
 			skip_cap = 0;

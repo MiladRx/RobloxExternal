@@ -54,7 +54,7 @@ void invalidate_sky()
 	g_Memory.Write<std::uint8_t>(rv + Offsets::RenderView::SkyValid, 0);
 }
 
-// айди подтверждённо рабочие — те же, что в scripts/custom_skybox.lua
+// ids confirmed working — same as in scripts/custom_skybox.lua
 struct SkyboxPreset
 {
 	const char* name;
@@ -1080,9 +1080,9 @@ void TickTerrain(std::uint64_t lighting, bool force_off)
 	}
 }
 
-// пишет 6 граней Sky выбранным пресетом; тяжёлая операция (аллокация строки
-// в процессе игры на грань) — делаем только при реальном изменении настроек,
-// не каждый тик
+// writes the 6 Sky faces with the selected preset; heavy operation (string
+// allocation in game per face) — we do it only on an actual settings change,
+// not every tick
 void TickSkyboxChanger(std::uint64_t lighting, bool force_off)
 {
 	static bool was = false;
@@ -1108,7 +1108,7 @@ void TickSkyboxChanger(std::uint64_t lighting, bool force_off)
 		if (!WorldOwn::Owns(WorldOwn::Feat::SkyboxChanger, WorldOwn::Field::SkyboxChanger))
 			return;
 
-		// шейдерный скайбокс — заглушка, реализуется отдельно
+		// shader skybox — stub, implemented separately
 		if (w.skybox_mode != 1)
 			return;
 
@@ -1131,8 +1131,8 @@ void TickSkyboxChanger(std::uint64_t lighting, bool force_off)
 			sky = created;
 		}
 
-		// движок забирает текстуры в момент, когда Sky попадает в Lighting,
-		// поэтому пишем грани, пока он снаружи, и парентим обратно в конце
+		// the engine grabs textures at the moment Sky enters Lighting,
+		// so we write the faces while it is outside, and parent it back at the end
 		Cheat::Features::InstanceCreate::SetParent(sky, 0);
 		Console::Log(Console::Color::Cyan, "skybox unparented preset=%d sky=%llx",
 			preset, (unsigned long long)sky);

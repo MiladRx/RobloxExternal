@@ -46,7 +46,7 @@ namespace mb {
 	        return false;
 	    }
 
-	    // не долбим install каждые 2 мс если упало
+	    // don't hammer install every 2 ms if it failed
 	    auto now = std::chrono::steady_clock::now();
 	    if (mb::g_lastFail.time_since_epoch().count() != 0 &&
 	        now - mb::g_lastFail < std::chrono::milliseconds(1500))
@@ -76,7 +76,7 @@ namespace mb {
 	        return false;
 	    }
 
-	    // jmp-only оставлял раньше, щас полный stub
+	    // used to leave jmp-only before, now a full stub
 	    //auto thunk = mb::make_jmp_thunk(fn);
 	    auto thunk = mb::make_hook_thunk(mb::g_hook.state, fn);
 
@@ -91,7 +91,7 @@ namespace mb {
 	    std::uintptr_t stub = 0;
 	    std::uintptr_t ignore_cave = 0;
 
-	    // несколько попыток, иногда cave не пишется
+	    // several attempts, sometimes the cave doesn't get written
 	    for (int attempt = 0; attempt < 8 && !stub; ++attempt)
 	    {
 	        std::uintptr_t cand = mb::find_exec_cave(0x200, base, ignore_cave);
@@ -249,7 +249,7 @@ namespace mb {
 	            return;
 	        }
 
-	        // слот могли перетереть, переставить без Remove каждый кадр
+	        // the slot could have been overwritten, re-install without Remove every frame
 	        if (mb::g_hook.installed && mb::g_hook.thunk)
 	        {
 	            std::uintptr_t slot = base + mb::desc_rva_z + mb::bound_fn_offset;
@@ -295,7 +295,7 @@ namespace mb {
 	    }
 
 	    float pos[3]{ world_target.x, world_target.y, world_target.z };
-	    // magic = всегда wallbang; scale мелкий, origin у самой цели
+	    // magic = always wallbang; small scale, origin at the target itself
 	    std::uint32_t flags = 1u;
 	    float scale = 1.15f;
 	    std::uint32_t one = 1;

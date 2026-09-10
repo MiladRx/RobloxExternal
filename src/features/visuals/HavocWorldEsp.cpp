@@ -21,7 +21,7 @@ namespace HavocWorldEsp {
 
 namespace {
 
-// типы лута havoc
+// havoc loot types
 enum class LootKind : int {
     Weapon = 0,
     Mag,
@@ -80,7 +80,7 @@ bool WorldToScreen(const Matrix4x4& matrix, const Vector2& dimensions,
 	return true;
 }
 
-// текст с чёрной обводкой
+// text with a black outline
 void DrawLabel(ImDrawList* dl, ImFont* font, float fs, ImVec2 pos, ImU32 col, const char* text)
 {
     const ImU32 shadow = IM_COL32(0, 0, 0, 255);
@@ -138,7 +138,7 @@ bool IsPartClass(const std::string& cls)
         || cls == "CornerWedgePart" || cls == "TrussPart" || cls == "UnionOperation";
 }
 
-// якорь модели, любая парта по приоритету
+// model anchor, any part by priority
 std::uint64_t FindAnchor(const Instance& model)
 {
 	static const char* prefs[] = {
@@ -220,7 +220,7 @@ void IngestCatalogFolder(const Instance& folder, LootKind kind)
     }
 }
 
-// каталог из RS, раз в ~8с
+// catalog from RS, once every ~8s
 void RefreshCatalog()
 {
     const auto now = std::chrono::steady_clock::now();
@@ -263,7 +263,7 @@ bool HasChildNamed(const Instance& node, const char* name)
     return c && g_Memory.IsValid(c->address);
 }
 
-// каталог потом data-флаги потом угадайка по имени
+// catalog, then data flags, then name-based guessing
 LootKind ClassifyModel(const Instance& model, const std::string& name)
 {
 	RefreshCatalog();
@@ -346,7 +346,7 @@ void CollectFolderModels(const Instance& folder, std::vector<CachedItem>& out, b
         if (cls != "Model") continue;
 
         const std::string name = child.GetName();
-        // X / XA.. мусорные плейсхолдеры
+        // X / XA.. garbage placeholders
         if (name.empty() || name == "X" || (name.size() > 1 && name[0] == 'X'
             && (name[1] >= 'A' && name[1] <= 'Z')))
             continue;
@@ -474,7 +474,7 @@ void DrawWorldEntries(ImDrawList* draw_list, ImFont* font, float font_size,
         const float dy = pos.y - cam_pos.y;
         const float dz = pos.z - cam_pos.z;
         const float dist_studs = std::sqrt(dx * dx + dy * dy + dz * dz);
-        // havoc: всегда кап 400m
+        // havoc: always capped at 400m
         if (BeyondRange(dist_studs))
             continue;
 
@@ -497,7 +497,7 @@ void DrawWorldEntries(ImDrawList* draw_list, ImFont* font, float font_size,
             DrawShaderObb(draw_list, hull, shader, color);
 
         char line[192];
-        // havoc: всегда метры
+        // havoc: always meters
         std::snprintf(line, sizeof(line), "%s [%.0fm]",
                       item.name.c_str(), StudsToMeters(dist_studs));
 
@@ -527,7 +527,7 @@ bool BeyondRange(float dist_studs)
     return StudsToMeters(dist_studs) > kMaxMeters;
 }
 
-// world esp для havoc (трупы / лут / контейнеры)
+// world esp for havoc (corpses / loot / containers)
 void Render(ImDrawList* draw_list, ImFont* font, float font_size,
             const Matrix4x4& view, const Vector2& viewport,
             const Vector3& cam_pos, float overlay_w, float overlay_h,

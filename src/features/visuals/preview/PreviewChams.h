@@ -198,7 +198,7 @@ inline void DrawSegmentOutsideUnion(ImDrawList* dl, const ImVec2& a, const ImVec
 		dl->AddLine(lerp_pt(cur), b, color, 1.0f);
 }
 
-// превью chams на projected part boxes
+// chams preview on projected part boxes
 inline void Draw(ImDrawList* dl,
 	const std::vector<std::array<ImVec2, 8>>& parts,
 	int mode, int shader,

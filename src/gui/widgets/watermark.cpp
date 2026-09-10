@@ -236,7 +236,7 @@ namespace widgets
 		ImU32 bg = ImGui::ColorConvertFloat4ToU32(
 			ImVec4(th.window[0], th.window[1], th.window[2], th.window[3] * alpha)
 		);
-		// чуть плотнее окна чтоб читалось
+		// slightly denser than the window so it stays readable
 		{
 			ImVec4 v = ImGui::ColorConvertU32ToFloat4(bg);
 			if (v.w < 0.55f) v.w = 0.55f * alpha;

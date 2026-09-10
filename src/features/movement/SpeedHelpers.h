@@ -67,7 +67,7 @@ inline bool roblox_focused()
 
 inline bool key_gate(int key, int mode, bool& tog, bool& was)
 {
-	// always / нет бинда — всегда on
+	// always / no bind — always on
 	if (mode == 2 || key == 0)
 		return true;
 
@@ -191,7 +191,7 @@ inline bool set_xz_pos(std::uint64_t prim, float x, float z)
 
 	auto ptr_ok = [](std::uint64_t p) -> bool
 	{
-		// хз без этого иногда мусор ловит
+		// no idea, without this it sometimes picks up garbage
 		return p >= 0x10000 && p <= 0x00007FFFFFFFFFFF;
 	};
 
@@ -204,7 +204,7 @@ inline bool set_xz_pos(std::uint64_t prim, float x, float z)
 
 	else
 	{
-		// иногда Properties не указатель а инлайн
+		// sometimes Properties is not a pointer but inline
 		ok |= write_xz(
 			prim + Offsets::Primitive::Properties + Offsets::Primitive::PropertyPosition,
 			x,

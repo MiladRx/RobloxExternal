@@ -17,7 +17,7 @@ namespace Cheat {
 			const auto& w = Cheat::g_Settings.world;
 			bool dirty = false;
 
-			// чисто тени
+			// shadows only
 			if (w.no_shadow)
 			{
 				if (!s_on)

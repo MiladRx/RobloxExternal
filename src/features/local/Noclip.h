@@ -10,7 +10,7 @@ namespace Cheat {
 namespace Features {
 namespace Noclip {
 
-// просто вырубаем collide на частях
+// just disable collide on parts
 inline void Apply(std::uint64_t character, bool enabled)
 {
 	if (!enabled || !g_Memory.IsValid(character))

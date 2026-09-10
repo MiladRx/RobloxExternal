@@ -54,7 +54,7 @@ static bool CompileShader(const char* src, const char* entry, const char* profil
     ID3DBlob* err = nullptr;
     HRESULT hr = D3DCompile(src, strlen(src), nullptr, nullptr, nullptr,
                             entry, profile, D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, out, &err);
-    if (err) err->Release(); // ошибки нам пофиг, SUCCEEDED хватит
+    if (err) err->Release(); // we don't care about errors, SUCCEEDED is enough
     return SUCCEEDED(hr);
 }
 

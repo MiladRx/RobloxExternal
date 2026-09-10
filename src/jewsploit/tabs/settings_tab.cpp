@@ -133,7 +133,7 @@ void ng_tabs::draw_settings_tab(int* menu_kb, bool* kb_skip)
 		if (a < 0.f) a = 0.f;
 		if (a > 1.f) a = 1.f;
 		col::live().window[3] = a;
-		// чайлды стекляннее окна а то бетон
+		// children more glassy than the window, otherwise concrete
 		col::live().child[3] = a * 0.52f;
 		float ca = a * 0.88f;
 		if (ca > 1.f) ca = 1.f;

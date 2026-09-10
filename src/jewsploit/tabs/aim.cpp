@@ -13,7 +13,7 @@ void ng_tabs::draw_aim_tab()
 {
 	using namespace Cheat;
 
-	// левый child всегда mouse/camera, не silent
+	// left child is always mouse/camera, not silent
 	Settings::AimbotConfig& cfg =
 		(g_Settings.aim.type == 1) ? g_Settings.aim.camera : g_Settings.aim.mouse;
 	Settings::AimbotConfig& scfg = g_Settings.aim.silent;
@@ -151,7 +151,7 @@ void ng_tabs::draw_aim_tab()
 
 		if (pf_aim)
 		{
-			// обычные silent'ы в PF не работают — слот под кастом позже
+			// regular silents don't work in PF — slot for a custom one later
 			g_Settings.aim.silent_method = Settings::SILENT_PHANTOM;
 			static const char* k_silent_pf[] = { "phantom forces" };
 			int pf_idx = 0;

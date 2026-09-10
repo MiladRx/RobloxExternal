@@ -59,7 +59,7 @@ Palette AimPalette()
 	};
 }
 
-// цвета/аним под каждый стиль
+// colors/anims for each style
 StyleDef DefFor(int style)
 {
 	switch (style)

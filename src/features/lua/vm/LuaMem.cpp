@@ -34,7 +34,7 @@ bool Plausible(std::uint64_t a)
 	return a >= 0x10000 && a < 0x7FFFFFFFFFFFull;
 }
 
-// адрес берём либо числом, либо из userdata инстанса
+// we take the address either as a number or from an instance userdata
 std::uint64_t Addr(lua_State* L, int idx)
 {
 	if (lua_isnumber(L, idx))
@@ -122,7 +122,7 @@ int l_readcstr(lua_State* L)
 	return 1;
 }
 
-// std::string, а не сырой char*: короткие строки лежат в самом объекте
+// std::string, not a raw char*: short strings live inside the object itself
 int l_readstdstr(lua_State* L)
 {
 	const auto a = Addr(L, 1);
@@ -147,9 +147,9 @@ int l_writestdstr(lua_State* L)
 	return 1;
 }
 
-// Content держит разобранную схему ссылки в кеше рядом со строкой,
-// поэтому после подмены текста его надо сбросить, иначе движок
-// продолжит искать ассет по старой схеме
+// Content keeps the parsed link scheme in a cache next to the string,
+// so after swapping the text it must be reset, otherwise the engine
+// will keep looking for the asset using the old scheme
 int l_writecontent(lua_State* L)
 {
 	const auto a = Addr(L, 1);
@@ -161,7 +161,7 @@ int l_writecontent(lua_State* L)
 	return 1;
 }
 
-// вызов произвольной функции движка на его собственном потоке
+// call an arbitrary engine function on its own thread
 int l_gatecall(lua_State* L)
 {
 	const auto fn = (std::uint64_t)luaL_checkinteger(L, 1);
@@ -271,7 +271,7 @@ int l_classdesc(lua_State* L)
 	return 1;
 }
 
-// ищет qword needle в [addr, addr+span) и возвращает список смещений
+// searches for the qword needle in [addr, addr+span) and returns a list of offsets
 int l_scanptr(lua_State* L)
 {
 	const auto a = Addr(L, 1);

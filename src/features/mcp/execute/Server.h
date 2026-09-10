@@ -35,7 +35,7 @@ inline void HandleClient(SOCKET client)
 	}
 	buf[got] = 0;
 
-	// только GET /path?q HTTP/1.1, остальное пофиг
+	// only GET /path?q HTTP/1.1, ignore the rest
 	std::string req(buf, buf + got);
 	if (req.rfind("GET ", 0) != 0)
 	{
@@ -146,7 +146,7 @@ inline void Loop()
 		g_listen = listen_sock;
 	}
 
-	// select с таймаутом, иначе Stop висит
+	// select with timeout, otherwise Stop hangs
 	while (g_run.load(std::memory_order_relaxed))
 	{
 		fd_set fds;

@@ -138,7 +138,7 @@ TextEditor::Coordinates TextEditor::SanitizeCoordinates(const Coordinates & aVal
 	}
 }
 
-// длина utf8 символа по ведущему байту
+// utf8 character length from the leading byte
 static int UTF8CharLength(TextEditor::Char c)
 {
 	if ((c & 0xFE) == 0xFC)
@@ -154,7 +154,7 @@ static int UTF8CharLength(TextEditor::Char c)
 	return 1;
 }
 
-// сперто из imgui
+// borrowed from imgui
 static inline int ImTextCharToUtf8(char* buf, int buf_size, unsigned int c)
 {
 	if (c < 0x80)
@@ -260,7 +260,7 @@ int TextEditor::InsertTextAt(Coordinates& /* inout */ aWhere, const char * aValu
 
 		if (*aValue == '\r')
 		{
-			++aValue; // \r нам не нужен
+			++aValue; // we don't need \r
 		}
 		else if (*aValue == '\n')
 		{
@@ -826,7 +826,7 @@ void TextEditor::Render()
 	const float fontSize = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), FLT_MAX, -1.0f, "#", nullptr, nullptr).x;
 	mCharAdvance = ImVec2(fontSize, ImGui::GetTextLineHeightWithSpacing() * mLineSpacing);
 
-	// альфа из стиля на палитру
+	// apply style alpha to the palette
 	for (int i = 0; i < (int)PaletteIndex::Max; ++i)
 	{
 		auto color = ImGui::ColorConvertU32ToFloat4(mPaletteBase[i]);
@@ -1121,7 +1121,7 @@ void TextEditor::SetText(const std::string & aText)
 	{
 		if (chr == '\r')
 		{
-			// \r мимо
+			// skip \r
 		}
 		else if (chr == '\n')
 			mLines.emplace_back(Line());
@@ -2167,7 +2167,7 @@ void TextEditor::ColorizeRange(int aFromLine, int aToLine)
 				{
 					id.assign(token_begin, token_end);
 
-					// кейс-инсенс — тупо в upper, так и было
+					// case-insensitive — just uppercase it, as it always was
 					if (!mLanguageDefinition.mCaseSensitive)
 						std::transform(id.begin(), id.end(), id.begin(), ::toupper);
 
@@ -2485,7 +2485,7 @@ static bool TokenizeCStyleString(const char * in_begin, const char * in_end, con
 				return true;
 			}
 
-			// экранированная кавычка
+			// escaped quote
 			if (*p == '\\' && p + 1 < in_end && p[1] == '"')
 				p++;
 
@@ -2621,7 +2621,7 @@ static bool TokenizeCStyleNumber(const char * in_begin, const char * in_end, con
 
 	if (isFloat == false)
 	{
-		// u/U/l/L суффиксы
+		// u/U/l/L suffixes
 		while (p < in_end && (*p == 'u' || *p == 'U' || *p == 'l' || *p == 'L'))
 			p++;
 	}

@@ -1,6 +1,6 @@
 #pragma once
 
-// поиск по дереву — после ExplorerTree.h (g_root_addr)
+// tree search — after ExplorerTree.h (g_root_addr)
 
 struct SearchResult {
     std::uint64_t address = 0;
@@ -35,7 +35,7 @@ void RunSearch(std::string query, std::uint64_t root_addr, std::uint32_t gen)
 	std::vector<Frame> stack;
 	stack.push_back({ root_addr, "game" });
 
-	// 400k нод / 1k результатов а то вечность
+	// 400k nodes / 1k results or else it takes forever
 	int budget = 400000;
 	while (!stack.empty())
 	{

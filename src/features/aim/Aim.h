@@ -6,7 +6,7 @@ namespace Cheat {
     namespace Features {
         class Aim {
         public:
-            // тик аима, ветки методов внутри
+            // aim tick, method branches inside
             static void Render();
 
             static std::uint64_t CurrentTarget();

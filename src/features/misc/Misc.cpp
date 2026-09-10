@@ -72,7 +72,7 @@ std::uint64_t local_chara()
 	return chara;
 }
 
-// раз в ~400мс подтягиваем локала / лайтинг
+// refresh local player / lighting about every 400ms
 void refresh_cache()
 {
 	std::uint64_t now = GetTickCount64();
@@ -142,7 +142,7 @@ bool cam_basis(Vector3& fwd, Vector3& right, Vector3& up)
 	return true;
 }
 
-// фрикамера через CameraOffset (костыль, но живёт)
+// freecam via CameraOffset (a hack, but it works)
 void freecam_tick(float dt)
 {
 	static bool s_active = false;
@@ -261,7 +261,7 @@ void freecam_tick(float dt)
 
 }
 
-// fps / fov / jump / freecam / мир
+// fps / fov / jump / freecam / world
 void Cheat::Features::Misc::Tick(float dt)
 {
 	if (!Cheat::Globals::InstanceDataModel.address)
@@ -290,7 +290,7 @@ void Cheat::Features::Misc::Tick(float dt)
 				{
 					double cur = g_Memory.Read<double>(
 						sched + Offsets::TaskScheduler::MaxFPS);
-					// иногда delay иногда fps, угадываем по диапазону
+					// sometimes delay, sometimes fps — guess by range
 					if (cur > 0.0 && cur <= 1.0)
 					{
 						s_sched = sched;

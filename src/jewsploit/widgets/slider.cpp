@@ -18,7 +18,7 @@ namespace
 		return ImGui::ColorConvertFloat4ToU32(v);
 	}
 
-	// без грубого snap как в approach — слайдеру он палит дёрганье
+	// without the harsh snap as in approach — for the slider it exposes jitter
 	float glide(float cur, float tgt, float spd, float dt)
 	{
 		float d = tgt - cur;
@@ -110,7 +110,7 @@ bool ng::slider(const char* id, float* v, float mn, float mx, bool shown)
 		return false;
 	}
 
-	// толстый pill, сверху общий item_gap
+	// thick pill, common item_gap on top
 	float track_h = 16.f;
 	float grab_r = 9.f;
 	float row_h = 24.f;
@@ -164,7 +164,7 @@ bool ng::slider(const char* id, float* v, float mn, float mx, bool shown)
 	if (want_t < 0.f) want_t = 0.f;
 	if (want_t > 1.f) want_t = 1.f;
 
-	// за мышкой чуть быстрее, отпустил — мягко доезжает
+	// slightly faster when following the mouse, on release it eases to the end
 	float spd = active ? 28.f : 14.f;
 	float t = st->GetFloat(tid, want_t);
 	t = glide(t, want_t, spd, io.DeltaTime);

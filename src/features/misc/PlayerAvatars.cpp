@@ -315,7 +315,7 @@ namespace {
 		std::size_t pos = json.find(key);
 		if (pos == std::string::npos)
 		{
-			// пробелы в json иногда
+			// sometimes spaces in json
 			std::snprintf(key, sizeof(key), "\"targetId\": %lld", (long long)uid);
 			pos = json.find(key);
 		}
@@ -347,7 +347,7 @@ namespace {
 		}
 
 		std::string url = json.substr(a, b - a);
-		// \/ в json
+		// \/ in json
 		for (std::size_t i = 0; i + 1 < url.size();)
 		{
 			if (url[i] == '\\' && url[i + 1] == '/')
@@ -482,7 +482,7 @@ namespace {
 		g_alive.fetch_sub(1);
 	}
 
-	// жрём очередь пачкой тредов
+	// drain the queue with a batch of threads
 	void KickWorkers()
 	{
 		for (;;)

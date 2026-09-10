@@ -29,7 +29,7 @@ float3x3 identity_rotation()
     return r;
 }
 
-// луч vs obb (сначала сфера, дешёвый отсев)
+// ray vs obb (sphere first, cheap cull)
 bool ray_intersects_obb(const Vector3& origin, const Vector3& dir,
                         const occluder_part& part, float max_distance, float* out_hit)
 {

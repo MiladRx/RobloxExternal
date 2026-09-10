@@ -25,22 +25,22 @@ namespace PhantomForces {
 namespace {
 
 /*
- * PF live (place 292439477) — что нашли через MCP:
+ * PF live (place 292439477) — what we found via MCP:
  *
- * - Имена сервисов DataModel зашифрованы (Players/Teams и т.д. ищем по ClassName).
- * - Workspace.Players (Folder, имя "Players" стабильно) содержит РОВНО 2 team-folder.
- *   Имена папок ("Bright blue"/"Bright orange") теперь рандом — нельзя матчить по Name.
- * - Внутри team-folder: Model на каждого живого.
- * - Логика как в roblox-ext/cache.cpp (pf_mode):
- *     Head  = Part с BillboardGui (+ TextLabel = имя)
- *     Torso = Part с SpotLight
- *     Limbs = остальные Part; L/R по local_x/local_y относительно Torso
- *   Size у парт часто ~0 → ESP подставляет R6 sizes.
- * - Teamcheck (точный):
- *     BillboardGui/TextLabel.TextColor3 ≈ (255,10,20) = враг (как fragment/PF nametag).
- *     Своя папка = где теги НЕ вражеские; + сверка имён с лидербордом.
- *     Ближайшая к камере — НЕ используем (переворачивает тимчек у стены).
- * - PlaceId 292439477 — автоматически.
+ * - DataModel service names are encrypted (Players/Teams etc. are found by ClassName).
+ * - Workspace.Players (Folder, the name "Players" is stable) contains EXACTLY 2 team-folders.
+ *   Folder names ("Bright blue"/"Bright orange") are now random — cannot match by Name.
+ * - Inside a team-folder: a Model for each alive player.
+ * - Logic as in roblox-ext/cache.cpp (pf_mode):
+ *     Head  = Part with BillboardGui (+ TextLabel = name)
+ *     Torso = Part with SpotLight
+ *     Limbs = the remaining Parts; L/R by local_x/local_y relative to Torso
+ *   Part Size is often ~0 → ESP substitutes R6 sizes.
+ * - Teamcheck (precise):
+ *     BillboardGui/TextLabel.TextColor3 ≈ (255,10,20) = enemy (like fragment/PF nametag).
+ *     Own folder = where tags are NOT enemy; + name matching with the leaderboard.
+ *     Nearest to camera — we do NOT use it (flips the teamcheck at a wall).
+ * - PlaceId 292439477 — automatic.
  */
 
 struct PartInfo {
@@ -199,7 +199,7 @@ bool ReadModelBillboardColor(const Instance& model, Color3& out)
     return true;
 }
 
-// PF enemy nametag ≈ RGB(255, 10, 20); тиммейты — cyan
+// PF enemy nametag ≈ RGB(255, 10, 20); teammates — cyan
 bool IsEnemyLabelColor(const Color3& c)
 {
     const int r = (int)(c.r * 255.f + 0.5f);
@@ -229,12 +229,12 @@ int ScoreFolderEnemy(std::uint64_t folder)
     return enemy - friendly;
 }
 
-// как roblox-ext: Head=BillboardGui, Torso=SpotLight, limbs по local x/y
+// like roblox-ext: Head=BillboardGui, Torso=SpotLight, limbs by local x/y
 bool PopulateCharacter(std::uint64_t model, PlayerCache& cache)
 {
     std::vector<std::uint64_t> all_parts;
     for (const auto& child : Instance(model).GetChildren()) {
-        // в roblox-ext только Part (не MeshPart)
+        // in roblox-ext only Part (not MeshPart)
         if (child.GetClassName() == "Part")
             all_parts.push_back(child.address);
     }
@@ -281,7 +281,7 @@ bool PopulateCharacter(std::uint64_t model, PlayerCache& cache)
         cache.head = MakePart(head_part);
     if (torso_part) {
         cache.upperTorso = MakePart(torso_part);
-        // отдельный shared_ptr — ESP is_hrp не должен скипать torso в chams
+        // separate shared_ptr — ESP is_hrp should not skip torso in chams
         cache.humanoidRootPart = MakePart(torso_part);
     }
 
@@ -289,7 +289,7 @@ bool PopulateCharacter(std::uint64_t model, PlayerCache& cache)
         BasePart torso_bp(torso_part);
         const Vector3 torso_pos = torso_bp.GetPosition();
         const Matrix4x4 rot = torso_bp.GetRotation();
-        // как matrix3 в roblox-ext: right=col0, up=col1
+        // like matrix3 in roblox-ext: right=col0, up=col1
         const float rx = rot.m[0][0], ry_r = rot.m[1][0], rz_r = rot.m[2][0];
         const float ux = rot.m[0][1], uy = rot.m[1][1], uz = rot.m[2][1];
 
@@ -375,7 +375,7 @@ Color3 SampleFolderColor(std::uint64_t folder)
     return Color3(sum.r / n, sum.g / n, sum.b / n);
 }
 
-// мин. дистанция цвета папки до ref (для Team Color при камуфляже)
+// min distance from folder color to ref (for Team Color with camouflage)
 float FolderColorDist2(std::uint64_t folder, const Color3& ref)
 {
     float best = 1e9f;
@@ -545,7 +545,7 @@ std::unordered_map<std::uint64_t, std::string> BuildModelToPlayerName()
             p.address + Offsets::Player::ModelInstance);
         if (!g_Memory.IsValid(model))
             continue;
-        // только живые под Workspace.Players (не труп в Ignore)
+        // only alive under Workspace.Players (not a corpse in Ignore)
         if (g_Memory.IsValid(ws_players) &&
             !ModelUnderWorkspacePlayers(model, ws_players))
             continue;
@@ -567,7 +567,7 @@ Vector3 CameraPos()
     return g_Memory.Read<Vector3>(cam + Offsets::Camera::Position);
 }
 
-// sticky side (лидерборд / Team Color) + team folder как в roblox-ext
+// sticky side (leaderboard / Team Color) + team folder like in roblox-ext
 static TeamSide g_sticky_side = SideUnknown;
 static std::uint64_t g_sticky_team_folder = 0;
 static std::uint64_t g_sticky_t0 = 0;
@@ -623,7 +623,7 @@ std::uint64_t ResolveTeamFolderForSide(TeamSide side, std::uint64_t ws_players)
     if (g_Memory.IsValid(opposite) && n == 2)
         return (opposite == folders[0]) ? folders[1] : folders[0];
 
-    // ближе к FP Team Color = наша папка (даже при камуфляже)
+    // closest to FP Team Color = our folder (even when camouflaged)
     if (n == 2 && g_Memory.IsValid(closest_local) && best_d < 1e8f) {
         const TeamSide local_from_col = SideFromColor(local_col);
         if (local_from_col == side || local_from_col == SideUnknown)
@@ -693,7 +693,7 @@ std::uint64_t LocalCharacter()
     const std::uint64_t ws_players = FindWorkspacePlayersFolder();
     const std::uint64_t lp = LocalPlayerAddr();
 
-    // только ModelInstance под Workspace.Players (не труп в Ignore)
+    // only ModelInstance under Workspace.Players (not a corpse in Ignore)
     if (g_Memory.IsValid(lp)) {
         const std::uint64_t mi = g_Memory.Read<std::uint64_t>(
             lp + Offsets::Player::ModelInstance);
@@ -701,7 +701,7 @@ std::uint64_t LocalCharacter()
             return mi;
     }
 
-    // узкий fallback только чтобы не рисовать себя — НЕ для team folder
+    // narrow fallback only so we don't draw ourselves — NOT for team folder
     if (!g_Memory.IsValid(ws_players))
         return 0;
 
@@ -805,7 +805,7 @@ std::uint64_t LocalTeamFolder()
         g_sticky_team_folder = 0;
     }
 
-    // 1) TextLabel.TextColor: враг ≈ (255,10,20), своя папка = НЕ вражеская
+    // 1) TextLabel.TextColor: enemy ≈ (255,10,20), own folder = NOT enemy
     if (n == 2) {
         const int s0 = ScoreFolderEnemy(folders[0]);
         const int s1 = ScoreFolderEnemy(folders[1]);
@@ -825,7 +825,7 @@ std::uint64_t LocalTeamFolder()
         }
     }
 
-    // 2) лидерборд: имена с билбордов ↔ Phantom/Ghost board
+    // 2) leaderboard: names from billboards ↔ Phantom/Ghost board
     const std::uint64_t lp = LocalPlayerAddr();
     std::string local_name;
     if (g_Memory.IsValid(lp))
@@ -839,7 +839,7 @@ std::uint64_t LocalTeamFolder()
         }
     }
 
-    // 3) ModelInstance под Workspace.Players
+    // 3) ModelInstance under Workspace.Players
     if (g_Memory.IsValid(lp)) {
         const std::uint64_t mi = g_Memory.Read<std::uint64_t>(
             lp + Offsets::Player::ModelInstance);
@@ -852,7 +852,7 @@ std::uint64_t LocalTeamFolder()
         }
     }
 
-    // 4) Team Color → папка
+    // 4) Team Color → folder
     if (lb.local_side != SideUnknown || LocalSide() != SideUnknown) {
         const TeamSide side = (lb.local_side != SideUnknown) ? lb.local_side : LocalSide();
         const std::uint64_t folder = ResolveTeamFolderForSide(side, ws_players);
@@ -862,7 +862,7 @@ std::uint64_t LocalTeamFolder()
         }
     }
 
-    // 5) sticky (не nearest-to-cam — он переворачивал тимчек)
+    // 5) sticky (not nearest-to-cam — it flipped the teamcheck)
     if (g_Memory.IsValid(g_sticky_team_folder)) {
         auto p = Instance(g_sticky_team_folder).GetParent();
         if (p && p->address == ws_players)
@@ -901,7 +901,7 @@ void MergePlayers(std::unordered_map<std::uint64_t, PlayerCache>& target)
     const std::uint64_t local_char = LocalCharacter();
     const std::uint64_t local_team = LocalTeamFolder();
 
-    // имена с доски по стороне, ещё не занятые ModelInstance
+    // names from the board by side, not yet taken by ModelInstance
     std::unordered_set<std::string> used_names;
     for (const auto& [m, n] : model_to_name)
         used_names.insert(n);
@@ -919,7 +919,7 @@ void MergePlayers(std::unordered_map<std::uint64_t, PlayerCache>& target)
         return {};
     };
 
-    // разметить folder → side
+    // mark folder → side
     std::unordered_map<std::uint64_t, TeamSide> folder_side;
     Color3 local_col = FindLocalTeamColorPart();
     for (const auto& folder : Instance(ws_players).GetChildren()) {
@@ -930,9 +930,9 @@ void MergePlayers(std::unordered_map<std::uint64_t, PlayerCache>& target)
         if (side == SideUnknown && local_team == folder.address)
             side = lb.local_side;
         if (side == SideUnknown && local_col.r + local_col.g + local_col.b > 0.01f) {
-            // если цвет папки ближе к локальному Team Color — наша сторона
-            // иначе противоположная
-            // (второй папке назначим позже)
+            // if the folder color is closer to the local Team Color — our side
+            // otherwise the opposite
+            // (we'll assign the second folder later)
             side = SideFromColor(local_col);
             if (folder.address != local_team && side != SideUnknown)
                 side = (side == SidePhantom) ? SideGhost : SidePhantom;
@@ -940,7 +940,7 @@ void MergePlayers(std::unordered_map<std::uint64_t, PlayerCache>& target)
         folder_side[folder.address] = side;
     }
 
-    // если обе unknown — по local_team + lb
+    // if both unknown — by local_team + lb
     if (g_Memory.IsValid(local_team) && lb.local_side != SideUnknown) {
         folder_side[local_team] = lb.local_side;
         for (auto& [fa, s] : folder_side) {
@@ -971,7 +971,7 @@ void MergePlayers(std::unordered_map<std::uint64_t, PlayerCache>& target)
             if (!PopulateCharacter(model.address, cache))
                 continue;
 
-            // имя: Billboard TextLabel → ModelInstance → лидерборд
+            // name: Billboard TextLabel → ModelInstance → leaderboard
             if (cache.name.empty() || cache.name == Instance(model.address).GetName()) {
                 auto it = model_to_name.find(model.address);
                 if (it != model_to_name.end()) {
@@ -991,7 +991,7 @@ void MergePlayers(std::unordered_map<std::uint64_t, PlayerCache>& target)
                 continue;
             used_names.insert(cache.name);
 
-            // ключ = адрес модели (у PF нет нормального Player→Character)
+            // key = model address (PF has no proper Player→Character)
             target[model.address] = std::move(cache);
         }
     }

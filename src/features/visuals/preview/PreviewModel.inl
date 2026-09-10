@@ -66,7 +66,7 @@ void PreviewRenderer::BuildR6SkeletonFromParts()
     const float h = (std::max)(0.01f, by1 - by0);
     const float w = (std::max)(0.01f, bx1 - bx0);
 
-    // эвристика по aabb, голова/руки/ноги
+    // heuristic by aabb, head/arms/legs
     const ModelPartAABB* torso = nullptr;
     const ModelPartAABB* lArm = nullptr;
     const ModelPartAABB* rArm = nullptr;
@@ -81,7 +81,7 @@ void PreviewRenderer::BuildR6SkeletonFromParts()
         const float psx = p.max[0] - p.min[0];
 
         if (pcy > by0 + h * 0.82f && psy < h * 0.45f)
-            continue; // голову в скелет не кладём
+            continue; // don't put the head in the skeleton
         if (pcy < by0 + h * 0.45f) {
             if (pcx < cx) lLeg = &p; else rLeg = &p;
             continue;
@@ -118,7 +118,7 @@ void PreviewRenderer::BuildR6SkeletonFromParts()
         o[2] = a[2] + (b[2] - a[2]) * t;
     };
 
-    // чуть ниже верха торса
+    // slightly below the top of the torso
     float shoulder_drop = 0.18f;
 
     if (!torso) return;
@@ -164,7 +164,7 @@ bool PreviewRenderer::ApplyLoadedModel(LoadedModel& model)
     unsigned int total = 0;
     if (!UploadVerts(m_Device, combined, &m_VB, total)) return false;
     if (m_BodyVertCount == 0 && m_WingVertCount > 0) {
-        m_BodyVertCount = 0; // только крылья, ок
+        m_BodyVertCount = 0; // wings only, ok
     }
 
     m_ModelScale = model.scale;

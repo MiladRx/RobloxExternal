@@ -87,7 +87,7 @@ inline Instance ResolveTarget(const std::string& query)
 	if (!path.empty())
 		return ResolvePath(root, path);
 
-	// по дефолту workspace, иначе dm
+	// defaults to workspace, otherwise dm
 	if (Globals::Workspace && g_Memory.IsValid(Globals::Workspace->address))
 		return Instance(Globals::Workspace->address);
 
@@ -185,7 +185,7 @@ inline std::string HandleChildren(const std::string& query)
 inline void SearchRecurse(const Instance& node, const std::string& needle_lower,
                    std::vector<Instance>& out, int depth)
 {
-	// depth 8 / 80 hits дальше нет смысла
+	// depth 8 / 80 hits, further makes no sense
 	if (depth > 8 || (int)out.size() >= 80)
 		return;
 
@@ -280,7 +280,7 @@ inline std::string HandlePath(const std::string& query)
 	if (!g_Memory.IsValid(target.address))
 		return "{\"error\":\"not_found\"}";
 
-	// вверх по parent до dm
+	// walk up parents to dm
 	std::vector<std::string> parts;
 	Instance cur = target;
 	for (int guard = 0; guard < 64 && g_Memory.IsValid(cur.address); ++guard)

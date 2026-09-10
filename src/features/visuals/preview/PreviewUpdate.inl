@@ -17,7 +17,7 @@ void PreviewRenderer::AddZoom(float delta)
 
 float PreviewRenderer::WingAlpha() const
 {
-	// fade in, hold, out, пауза
+	// fade in, hold, out, pause
 	float fade_in = 1.15f;
 	float hold = 1.60f;
 	float fade_out = 1.15f;

@@ -97,7 +97,7 @@ inline void ReadWorld(const KV& kv, Settings& s)
 	GetFloat(kv, "world.light_dir_y", s.world.light_dir[1]);
 	GetFloat(kv, "world.light_dir_z", s.world.light_dir[2]);
 
-	// старый time_manual: если был manual — поднимем отдельные тогглы
+	// old time_manual: if it was manual — raise the separate toggles
 	bool old_manual = false;
 	GetBool(kv, "world.time_manual", old_manual);
 	if (old_manual && s.world.time_changer)

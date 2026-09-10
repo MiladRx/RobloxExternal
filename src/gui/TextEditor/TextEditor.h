@@ -58,7 +58,7 @@ public:
 		{}
 	};
 
-	// экранные координаты (табы считаются как пробелы до стопа)
+	// screen coordinates (tabs count as spaces up to the tab stop)
 	struct Coordinates
 	{
 		int mLine, mColumn;
@@ -352,7 +352,7 @@ private:
 	bool mScrollToTop;
 	bool mTextChanged;
 	bool mColorizerEnabled;
-	float mTextStart; // отступ текста слева
+	float mTextStart; // left text margin
 	int  mLeftMargin;
 	bool mCursorPositionChanged;
 	int mColorRangeMin, mColorRangeMax;

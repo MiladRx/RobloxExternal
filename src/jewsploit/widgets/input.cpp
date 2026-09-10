@@ -10,7 +10,7 @@ bool ng::input(const char* id, char* buf, int buf_n)
 		return false;
 	}
 
-	// справа от бокса как у select, внутри текста ~12
+	// on the right of the box like in select, inside text ~12
 	float pad_r = 12.f;
 	float pad_x = 12.f;
 	float avail = ImGui::GetContentRegionAvail().x;

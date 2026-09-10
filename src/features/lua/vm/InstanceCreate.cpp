@@ -18,8 +18,8 @@ namespace {
 
 int g_last_fail = 0;
 
-// isCreatable читает дескриптор своего класса, а не this, так что
-// снаружи флаг не достать — зато ответ не меняется, кешируем
+// isCreatable reads its class descriptor, not this, so
+// the flag can't be obtained from outside — but the answer doesn't change, so we cache it
 std::unordered_map<std::string, bool> g_creatable;
 std::uintptr_t g_creatable_base = 0;
 
@@ -30,8 +30,8 @@ int LastFail()
 	return g_last_fail;
 }
 
-// вся резолвка — чтения, но create обязан идти на потоке движка:
-// внутри учётный аллокатор и flyweight-таблица имён под мьютексом
+// all the resolution is reads, but create must run on the engine thread:
+// inside there's a tracking allocator and a flyweight name table under a mutex
 bool New(const char* className, std::uint64_t parent, std::uint64_t* out_addr)
 {
 	if (out_addr)
@@ -88,7 +88,7 @@ bool New(const char* className, std::uint64_t parent, std::uint64_t* out_addr)
 		return false;
 	}
 
-	// сервисы и абстрактные классы создавать нельзя — движок бросит
+	// services and abstract classes can't be created — the engine will throw
 	if (g_creatable_base != base)
 	{
 		g_creatable.clear();
@@ -144,7 +144,7 @@ bool New(const char* className, std::uint64_t parent, std::uint64_t* out_addr)
 	return true;
 }
 
-// msvc std::string: 16 байт данных либо указателя, потом длина и ёмкость
+// msvc std::string: 16 bytes of data or pointer, then length and capacity
 bool SetString(std::uint64_t field, const char* text)
 {
 	if (!field || !g_Memory.IsValid(field) || !text)
@@ -166,9 +166,9 @@ bool SetString(std::uint64_t field, const char* text)
 		return true;
 	}
 
-	// аллокатор движка через гейт роняет игру (Alloc::Malloc в дампе битый),
-	// поэтому берём свою страницу в процессе. строку движок только читает,
-	// а перезапись идёт сырым memcpy без free — указатель не освобождается.
+	// the engine allocator through the gate crashes the game (Alloc::Malloc is broken in the dump),
+	// so we take our own page in the process. the engine only reads the string,
+	// and the overwrite uses a raw memcpy without free — the pointer is never freed.
 	const std::uintptr_t ptr = g_Memory.Alloc(len + 1, PAGE_READWRITE);
 	Console::Log(Console::Color::Gray, "IC alloc len=%llu -> %llx",
 		(unsigned long long)len, (unsigned long long)ptr);
@@ -186,10 +186,10 @@ bool SetString(std::uint64_t field, const char* text)
 	return true;
 }
 
-// Content = { int32 kind; int16 scheme; std::string uri }, строка на +0x10.
-// схема ссылки кешируется в младших 4 битах и при ненулевом значении
-// движок разбирать строку заново не станет — обнуляем, иначе новый
-// rbxassetid:// будет искаться как старый rbxasset://
+// Content = { int32 kind; int16 scheme; std::string uri }, string at +0x10.
+// the link scheme is cached in the low 4 bits and, if non-zero,
+// the engine won't re-parse the string — we zero it, otherwise the new
+// rbxassetid:// would be looked up as the old rbxasset://
 bool SetContent(std::uint64_t string_field, const char* text)
 {
 	if (!SetString(string_field, text))
@@ -209,15 +209,15 @@ bool SetParent(std::uint64_t inst, std::uint64_t parent)
 		return false;
 	}
 
-	// parent=0 = unparent ок
+	// parent=0 = unparent ok
 	if (parent != 0 && !g_Memory.IsValid(parent))
 	{
 		g_last_fail = 2;
 		return false;
 	}
 
-	// гейт отключён: движковый репарент (SetParentInternal) требует 5-й
-	// стековый аргумент, которого гейт не умеет класть. правим детей снаружи.
+	// the gate is disabled: the engine's reparent (SetParentInternal) requires a 5th
+	// stack argument that the gate can't place. we fix the children externally.
 	const bool ok = Instance(inst).SetParent(parent);
 	g_last_fail = ok ? 0 : 3;
 	return ok;

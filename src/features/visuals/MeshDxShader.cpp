@@ -60,7 +60,7 @@ struct PSIn
     float3 wpos   : TEXCOORD0;
     float3 normal : NORMAL;
     float2 uv     : TEXCOORD1;
-    float3 lpos   : TEXCOORD2; // mesh local — аним не едет при ходьбе
+    float3 lpos   : TEXCOORD2; // mesh local — animation doesn't drift while walking
 };
 
 PSIn vs_main(VSIn i)
@@ -74,7 +74,7 @@ PSIn vs_main(VSIn i)
 
     o.wpos = wp.xyz;
     o.lpos = i.pos;
-    // non-uniform scale ломает обычный mul — для chams хватает face-normal из экрана
+    // non-uniform scale breaks regular mul — for chams a face-normal from the screen is enough
     o.normal = mul((float3x3)world, i.normal);
     o.uv = i.uv;
     return o;
@@ -88,7 +88,7 @@ float4 ps_depth(PSIn i) : SV_TARGET
 float4 ps_main(PSIn i) : SV_TARGET
 {
     float3 V = normalize(camera - i.wpos);
-    // всегда face normal из производных — двусторонний, без дыр от clip/кривых normal после scale
+    // always face normal from derivatives — two-sided, without holes from clip/bent normals after scale
     float3 dn = cross(ddy(i.wpos), ddx(i.wpos));
     float3 face_n = normalize(dn);
     if (dot(face_n, V) < 0.0)
@@ -120,7 +120,7 @@ float4 ps_main(PSIn i) : SV_TARGET
         float w3 = world_depth.Load(int3(sp + int2(0, 1), 0));
         float w4 = world_depth.Load(int3(sp + int2(0, -1), 0));
         float world_d = max(w0, max(w1, max(w2, max(w3, w4))));
-        // dist-depth: больше = дальше; стена ближе → occluded
+        // dist-depth: larger = farther; wall closer → occluded
         if (cham_d > world_d + 0.0006)
         {
             bc = occluded_color;
@@ -179,12 +179,12 @@ float4 ps_main(PSIn i) : SV_TARGET
     else if (m == 6) // fade — soft multi-color blend
     {
         float t = time * 0.45;
-        // крупные мягкие волны по телу (без frac-тайлинга → нет швов)
+        // large soft waves across the body (no frac tiling → no seams)
         float3 p = i.lpos * 0.07;
         float n1 = sin(p.x * 1.3 + p.y * 0.9 + t);
         float n2 = sin(p.y * 1.1 - p.z * 1.0 + t * 0.85 + 2.1);
         float n3 = sin(p.z * 1.2 + p.x * 0.8 - t * 0.7 + 4.2);
-        // domain warp — плавнее пятна
+        // domain warp — smoother spots
         float w = sin(n1 * 1.4 + n2) * 0.55;
         float u = saturate(0.5 + 0.5 * (n1 + w));
         float v = saturate(0.5 + 0.5 * (n2 - w * 0.6));
@@ -239,7 +239,7 @@ float4 ps_main(PSIn i) : SV_TARGET
     {
         float3 p = i.lpos * 0.9;
         float t = time;
-        // бегущие волны по поверхности
+        // traveling waves across the surface
         float wA = sin(p.x * 3.4 + p.y * 2.1 - t * 2.4);
         float wB = cos(p.y * 3.8 + p.z * 2.6 + t * 1.9);
         float wC = sin(dot(p, float3(2.2, 1.6, 2.8)) + t * 2.8);
@@ -256,21 +256,21 @@ float4 ps_main(PSIn i) : SV_TARGET
         metal = lerp(metal, hi, pow(ndh, 36.0) * 0.95 + pow(saturate(ndv), 8.0) * 0.4);
         metal += streak * hi * 0.55;
         metal += iri * fres * (0.18 + ripple * 0.28);
-        // искажённый fake-env — «жидкость»
+        // distorted fake-env — "liquid"
         float3 envW = pow(saturate(N * 0.5 + 0.5 + float3(flow, -flow, ripple) * 0.08), 1.2);
         metal += envW * 0.22 * (0.5 + ripple * 0.5);
         result.rgb = saturate(metal);
         result.a   = 1.0;
     })HLSL"
 R"HLSL(
-    else if (m == 11) // soft glass — тоньше glass, fill
+    else if (m == 11) // soft glass — thinner than glass, fill
     {
         float f = saturate(fres * 1.2 + 0.05);
         float3 tint = lerp(bc.rgb * 0.55, float3(0.78, 0.88, 1.0), 0.4);
         result.rgb = lerp(tint, saturate(bc.rgb + 0.25), f * 0.85) + pow(ndh, 90.0) * 0.35;
         result.a   = saturate(0.12 + f * 0.48) * max(bc.a, 0.25);
     }
-    else if (m == 12) // ice — холодное стекло без аним
+    else if (m == 12) // ice — cold glass without animation
     {
         float f = saturate(fres * 1.6 + 0.1);
         float3 ice = lerp(float3(0.55, 0.75, 0.95), float3(0.9, 0.97, 1.0), f);
@@ -278,14 +278,14 @@ R"HLSL(
         result.rgb = ice + pow(ndh, 64.0) * 0.55;
         result.a   = saturate(0.2 + f * 0.55) * max(bc.a, 0.3);
     }
-    else if (m == 13) // ghost pulse — alpha дышит
+    else if (m == 13) // ghost pulse — alpha breathes
     {
         float pulse = 0.55 + 0.45 * sin(time * 2.4);
         float rim = pow(saturate(1.0 - ndv), 1.8);
         result.rgb = bc.rgb * (0.4 + rim * 0.6) + fc.rgb * fres * 0.3;
         result.a   = saturate((0.14 + rim * 0.5) * pulse) * max(bc.a, 0.28);
     }
-    else if (m == 14) // aurora soft — полупроз радуга
+    else if (m == 14) // aurora soft — semi-transparent rainbow
     {
         float3 p = i.lpos * 0.12;
         float t = time * 0.7;
@@ -294,7 +294,7 @@ R"HLSL(
         result.rgb = lerp(bc.rgb * 0.5, band, 0.65) * (0.55 + fres * 0.55);
         result.a   = saturate(0.16 + veil * 0.4 + fres * 0.25) * max(bc.a, 0.25);
     }
-    else if (m == 15) // bubble — иридесцент пузыри
+    else if (m == 15) // bubble — iridescent bubbles
     {
         float2 q = i.uv * 8.0 + float2(time * 0.6, time * 0.35);
         float2 cell = frac(q) - 0.5;
@@ -305,7 +305,7 @@ R"HLSL(
         result.rgb = lerp(bc.rgb * 0.45, iri, saturate(bubble * 0.7 + ring)) + fres * 0.2;
         result.a   = saturate(0.12 + bubble * 0.35 + ring * 0.55 + fres * 0.2) * max(bc.a, 0.25);
     }
-    else if (m == 16) // jelly — дрожащий гель
+    else if (m == 16) // jelly — quivering gel
     {
         float3 p = i.lpos * 1.4;
         float wob = sin(p.x * 4.0 + time * 3.2) * cos(p.y * 3.5 - time * 2.6);
@@ -315,7 +315,7 @@ R"HLSL(
         result.rgb = saturate(gel);
         result.a   = saturate(0.22 + blob * 0.28 + fres * 0.35) * max(bc.a, 0.3);
     }
-    else if (m == 17) // mercury soft — ртуть полупроз
+    else if (m == 17) // mercury soft — semi-transparent mercury
     {
         float3 p = i.lpos * 1.1;
         float t = time;
@@ -335,7 +335,7 @@ R"HLSL(
         result.rgb = saturate(merc);
         result.a   = saturate(0.2 + fres * 0.45 + ripple * 0.12) * max(bc.a, 0.3);
     }
-    else if (m == 18) // water glass — вода + каустики
+    else if (m == 18) // water glass — water + caustics
     {
         float3 p = i.lpos * 0.55;
         float t = time * 1.15;
@@ -350,7 +350,7 @@ R"HLSL(
         result.rgb = saturate(water);
         result.a   = saturate(0.16 + fres * 0.5 + cau * 0.15) * max(bc.a, 0.28);
     }
-    else if (m == 19) // deep ocean — тёмная вода
+    else if (m == 19) // deep ocean — dark water
     {
         float3 p = i.lpos * 0.2;
         float t = time * 0.55;
@@ -364,7 +364,7 @@ R"HLSL(
         result.rgb = saturate(col);
         result.a   = saturate(0.22 + depth * 0.35 + fres * 0.25) * max(bc.a, 0.32);
     }
-    else if (m == 20) // quicksilver — блестящая ртуть
+    else if (m == 20) // quicksilver — shiny mercury
     {
         float3 p = i.lpos * 1.6;
         float t = time * 1.8;
@@ -378,7 +378,7 @@ R"HLSL(
         result.rgb = saturate(silv);
         result.a   = saturate(0.18 + blob * 0.35 + fres * 0.4) * max(bc.a, 0.28);
     }
-    else if (m == 21) // ripple — кольца по воде
+    else if (m == 21) // ripple — rings on water
     {
         float2 q = float2(i.lpos.x, i.lpos.z) * 0.9;
         float t = time * 2.2;
@@ -392,7 +392,7 @@ R"HLSL(
         result.rgb = saturate(col);
         result.a   = saturate(0.14 + rings * 0.35 + fres * 0.4) * max(bc.a, 0.26);
     }
-    else if (m == 22) // oil slick — плёнка на воде
+    else if (m == 22) // oil slick — film on water
     {
         float3 p = i.lpos * 0.85;
         float t = time * 0.9;
@@ -408,7 +408,7 @@ R"HLSL(
     return result;
 }
 
-// fullscreen outline: edge-detect по depth mesh chams (+ wallcheck как occluded)
+// fullscreen outline: edge-detect by depth mesh chams (+ wallcheck as occluded)
 struct FSIn
 {
     float4 pos : SV_POSITION;
@@ -422,7 +422,7 @@ FSIn vs_fs(uint id : SV_VertexID)
     return o;
 }
 
-// силуэт по cham depth; occluded НЕ режем — glow как на рефах идёт сквозь стены
+// silhouette by cham depth; we do NOT cut occluded — glow goes through walls like in the refs
 bool OutlineSolid(int2 sp)
 {
     uint tw, th;
@@ -442,13 +442,13 @@ float4 ps_outline(FSIn i) : SV_TARGET
     if (OutlineSolid(sp))
         return float4(0, 0, 0, 0);
 
-    // было 24 луча × radius 24 ≈ 576 Load/пиксель на весь экран → FPS влетел
-    // 8 лучей × radius 2..8, плюс coarse reject
+    // it was 24 rays × radius 24 ≈ 576 Load/pixel for the whole screen → FPS tanked
+    // 8 rays × radius 2..8, plus coarse reject
     int radius = (int)(2.0 + saturate(outline_fade / 3.0) * 6.0);
     if (radius < 2) radius = 2;
     if (radius > 8) radius = 8;
 
-    // быстрый отсев пустоты: только кольца r=1, mid, max (24 Load max)
+    // fast empty-space rejection: only rings r=1, mid, max (24 Load max)
     bool near = false;
     [unroll] for (int k = 0; k < 8; ++k)
     {
@@ -470,7 +470,7 @@ float4 ps_outline(FSIn i) : SV_TARGET
     {
         float ang = (float)k * 0.78539816;
         float2 dir = float2(cos(ang), sin(ang));
-        // шаг 2 — вдвое меньше Load, на soft halo незаметно
+        // step 2 — half the Load, unnoticeable on a soft halo
         [loop] for (int r = 1; r <= radius; r += 1)
         {
             int2 np = sp + int2(round(dir.x * (float)r), round(dir.y * (float)r));
@@ -618,7 +618,7 @@ const char* k_mode_names[] = {
 
 bool ModeUsesFillColor(int m)
 {
-	// flat / wire / glass + полупроз с tint
+	// flat / wire / glass + semi-transparent with tint
 	if (m == 0 || m == 7 || m == 8)
 	{
 		return true;
@@ -1108,13 +1108,13 @@ void BeginFrame(const Matrix4x4& view, const Vector3& camera, float time)
 	std::memcpy(g_cbdata.outline_color, st.mesh_chams_outline_color, sizeof(g_cbdata.outline_color));
 	g_cbdata.outline_fade = st.mesh_chams_outline_fade;
 	if (g_cbdata.outline_fade < 0.35f) g_cbdata.outline_fade = 0.35f;
-	// >2 почти не даёт вида, но раздувает radius в шейдере
+	// >2 barely gives any look, but bloats radius in the shader
 	if (g_cbdata.outline_fade > 2.f) g_cbdata.outline_fade = 2.f;
 	g_cbdata.outline_style = st.mesh_chams_outline_style;
 	if (g_cbdata.outline_style < 0) g_cbdata.outline_style = 0;
 	if (g_cbdata.outline_style > 3) g_cbdata.outline_style = 3;
 	g_cbdata.outline_enabled = st.mesh_chams_outline ? 1 : 0;
-	g_cbdata.glow_strength = 0.f; // pad (glow удалён)
+	g_cbdata.glow_strength = 0.f; // pad (glow removed)
 }
 
 void QueueMesh(const std::string& mesh_id, const Matrix4x4& world)
@@ -1156,7 +1156,7 @@ void Flush(ID3D11RenderTargetView* rtv)
 	const bool want_occ = g_cbdata.occlusion_enabled != 0 && g_world_dsv && g_world_srv && g_unit_cube.vb;
 	if (want_occ)
 	{
-		// VisitOccluders читает уже готовый raycast-кэш — каждый Flush, иначе ~20fps «дёрганье»
+		// VisitOccluders reads the already-prepared raycast cache — every Flush, otherwise ~20fps stutter
 		g_world_boxes.clear();
 		g_world_boxes.reserve(900);
 		Features::RaycastEngine::VisitOccluders(
@@ -1166,7 +1166,7 @@ void Flush(ID3D11RenderTargetView* rtv)
 			});
 	}
 
-	// VP прямо перед GPU: BeginFrame был в начале ESP, к Flush камера уже уехала
+	// VP right before GPU: BeginFrame was at the start of ESP, by Flush the camera has already moved
 	{
 		static const uintptr_t s_base = g_Memory.GetModuleBase();
 		const uintptr_t ve =
@@ -1211,7 +1211,7 @@ void Flush(ID3D11RenderTargetView* rtv)
 	}
 	else if (g_cbdata.occlusion_enabled != 0)
 	{
-		// кэш ещё пуст — не красить всё occluded
+		// cache is still empty — don't paint everything occluded
 		g_cbdata.occlusion_enabled = 0;
 	}
 
@@ -1243,7 +1243,7 @@ void Flush(ID3D11RenderTargetView* rtv)
 			Issue(*item.mesh, item.world);
 	}
 
-	// GPU outline: edge по cham depth (стены — как occluded)
+	// GPU outline: edge by cham depth (walls — as occluded)
 	const bool want_outline =
 		g_cbdata.outline_enabled != 0 && g_cham_srv && g_vs_fs && g_ps_outline;
 	if (want_outline)
@@ -1256,7 +1256,7 @@ void Flush(ID3D11RenderTargetView* rtv)
 			(g_cbdata.occlusion_enabled != 0) ? g_world_srv : g_cham_srv,
 			g_cham_srv
 		};
-		// t0 = world (или dummy), t1 = cham
+		// t0 = world (or dummy), t1 = cham
 		if (g_cbdata.occlusion_enabled == 0)
 			srvs[0] = g_cham_srv;
 		g_context->PSSetShaderResources(0, 2, srvs);
@@ -1269,7 +1269,7 @@ void Flush(ID3D11RenderTargetView* rtv)
 		g_context->IASetInputLayout(nullptr);
 		g_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		// обновить CB (outline поля уже в g_cbdata)
+		// update CB (outline fields already in g_cbdata)
 		D3D11_MAPPED_SUBRESOURCE ms{};
 		if (SUCCEEDED(g_context->Map(g_cb, 0, D3D11_MAP_WRITE_DISCARD, 0, &ms)))
 		{

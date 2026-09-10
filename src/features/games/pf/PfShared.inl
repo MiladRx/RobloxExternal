@@ -1,20 +1,20 @@
 /*
- * PF live (place 292439477) — что нашли через MCP:
+ * PF live (place 292439477) — what we found via MCP:
  *
- * - Имена сервисов DataModel зашифрованы (Players/Teams и т.д. ищем по ClassName).
- * - Workspace.Players (Folder, имя "Players" стабильно) содержит РОВНО 2 team-folder.
- *   Имена папок ("Bright blue"/"Bright orange") теперь рандом — нельзя матчить по Name.
- * - Внутри team-folder: Model на каждого живого.
- * - Логика как в roblox-ext/cache.cpp (pf_mode):
- *     Head  = Part с BillboardGui (+ TextLabel = имя)
- *     Torso = Part с SpotLight
- *     Limbs = остальные Part; L/R по local_x/local_y относительно Torso
- *   Size у парт часто ~0 → ESP подставляет R6 sizes.
- * - Teamcheck (точный):
- *     BillboardGui/TextLabel.TextColor3 ≈ (255,10,20) = враг (как fragment/PF nametag).
- *     Своя папка = где теги НЕ вражеские; + сверка имён с лидербордом.
- *     Ближайшая к камере — НЕ используем (переворачивает тимчек у стены).
- * - PlaceId 292439477 — автоматически.
+ * - DataModel service names are encrypted (Players/Teams etc. are found by ClassName).
+ * - Workspace.Players (Folder, the name "Players" is stable) contains EXACTLY 2 team-folders.
+ *   Folder names ("Bright blue"/"Bright orange") are now random — cannot match by Name.
+ * - Inside a team-folder: a Model for each alive player.
+ * - Logic as in roblox-ext/cache.cpp (pf_mode):
+ *     Head  = Part with BillboardGui (+ TextLabel = name)
+ *     Torso = Part with SpotLight
+ *     Limbs = the remaining Parts; L/R by local_x/local_y relative to Torso
+ *   Part Size is often ~0 → ESP substitutes R6 sizes.
+ * - Teamcheck (precise):
+ *     BillboardGui/TextLabel.TextColor3 ≈ (255,10,20) = enemy (like fragment/PF nametag).
+ *     Own folder = where tags are NOT enemy; + name matching with the leaderboard.
+ *     Nearest to camera — we do NOT use it (flips the teamcheck at a wall).
+ * - PlaceId 292439477 — automatic.
  */
 
 struct PartInfo {

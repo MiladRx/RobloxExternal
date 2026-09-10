@@ -28,7 +28,7 @@
                 }
                 float scale = 1.15f;
                 std::uint32_t one = 1;
-                // reserved бит = wallbang, active в конце чтобы stub сразу видел
+                // reserved bit = wallbang, active at the end so the stub sees it immediately
                 w_mem(g_hook.state + offsetof(RaycastState, reserved), &flags, sizeof(flags));
                 w_mem(g_hook.state + offsetof(RaycastState, target_x), pos, sizeof(pos));
                 w_mem(g_hook.state + offsetof(RaycastState, scale), &scale, sizeof(scale));

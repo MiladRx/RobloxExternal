@@ -28,7 +28,7 @@
 #include <cfloat>
 #include <cstddef>
 
-// havoc position attr (без lua-потока — иначе есп мигает)
+// havoc position attr (without a lua thread — otherwise esp blinks)
 static bool HavocReadPosAttr(std::uint64_t inst, Vector3& out)
 {
 	if (!g_Memory.IsValid(inst))
@@ -123,7 +123,7 @@ static bool HavocReadPosAttr(std::uint64_t inst, Vector3& out)
 		if (std::fabs(pos.x) < 0.01f && std::fabs(pos.y) < 0.01f && std::fabs(pos.z) < 0.01f)
 			return false;
 
-		// 7/20 = cframe, 4/17 = vec3; иначе тоже берём если tag мелкий
+		// 7/20 = cframe, 4/17 = vec3; otherwise also take it if the tag is small
 		if (tag > 0 && tag < 64)
 		{
 			out = pos;
@@ -168,7 +168,7 @@ static void SnapEspBox(float min_x, float min_y, float max_x, float max_y,
     if (y2 <= y1) y2 = y1 + 1.0f;
 }
 
-// обычный бокс, опционально с чёрной обводкой
+// regular box, optionally with a black outline
 static void DrawBox(ImDrawList* draw_list, ImVec2 top_left, ImVec2 bottom_right,
                     ImU32 color, float thick, bool outline)
 {
@@ -409,7 +409,7 @@ static void SubtractPoly(std::vector<ImVec2> piece, const std::vector<ImVec2>& B
     }
 }
 
-// куски линии снаружи полигонов (cham outline без пересечений)
+// line segments outside the polygons (cham outline without intersections)
 static void DrawSegmentOutsideUnion(ImDrawList* dl, const ImVec2& a, const ImVec2& b,
                                     const std::vector<std::vector<ImVec2>>& polys,
                                     int skip, ImU32 color)
@@ -453,7 +453,7 @@ static void DrawSegmentOutsideUnion(ImDrawList* dl, const ImVec2& a, const ImVec
 static float g_esp_scale_x = 1.0f;
 static float g_esp_scale_y = 1.0f;
 
-// мир в экран через вьюматрицу
+// world to screen via the view matrix
 bool WorldToScreen(const Matrix4x4& matrix, const Vector2& dimensions, const Vector3& position, Vector2& screen)
 {
     float w = position.x * matrix.m[3][0] + position.y * matrix.m[3][1] + position.z * matrix.m[3][2] + matrix.m[3][3];
@@ -472,13 +472,13 @@ bool WorldToScreen(const Matrix4x4& matrix, const Vector2& dimensions, const Vec
     return true;
 }
 
-// clip-space w точки (для near-plane клипа рёбер)
+// clip-space w of the point (for near-plane edge clipping)
 static float ClipW(const Matrix4x4& m, const Vector3& p)
 {
     return p.x * m.m[3][0] + p.y * m.m[3][1] + p.z * m.m[3][2] + m.m[3][3];
 }
 
-// экранный AABB по 8 углам OBB; если угол за камерой — клипаем рёбра (иначе бокс плывёт при повороте)
+// screen AABB from the 8 corners of the OBB; if a corner is behind the camera — clip the edges (otherwise the box drifts when rotating)
 static void ExpandScreenFromObbCorners(
     const Matrix4x4& vm, const Vector2& viewport,
     const Vector3 world[8],
@@ -565,7 +565,7 @@ static float g_pi = 3.14159265358979323846f;
 
 float CameraFovDegrees(float raw)
 {
-    // raw иногда в радианах
+    // raw is sometimes in radians
     if (raw > 0.f && raw < 3.2f)
         return raw * (180.f / g_pi);
 
@@ -595,7 +595,7 @@ bool IsInsideCameraFov(const Vector3& origin, const Matrix4x4& cam_rot,
     return std::fabs(sx) <= half_h * 1.02f && std::fabs(sy) <= half_v * 1.02f;
 }
 
-// стрелка по yaw, сзади вниз, +x вправо от камеры
+// arrow by yaw, down from behind, +x to the right of the camera
 void ArrowDirYaw(const Vector3& origin, const Matrix4x4& cam_rot,
                  const Vector3& target, float& out_dx, float& out_dy)
 {
@@ -631,7 +631,7 @@ void ArrowDirYaw(const Vector3& origin, const Matrix4x4& cam_rot,
     out_dy = dy / len;
 }
 
-// стрелки когда чел за экраном
+// arrows when the person is off-screen
 void DrawOffscreenArrow(ImDrawList* dl, float overlay_w, float overlay_h,
                         float dx, float dy, ImU32 color,
                         float size, float radius,
@@ -717,7 +717,7 @@ void BuildArrowInfo(const Cheat::PlayerCache& cache, float dist_studs, char* buf
     if (ai[Cheat::Settings::ARROW_DISTANCE])
     {
         char dbuf[32];
-        // havoc — всегда метры
+        // havoc — always meters
         if (Cheat::Visuals::HavocWorldEsp::IsActivePlace() ||
             Cheat::g_Settings.esp.distance_unit == 1)
             std::snprintf(dbuf, sizeof(dbuf), "%.0fm",
@@ -745,7 +745,7 @@ ImU32 Col4(const float c[4])
     return IM_COL32((int)(c[0]*255),(int)(c[1]*255),(int)(c[2]*255),(int)(c[3]*255));
 }
 
-// конус над башкой
+// cone above the head
 static void DrawChinaHat(
     ImDrawList* dl,
     const Matrix4x4& vm,
@@ -861,11 +861,11 @@ static void DrawChinaHat(
     dl->Flags = fl;
 }
 
-// есп каждый кадр оверлея
+// esp every overlay frame
 void Cheat::Visuals::ESP::Render()
 {
     if (!Cheat::g_Settings.esp.enabled) return;
-    // flags вырезаны — старый конфиг не вернёт
+    // flags removed — the old config won't bring them back
     Cheat::g_Settings.esp.flags = false;
     Cheat::g_Settings.esp.bot_esp[Cheat::Settings::BOT_FLAGS] = false;
     if (!Cheat::Globals::Workspace || !Cheat::Globals::InstanceDataModel.address) return;
@@ -929,7 +929,7 @@ void Cheat::Visuals::ESP::Render()
         local_player_addr = g_Memory.Read<std::uint64_t>(
             Cheat::Globals::Players->address + Offsets::Player::LocalPlayer);
 
-    // дистанция от своего hrp, не от камеры
+    // distance from own hrp, not from the camera
     Vector3 dist_from = cam_pos;
     if (local_player_addr)
     {
@@ -968,7 +968,7 @@ void Cheat::Visuals::ESP::Render()
 
         const bool corpse_mode = !havoc && is_dead && Cheat::g_Settings.esp.body_corpse;
 
-        // у ботов свои тогглы/цвета, не путать с игроками
+        // bots have their own toggles/colors, don't confuse with players
         struct {
             bool box, name, skeleton, chams, healthbar, health_text, distance, tool;
             int  chams_mode, chams_shader;
@@ -1026,7 +1026,7 @@ void Cheat::Visuals::ESP::Render()
             st.arrow_color = Cheat::g_Settings.esp.arrow_color;
         }
 
-        // живым hrp+голова, трупу любая парта ок
+        // for the living hrp+head, for a corpse any part is fine
         auto pick_anchor = [&]() -> const Instance* {
             if (cache.humanoidRootPart && g_Memory.IsValid(cache.humanoidRootPart->address))
                 return cache.humanoidRootPart.get();
@@ -1053,7 +1053,7 @@ void Cheat::Visuals::ESP::Render()
         BasePart root(anchor->address);
         Vector3 root_pos = root.GetPosition();
 
-        // havoc: position attr на рендер-потоке (lua heartbeat в другом треде = мигание)
+        // havoc: position attr on the render thread (lua heartbeat on another thread = blinking)
         if (havoc && g_Memory.IsValid(cache.character))
         {
             Vector3 ap{};
@@ -1074,7 +1074,7 @@ void Cheat::Visuals::ESP::Render()
 
         float dist_studs = dist_from.DistanceTo(root_pos);
 
-        // havoc: люди 400m, боты — свой слайдер (метры)
+        // havoc: people 400m, bots — their own slider (meters)
         if (havoc)
         {
             float meters = Visuals::HavocWorldEsp::StudsToMeters(dist_studs);
@@ -1153,7 +1153,7 @@ void Cheat::Visuals::ESP::Render()
             cache.leftFoot, cache.rightFoot, cache.leftHand, cache.rightHand
         };
 
-        // свежая VP прямо перед боксом — иначе при повороте камеры плывёт
+        // fresh VP right before the box — otherwise it drifts when the camera rotates
         vm = g_Memory.Read<Matrix4x4>(visual_engine + Offsets::VisualEngine::ViewMatrix);
 
         float min_x = 10000.0f, max_x = -10000.0f;
@@ -1176,11 +1176,11 @@ void Cheat::Visuals::ESP::Render()
 
             BasePart bp(part->address);
             Vector3 pos = bp.GetPosition();
-            // hitbox expander — ESP на оригинальном size
+            // hitbox expander — ESP on the original size
             Vector3 sz = Cheat::Features::HitboxExpander::SizeForEsp(part->address, bp.GetSize());
             Matrix4x4 rot = bp.GetRotation();
 
-            // PF: у парт size часто ~0 — как в roblox-ext подставляем R6
+            // PF: part size is often ~0 — like in roblox-ext we substitute R6
             if (Games::PhantomForces::IsActivePlace() &&
                 sz.x < 0.01f && sz.y < 0.01f && sz.z < 0.01f) {
                 if (cache.head && part.get() == cache.head.get())
@@ -1226,20 +1226,20 @@ void Cheat::Visuals::ESP::Render()
                     pc.full = false;
             }
 
-            // hrp в бокс не — на дистанции раздувает и хп уезжает вниз
+            // don't include hrp in the box — at distance it inflates and the hp drifts down
             if (!is_hrp)
             {
                 ExpandScreenFromObbCorners(vm, viewport, world,
                                            min_x, max_x, min_y, max_y, any_visible);
             }
 
-            // overlay AABB chams; mesh=4 резолвит MeshData отдельно
+            // overlay AABB chams; mesh=4 resolves MeshData separately
             if (want_chams && pc.full && !is_hrp &&
                 st.chams_mode != 4)
                 chams_parts.push_back(pc);
         }
 
-        // bounding type=mesh: полный обход партов+мешей (не кэш конечностей — он часто неполный)
+        // bounding type=mesh: full traversal of parts+meshes (not the limb cache — it's often incomplete)
         if (Cheat::g_Settings.esp.bounding_type == 1 &&
             g_Memory.IsValid(cache.character))
         {
@@ -1256,7 +1256,7 @@ void Cheat::Visuals::ESP::Render()
                 any_visible = true;
         }
 
-        // stab: тока подрезаем раздутый OBB к head/feet, не схлопываем
+        // stab: only trim the inflated OBB to head/feet, don't collapse it
         else if (!corpse_mode && any_visible)
         {
             vm = g_Memory.Read<Matrix4x4>(visual_engine + Offsets::VisualEngine::ViewMatrix);
@@ -1322,13 +1322,13 @@ void Cheat::Visuals::ESP::Render()
 
             if (got_top && got_bot && bot_y > top_y + 8.f)
             {
-                // низ уехал под ноги / верх над башкой — подрезать
+                // bottom went below the feet / top above the head — trim
                 if (max_y > bot_y + 2.f)
                     max_y = bot_y;
                 if (min_y < top_y - 2.f)
                     min_y = top_y;
 
-                // схлопнулось — откат
+                // collapsed — revert
                 if (max_y - min_y < 14.f)
                 {
                     min_y = save_miny;
@@ -1367,7 +1367,7 @@ void Cheat::Visuals::ESP::Render()
             }
         }
 
-        // mesh chams: вершины/фейсы из MeshContentProvider
+        // mesh chams: vertices/faces from MeshContentProvider
         if (want_chams && st.chams_mode == 4 && g_Memory.IsValid(cache.character))
         {
             const float* fc_ptr = corpse_mode ? Cheat::g_Settings.esp.corpse_color : st.chams_fill;
@@ -1390,14 +1390,14 @@ void Cheat::Visuals::ESP::Render()
                     (int)(bb * 255), (int)(aa * 255));
             }
 
-            // свежая матрица на каждого персонажа (mesh долгий → старый vm = отставание)
+            // fresh matrix per character (mesh is slow → old vm = lag)
             vm = g_Memory.Read<Matrix4x4>(visual_engine + Offsets::VisualEngine::ViewMatrix);
             Cheat::Visuals::MeshChams::Draw(
                 draw_list, cache.character, vm, viewport,
                 g_esp_scale_x, g_esp_scale_y, fill_col);
         }
 
-        // overlay chams (не mesh)
+        // overlay chams (not mesh)
         if (want_chams && !chams_parts.empty() &&
             st.chams_mode != 4)
         {
@@ -1536,7 +1536,7 @@ void Cheat::Visuals::ESP::Render()
                 head_pos, Cheat::g_Settings.esp.china_hat_color);
         }
 
-        // труп: чамсы уже нарисовали, имя x_x и выход
+        // corpse: chams already drawn, name x_x and return
         if (corpse_mode) {
             if (st.name) {
                 float cx1, cy1, cx2, cy2;
@@ -1575,7 +1575,7 @@ void Cheat::Visuals::ESP::Render()
         float bx1, by1, bx2, by2;
         SnapEspBox(min_x, min_y, max_x, max_y, bx1, by1, bx2, by2);
 
-        // бокс: 2d / углы / 3d (fill рисуем после скелета — перекрывает визуалы)
+        // box: 2d / corners / 3d (we draw fill after the skeleton — it covers the visuals)
         if (st.box) {
             const float* bc = st.box_color;
             ImU32 box_color = aim_target ? aim_red : IM_COL32(
@@ -1628,7 +1628,7 @@ void Cheat::Visuals::ESP::Render()
 
         const EspLayout::Box ebox{ bx1, by1, bx2, by2 };
 
-        // мелкий бокс — чуть жмём шрифт, не в кашу
+        // small box — slightly shrink the font, don't make mush
         float bh = by2 - by1;
         float fs = esp_fs;
         {
@@ -1740,7 +1740,7 @@ void Cheat::Visuals::ESP::Render()
                            IM_COL32(255, 255, 255, 255));
         }
 
-        // кости / png скелет (anton / unfunny / egor)
+        // bones / png skeleton (anton / unfunny / egor)
         if (st.skeleton) {
             const float* sc = st.skeleton_color;
             const int skel_type = Cheat::g_Settings.esp.skeleton_type;
@@ -1810,7 +1810,7 @@ void Cheat::Visuals::ESP::Render()
 
             if (cache.isR6)
             {
-                // r6 плечи чуть ниже топа торса
+                // r6 shoulders slightly below the top of the torso
                 float shoulder_drop = 0.18f;
 
                 Vector3 torso_top, torso_bot;
@@ -1909,10 +1909,10 @@ void Cheat::Visuals::ESP::Render()
                 bone(cache.rightUpperLeg, cache.rightLowerLeg);
                 bone(cache.rightLowerLeg, cache.rightFoot);
             }
-            } // funny skeleton (линии)
+            } // funny skeleton (lines)
         }
 
-        // fill поверх chams/skel/hat — рамку и текст не трогаем (уже выше по z нет, рамку дорисуем)
+        // fill on top of chams/skel/hat — don't touch the frame and text (nothing above in z already, we'll draw the frame)
         if (Cheat::g_Settings.esp.box_fill && st.box)
         {
             const auto& bf = Cheat::g_Settings.esp;
@@ -1935,7 +1935,7 @@ void Cheat::Visuals::ESP::Render()
                 draw_list->AddRectFilled(ImVec2(bx1, by1), ImVec2(bx2, by2), fill_col);
             }
 
-            // рамка сверху fill (текст уже нарисован — он вне/сбоку бокса)
+            // frame on top of fill (text already drawn — it's outside/beside the box)
             const float* bc = st.box_color;
             ImU32 box_color = aim_target ? aim_red : IM_COL32(
                 (int)(bc[0] * 255), (int)(bc[1] * 255),

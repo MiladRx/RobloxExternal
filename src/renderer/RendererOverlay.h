@@ -1,5 +1,5 @@
 #pragma once
-// только из Renderer.cpp
+// only from Renderer.cpp
 
 #include "Renderer.h"
 #include "gui/Menu.h"
@@ -14,7 +14,7 @@
 
 namespace Cheat {
 
-	// окно роблокса по пиду, берём самое жирное
+	// the Roblox window by pid, take the fattest one
 	HWND Renderer::FindGameWindow()
 	{
 		DWORD pid = g_Memory.GetPID();
@@ -82,13 +82,13 @@ namespace Cheat {
 		return ctx.best;
 	}
 
-	// клеим оверлей к клиентской области
+	// glue the overlay to the client area
 	void Renderer::SyncToGameWindow()
 	{
 		DWORD pid = g_Memory.GetPID();
 		DWORD now = GetTickCount();
 
-		// раз в 300мс пересканируем, иначе держим кэш
+		// rescan every 300ms, otherwise keep the cache
 		bool need_enum =
 			!m_GameHwnd ||
 			!IsWindow(m_GameHwnd) ||
@@ -114,8 +114,8 @@ namespace Cheat {
 		}
 
 		HWND fg = GetForegroundWindow();
-		// меню открыто ок тока если фокус на игре или на оверлее
-		// иначе Win+Shift+S / чужое окно — гуй в скрине
+		// menu is open only if focus is on the game or on the overlay
+		// otherwise Win+Shift+S / another window — the gui ends up in the screenshot
 		bool focused =
 			(fg == m_GameHwnd) ||
 			IsChild(m_GameHwnd, fg) ||
@@ -246,7 +246,7 @@ namespace Cheat {
 			want = (LONG)(WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE);
 		}
 
-		// без NOACTIVATE текст в imgui не фокусится
+		// without NOACTIVATE text in imgui does not focus
 		if (want_text && !click_through)
 		{
 			want &= ~WS_EX_NOACTIVATE;

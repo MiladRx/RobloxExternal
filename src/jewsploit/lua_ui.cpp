@@ -47,7 +47,7 @@ namespace
 		if (src.capacity() < 4096)
 			src.reserve(4096);
 
-		// imgui хочет живой буфер с нулём
+		// imgui wants a live buffer with a null
 		if (src.empty())
 		{
 			src.push_back('\0');
@@ -271,7 +271,7 @@ void ng_lua::draw(float alpha)
 	if (alpha <= 0.001f)
 		return;
 
-	// want = меню + тумблер; закрытие анимирует float_panel (флаг не жрём при hide меню)
+	// want = menu + toggle; float_panel animates closing (don't touch the flag when the menu hides)
 	bool open = menu::open && Cheat::g_Settings.lua.executor;
 
 	LuaExecutor::Initialize();
@@ -314,7 +314,7 @@ void ng_lua::draw(float alpha)
 		float left_w = avail_w - side_w - gap;
 		if (left_w < 240.f) left_w = 240.f;
 
-		// больше editor, output компактнее
+		// bigger editor, more compact output
 		float ed_h = body_h * 0.72f;
 		float out_h = body_h - ed_h - gap;
 		if (ed_h < 160.f) ed_h = 160.f;
@@ -375,7 +375,7 @@ void ng_lua::draw(float alpha)
 		ng::float_panel_end();
 	}
 
-	// крест — гасим тумблер; закрытие меню флаг не трогает
+	// cross — turns off the toggle; closing the menu doesn't touch the flag
 	if (!open && menu::open)
 		Cheat::g_Settings.lua.executor = false;
 

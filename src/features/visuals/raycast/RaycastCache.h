@@ -10,7 +10,7 @@ bool append_occluder(std::uint64_t primitive, occluder_cache& cache)
     if (!read_size(primitive, size) || !read_position(primitive, position))
         return false;
 
-    // мусорные / гигантские партсы
+    // garbage / gigantic parts
     if (size.x <= 0.f || size.y <= 0.f || size.z <= 0.f)
         return false;
     if (size.x > 500.f || size.y > 500.f || size.z > 500.f)
@@ -46,7 +46,7 @@ void step_builder(occluder_builder& builder, std::size_t step_count)
         if (!primitive)
         {
             ++builder.consecutive_null_slots;
-            // длинная дыра после живых слотов = конец массива
+            // a long gap after live slots = end of the array
             if (builder.found_non_null_slot && builder.consecutive_null_slots >= 16384)
             {
                 builder.complete = true;
@@ -142,7 +142,7 @@ std::uint64_t primitives_root()
     if (g_Memory.IsValid(p2))
         return p2;
 
-    // фоллбек если оффсет уехал
+    // fallback if the offset shifted
     std::uint64_t p1 = g_Memory.Read<std::uint64_t>(world + 0x240);
     if (g_Memory.IsValid(p1))
         return p1;

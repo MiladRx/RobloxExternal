@@ -106,7 +106,7 @@ bool ClassIsA(const std::string& cls, const char* query)
 	return false;
 }
 
-// fake attrs — create без аллока роблокс-мапы (реал read отдельно)
+// fake attrs — create without allocating the Roblox map (real read is separate)
 struct fake_attr_t
 {
 	int ty{ 0 }; // 0nil 1bool 2num 3str
@@ -193,7 +193,7 @@ bool PushRealAttrValue(lua_State* L, std::uint64_t entry)
 		return true;
 	};
 
-	// type tag маленький (atlanta: 7 = cframe) — vec3/cf @ +16
+	// type tag is small (atlanta: 7 = cframe) — vec3/cf @ +16
 	if (a > 0 && a < 64)
 	{
 		const Vector3 pos = g_Memory.Read<Vector3>(va + 16);
@@ -215,7 +215,7 @@ bool PushRealAttrValue(lua_State* L, std::uint64_t entry)
 		}
 	}
 
-	// bool: type в модуле, value 0/1 @ +16
+	// bool: type is in the module, value 0/1 @ +16
 	if (base && a >= base && a < base + 0x10000000ull && (c == 0 || c == 1))
 	{
 		lua_pushboolean(L, c != 0);
@@ -226,7 +226,7 @@ bool PushRealAttrValue(lua_State* L, std::uint64_t entry)
 	const double d = g_Memory.Read<double>(va + 16);
 	if (d == d && d > -1e15 && d < 1e15)
 	{
-		// если похоже на ptr — не число
+		// if it looks like a ptr — it's not a number
 		if (!(c > 0x10000 && g_Memory.IsValid(c)))
 		{
 			lua_pushnumber(L, d);
@@ -282,7 +282,7 @@ int l_tostring(lua_State* L)
 
 int l_eq(lua_State* L)
 {
-	// 5.4 зовёт __eq для любых двух userdata, не только наших
+	// 5.4 calls __eq for any two userdata, not just ours
 	auto* a = static_cast<LuaInstance*>(luaL_testudata(L, 1, k_mt));
 	auto* b = static_cast<LuaInstance*>(luaL_testudata(L, 2, k_mt));
 	lua_pushboolean(L, a && b && a->address == b->address);
@@ -308,7 +308,7 @@ int l_GetChildren(lua_State* L)
 	return 1;
 }
 
-// name или ClassName (сервисы)
+// name or ClassName (services)
 std::uint64_t FindChildNameOrClass(std::uint64_t parent, const char* name)
 {
 	if (!ValidAddr(parent) || !name || !name[0])
@@ -493,8 +493,8 @@ int l_WaitForChild(lua_State* L)
 		return 1;
 	}
 
-	// состояние держим в кадре корутины, а не в реестре: брошенный
-	// (cancel / переисполнение скрипта) поток иначе течёт ref'ом навсегда
+	// we keep the state in the coroutine frame, not in the registry: otherwise a
+	// dropped thread (cancel / script re-run) leaks its ref forever
 	lua_settop(L, 3);
 	wfc_t* w = static_cast<wfc_t*>(lua_newuserdatauv(L, sizeof(wfc_t), 0));
 	w->parent = ud->address;
@@ -583,7 +583,7 @@ int l_GetService(lua_State* L)
 		return 1;
 	}
 
-	// наш фейк, в DataModel детей нет
+	// our fake, the DataModel has no children
 	if (_stricmp(name, "RunService") == 0)
 	{
 		lua_getglobal(L, "RunService");
@@ -663,7 +663,7 @@ int l_index(lua_State* L)
 
 	Instance inst(ud->address);
 
-	// GetClassName — чтение чужого процесса, не дёргаем его ради Name/Parent
+	// GetClassName is a foreign process read; we don't call it for the sake of Name/Parent
 	if (std::strcmp(key, "Name") == 0)
 	{
 		lua_pushstring(L, inst.GetName().c_str());
@@ -1034,8 +1034,8 @@ int l_index(lua_State* L)
 constexpr size_t k_desc_cap = 50000;
 constexpr int k_desc_depth = 64;
 
-// битый Parent/Children в чужой памяти даёт цикл: без лимита глубины
-// рекурсия сожрёт стек раньше, чем сработает cap по узлам
+// a corrupt Parent/Children in foreign memory creates a cycle: without a depth limit
+// the recursion would eat the stack before the node cap kicks in
 void CollectDescendants(std::uint64_t addr, lua_State* L, int table_idx, int& n, size_t& nodes, int depth)
 {
 	if (!ValidAddr(addr) || nodes >= k_desc_cap || depth >= k_desc_depth)
@@ -1328,7 +1328,7 @@ int l_newindex(lua_State* L)
 		}
 	}
 
-	// ValueBase write — StringValue только SSO (<16), длинные пока мимо
+	// ValueBase write — StringValue only SSO (<16), long ones are skipped for now
 	if (std::strcmp(key, "Value") == 0)
 	{
 		const std::uint64_t va = ud->address + Offsets::Misc::Value;
@@ -1383,7 +1383,7 @@ int l_newindex(lua_State* L)
 
 			const int n = static_cast<int>(std::strlen(s));
 			if (n < 0 || n >= 16)
-				return 0; // длинные через heap — потом
+				return 0; // long ones via heap — later
 
 			char buf[24]{};
 			std::memcpy(buf, s, static_cast<size_t>(n));
@@ -1406,7 +1406,7 @@ int l_GetAttribute(lua_State* L)
 		return 1;
 	}
 
-	// fake first — наш SetAttribute create
+	// fake first — our SetAttribute create
 	auto it = g_fake_attr.find(ud->address);
 	if (it != g_fake_attr.end())
 	{
@@ -1489,7 +1489,7 @@ int l_SetAttribute(lua_State* L)
 	else
 		g_fake_attr[ud->address][name] = v;
 
-	// реал write только если entry уже есть (create в роблокс-мапу потом)
+	// real write only if the entry already exists (create into the Roblox map later)
 	const std::uint64_t amap = AttrMapFromInst(ud->address);
 	if (!amap || v.ty == 0)
 		return 0;
@@ -1559,7 +1559,7 @@ int l_GetAttributes(lua_State* L)
 		const std::string nm = g_Memory.ReadString(k);
 		if (nm.empty() || nm == "Unknown")
 			continue;
-		// fake перекрывает
+		// fake overrides
 		if (it != g_fake_attr.end() && it->second.count(nm))
 			continue;
 		lua_pushstring(L, nm.c_str());
@@ -1642,7 +1642,7 @@ std::uint64_t CheckAddress(lua_State* L, int idx)
 
 void RefreshGlobals(lua_State* L)
 {
-	// зовётся на каждый execute; адреса мёртвых инстансов иначе копятся сессию
+	// called on every execute; otherwise dead instance addresses accumulate all session
 	g_fake_attr.clear();
 
 	if (ValidAddr(Globals::InstanceDataModel.address))

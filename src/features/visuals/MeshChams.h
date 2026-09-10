@@ -9,7 +9,7 @@ namespace Cheat {
 namespace Visuals {
 namespace MeshChams {
 
-// color: ImGui tris; shader: очередь в MeshDxShader (Flush до ImGui GPU)
+// color: ImGui tris; shader: queue in MeshDxShader (Flush before ImGui GPU)
 void Draw(
 	ImDrawList* dl,
 	std::uint64_t character,
@@ -19,11 +19,11 @@ void Draw(
 	float scale_y,
 	ImU32 fill_col);
 
-// outline: каждый тип = стиль фейда + анимация
+// outline: each type = fade style + animation
 const char* const* OutlineStyleNames();
 int OutlineStyleNameCount();
 
-// bounding type=mesh: экранный/world AABB по реальным мешам (аксы тоже)
+// bounding type=mesh: screen/world AABB by real meshes (accessories too)
 bool ExpandBounds(
 	std::uint64_t character,
 	const Matrix4x4& view,

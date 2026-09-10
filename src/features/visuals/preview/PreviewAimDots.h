@@ -40,7 +40,7 @@ inline void DrawFade(ImDrawList* dl, const ImVec2& c, int tier, bool hover)
 	dl->AddCircleFilled(c, core * 0.45f, TierColor(tier, hover ? 210 : 150), 16);
 }
 
-// uv centers -> screen, ближайший part в радиусе
+// uv centers -> screen, nearest part within radius
 inline int HitTest(const ImVec2& mouse, float hit_r,
 	const std::vector<std::pair<int, std::pair<float, float>>>& centers,
 	const ImVec2& origin, float img_w, float img_h)

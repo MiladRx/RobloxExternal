@@ -151,7 +151,7 @@ void CollectGameVms(std::vector<GameVm>& out)
 	}
 }
 
-// SC wraps -> L с большим totalbytes (setgc)
+// SC wraps -> L with a large totalbytes (setgc)
 std::uint64_t ResolveGameLuaState()
 {
 	std::vector<GameVm> vms;
@@ -202,7 +202,7 @@ bool IsGcOpt(const char* opt)
 	return false;
 }
 
-// setgc("stop") — GC, setgc("ShootCooldown", 0) — запись по ключу во всех таблицах
+// setgc("stop") — GC, setgc("ShootCooldown", 0) — write by key in all tables
 int l_setgc(lua_State* L)
 {
 	if (lua_istable(L, 1))
@@ -241,7 +241,7 @@ int l_setgc(lua_State* L)
 		return 1;
 	}
 
-	// count -> KB как lua_gc COUNT
+	// count -> KB like lua_gc COUNT
 	if (std::strcmp(opt, "count") == 0)
 	{
 		const std::uint64_t tb = g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::totalbytes);
@@ -289,7 +289,7 @@ int l_setgc(lua_State* L)
 		return 1;
 	}
 
-	// collect/step — только через lua_gc в процессе, снаружи нет
+	// collect/step — only via lua_gc inside the process, not from outside
 	if (std::strcmp(opt, "collect") == 0 || std::strcmp(opt, "step") == 0)
 	{
 		lua_pushnil(L);
@@ -321,7 +321,7 @@ const char* TtName(int tt)
 
 std::uint64_t GcoNext(std::uint64_t obj, int tt)
 {
-	// gclist: table @+40, остальное чаще @+8 (propagatemark)
+	// gclist: table @+40, the rest more often @+8 (propagatemark)
 	if (tt == 7)
 		return g_Memory.Read<std::uint64_t>(obj + 40);
 
@@ -375,7 +375,7 @@ int WalkGcoList(std::uint64_t head, int* by_tt, int by_n, int& total, std::uint6
 	return n;
 }
 
-// luaH_dummynode в образе: пустая таблица показывает node сюда, кандидатом её не считаем
+// luaH_dummynode in the image: an empty table points its node here, we don't count it as a candidate
 std::uint64_t EmptyNode()
 {
 	return (std::uint64_t)g_Memory.GetModuleBase() + Offsets::LuauGlobal::dummynode;
@@ -420,7 +420,7 @@ bool ReadPage(std::uint64_t p, int min_block, PageBuf& out)
 	return true;
 }
 
-// после unlink next может смотреть назад — без visited цепь крутится до упора лимита
+// after unlink next may point backwards — without visited the chain spins until the limit
 template <class F>
 void WalkPageChain(std::uint64_t head, std::uint64_t sentinel, uintptr_t next_off, F&& fn)
 {
@@ -446,7 +446,7 @@ void WalkAllPages(std::uint64_t G, F&& fn)
 	WalkPageChain(g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::gcopages),
 		G + Offsets::LuauGlobal::gcopages_end, Offsets::LuauGlobal::page_next_free, fn);
 
-	// all pages — next @+8, тут и полные page после unlink с freelist
+	// all pages — next @+8, here also full pages after unlink from the freelist
 	WalkPageChain(g_Memory.Read<std::uint64_t>(G + Offsets::LuauGlobal::gcopages_large),
 		0, Offsets::LuauGlobal::page_next_all, fn);
 
@@ -463,7 +463,7 @@ bool BlockIsTable(const unsigned char* b, std::uint64_t empty_node)
 	if (b[1] != 7)
 		return false;
 
-	// без hash — мусор с page walk, ammo всё равно с ключами
+	// without hash — garbage from the page walk, ammo has keys anyway
 	const std::uint8_t lsz = b[3];
 	if (lsz == 0 || lsz > 18)
 		return false;
@@ -494,7 +494,7 @@ bool BlockIsStr(const unsigned char* b, int block, const char* s, std::size_t le
 	return std::memcmp(b + 24, s, len) == 0;
 }
 
-// один ReadRaw вместо пяти — заголовок Table целиком лежит в первых 40 байтах
+// one ReadRaw instead of five — the whole Table header lies in the first 40 bytes
 bool ReadTableHdr(std::uint64_t o, std::uint8_t& lsz, std::uint64_t& node)
 {
 	if (!o || (o & 0x7))
@@ -530,7 +530,7 @@ int CountPages(std::uint64_t G)
 	return n;
 }
 
-// getgc_info() — старый дамп stats
+// getgc_info() — the old stats dump
 int l_getgc_info(lua_State* L)
 {
 	const std::uint64_t gameL = ResolveGameLuaState();
@@ -634,18 +634,18 @@ int l_getgc_info(lua_State* L)
 
 // ---- game table proxy (getgc true) ----
 
-// findgc("_tag", "xxx") — не плодим 40k проксей
+// findgc("_tag", "xxx") — we don't spawn 40k proxies
 const char* g_fkey = nullptr;
 const char* g_fval = nullptr;
-// findgc(nil, "jewsploit_ammo_test") / режим value-only
+// findgc(nil, "jewsploit_ammo_test") / value-only mode
 bool g_fval_only = false;
-// interned TString* из strt — быстрее чем memcmp каждого ключа
+// interned TString* from strt — faster than memcmp on each key
 std::uint64_t g_fkey_ts = 0;
 std::uint64_t g_fval_ts = 0;
-// TString.hash @+16 (наш layout: next@+8 len@+20 data@+24)
+// TString.hash @+16 (our layout: next@+8 len@+20 data@+24)
 unsigned int g_fkey_hash = 0;
 
-// proxy write: tbl+key -> node, ключ хранится целиком, иначе коллизия PcId = запись не туда
+// proxy write: tbl+key -> node, the key is stored whole, otherwise a PcId collision = writing to the wrong place
 struct PcEnt
 {
 	std::uint64_t node = 0;
@@ -728,7 +728,7 @@ std::uint64_t FindStrtFirst(std::uint64_t G, const char* needle)
 
 	const std::size_t nlen = std::strlen(needle);
 
-	// сначала один bucket — miss = полный скан (seed/longstr хз)
+	// first a single bucket — miss = full scan (seed/longstr unknown)
 	if ((size & (size - 1)) == 0)
 	{
 		const int buck = (int)(LuauStrHash(needle, nlen) & (unsigned int)(size - 1));
@@ -757,7 +757,7 @@ struct StrtEnt
 std::mutex g_strt_mx;
 std::unordered_map<std::uint64_t, std::unordered_map<std::string, StrtEnt>> g_strt;
 
-// промах FindStrtFirst = линейный скан всей strt, а lock-поток дёргает это раз в 2с
+// a FindStrtFirst miss = a linear scan of the whole strt, and the lock thread triggers it once every 2s
 std::uint64_t FindStrtCached(std::uint64_t G, const char* needle, unsigned int* out_hash)
 {
 	if (!needle || !*needle || !G)
@@ -828,7 +828,7 @@ bool TableValStrEq(std::uint64_t val_node, const char* s, std::size_t len)
 	return TsEq(ts, s, len);
 }
 
-// любая string-value == needle (для ammo без точного _tag)
+// any string-value == needle (for ammo without an exact _tag)
 bool TableHasStrVal(std::uint64_t tbl, const char* needle, std::size_t nlen)
 {
 	std::uint8_t lsz = 0;
@@ -889,7 +889,7 @@ bool TableFindStr(std::uint64_t tbl, const char* key, std::uint64_t key_ts, unsi
 	const int n = 1 << lsz;
 	const std::size_t klen = key ? std::strlen(key) : 0;
 
-	// luau mainposition + next chain — не жрать весь node[]
+	// luau mainposition + next chain — don't consume the whole node[]
 	if (key_ts)
 	{
 		unsigned int h = key_hash;
@@ -928,10 +928,10 @@ bool TableFindStr(std::uint64_t tbl, const char* key, std::uint64_t key_ts, unsi
 			if (i < 0 || i >= n)
 				break;
 		}
-		// hash miss — ниже линейный (оффсет hash кривой / dead key)
+		// hash miss — linear below (hash offset is wrong / dead key)
 	}
 
-	// один ReadRaw на чанк — RPM/slot убивал findgc
+	// one ReadRaw per chunk — RPM/slot was killing findgc
 	unsigned char buf[32 * 64];
 	int off = 0;
 	while (off < n)
@@ -1143,7 +1143,7 @@ void WriteGcNode(std::uint64_t node, const GcValue& v)
 	}
 }
 
-// узел мог уехать после rehash — ключ обязан совпадать перед записью, want_tt < 0 = любой
+// the node may have moved after a rehash — the key must match before writing, want_tt < 0 = any
 bool NodeStillHasKey(std::uint64_t node, std::uint64_t ts, int want_tt)
 {
 	if (!node || (node & 0x7))
@@ -1206,7 +1206,7 @@ int proxy_newindex(lua_State* L)
 	if (!key)
 		return 0;
 
-	// пока number / bool, хватит для ammo
+	// number / bool for now, enough for ammo
 	GcValue v{};
 	if (!ReadGcValue(L, 3, v))
 		return 0;
@@ -1367,7 +1367,7 @@ bool SnapshotFresh(const Snapshot& s)
 	if (std::chrono::steady_clock::now() - s.at > k_snapshot_ttl)
 		return false;
 
-	// куча заметно двинулась — старые адреса уже не описывают её состав
+	// the heap moved noticeably — the old addresses no longer describe its layout
 	const std::uint64_t tb = g_Memory.Read<std::uint64_t>(s.G + Offsets::LuauGlobal::totalbytes);
 	if (!tb || !s.tb)
 		return false;
@@ -1391,7 +1391,7 @@ std::shared_ptr<const Snapshot> GetSnapshot(std::uint64_t G)
 	if (cur && SnapshotFresh(*cur))
 		return cur;
 
-	// один тяжёлый проход за раз: скрипт и lock-поток не должны дублировать RPM
+	// one heavy pass at a time: the script and the lock thread must not duplicate RPM
 	std::lock_guard<std::mutex> w(g_walk_mx);
 
 	cur = CachedSnapshot(G);
@@ -1502,7 +1502,7 @@ void CollectFromSnapshot(lua_State* L, const Snapshot& s, Collect& c, std::int64
 			return;
 		}
 
-		// адрес из кэша, объект мог освободиться — Match перечитывает заголовок
+		// address from cache, the object may have been freed — Match re-reads the header
 		if (!MatchTable(obj))
 			continue;
 
@@ -1564,8 +1564,8 @@ int l_getgc(lua_State* L)
 	return 3;
 }
 
-// findgc({"FireRate","RPM",...}) — один walk, map key -> {proxies}
-// иначе findgc(key) / findgc(key,val) / findgc(nil,val)
+// findgc({"FireRate","RPM",...}) — one walk, map key -> {proxies}
+// otherwise findgc(key) / findgc(key,val) / findgc(nil,val)
 int l_findgc_keys(lua_State* L)
 {
 	luaL_checktype(L, 1, LUA_TTABLE);
@@ -1634,7 +1634,7 @@ int l_findgc_keys(lua_State* L)
 
 	bool truncated = false;
 
-	// одна таблица = один скан node[], все ключи сразу
+	// one table = one scan of node[], all keys at once
 	auto try_one = [&](std::uint64_t obj)
 	{
 		int left = 0;
@@ -1767,8 +1767,8 @@ int l_findgc(lua_State* L)
 		return 2;
 	}
 
-	// value/точное имя — большой VM первым (локальная пушка там)
-	// иначе мелкий первым — ammo ~1MB, roact ~90MB
+	// value/exact name — the big VM first (the local gun is there)
+	// otherwise the small one first — ammo ~1MB, roact ~90MB
 	if (val || val_only)
 	{
 		std::sort(vms.begin(), vms.end(), [](const GameVm& a, const GameVm& b)
@@ -1791,7 +1791,7 @@ int l_findgc(lua_State* L)
 	g_fkey_hash = 0;
 	lua_createtable(L, (int)std::min<std::int64_t>(c.limit, 1024), 8);
 
-	// бюджет на VM — мелкий не сожрёт всю страницу до большого
+	// budget per VM — the small one won't eat the whole page before the big one
 	const std::int64_t per_vm = (vms.size() > 1) ? (c.limit / 2 + 1) : c.limit;
 
 	for (const auto& vm : vms)
@@ -1895,7 +1895,7 @@ int CountPageStrings(std::uint64_t G, const char* needle, int lim)
 	return hits;
 }
 
-// gcprobe() — все VM + где ammo строка
+// gcprobe() — all VMs + where the ammo string is
 int l_gcprobe(lua_State* L)
 {
 	std::vector<GameVm> vms;
@@ -2048,7 +2048,7 @@ int l_gcprobe(lua_State* L)
 	return 1;
 }
 
-// getrawkeys(proxy) -> { key = value, ... } только string keys
+// getrawkeys(proxy) -> { key = value, ... } string keys only
 int l_getrawkeys(lua_State* L)
 {
 	const std::uint64_t tbl = ProxyAddr(L, 1);
@@ -2120,7 +2120,7 @@ struct KeyHit
 	std::uint64_t ts = 0;
 };
 
-// все узлы с ключом из keys, текущий тип значения == want_tt
+// all nodes with a key from keys, current value type == want_tt
 void ScanKeyNodes(
 	const std::vector<std::string>& keys,
 	int want_tt,
@@ -2272,8 +2272,8 @@ void LockWorker()
 				++alive;
 			}
 
-			// таблицы пересобрались (респавн, смена оружия) — ищем заново,
-			// но скан тяжёлый, поэтому не чаще раза в 2 секунды
+// the tables were rebuilt (respawn, weapon change) — we search again,
+// but the scan is heavy, so no more than once every 2 seconds
 			const auto now = std::chrono::steady_clock::now();
 			if (alive == 0 && now - lk->last_scan >= std::chrono::seconds(2))
 			{
@@ -2369,7 +2369,7 @@ int SetGcByKey(lua_State* L)
 	return 1;
 }
 
-// lockgc("ShootCooldown", 0, 100) — держит значение в фоне
+// lockgc("ShootCooldown", 0, 100) — keeps the value in the background
 int l_lockgc(lua_State* L)
 {
 	std::vector<std::string> keys;
@@ -2422,7 +2422,7 @@ int l_lockgc(lua_State* L)
 	return 1;
 }
 
-// unlockgc() — всё, unlockgc("ShootCooldown") — один
+// unlockgc() — all, unlockgc("ShootCooldown") — one
 int l_unlockgc(lua_State* L)
 {
 	const char* tag = (lua_type(L, 1) == LUA_TSTRING) ? lua_tostring(L, 1) : nullptr;
@@ -2488,7 +2488,7 @@ int l_listgc_locks(lua_State* L)
 	return 1;
 }
 
-// gc.flush() — сбросить кэш прохода по куче, следующий getgc/findgc пойдёт заново
+// gc.flush() — drop the heap pass cache, the next getgc/findgc starts over
 int l_gcflush(lua_State* L)
 {
 	FlushCaches();
@@ -2536,7 +2536,7 @@ void EnsureProxyMt(lua_State* L)
 	lua_setfield(L, -2, "__newindex");
 	lua_pop(L, 1);
 
-	// слабые ключи: иначе реестр держит каждый когда-либо созданный прокси
+	// weak keys: otherwise the registry holds every proxy ever created
 	lua_newtable(L);
 	lua_newtable(L);
 	lua_pushstring(L, "k");
@@ -2570,7 +2570,7 @@ void Register(lua_State* L)
 
 	RegisterNamespace(L);
 
-	// rawget на прокси должен лезть в игру, не в пустую cheat-таблицу
+	// rawget on a proxy must reach into the game, not an empty cheat table
 	lua_getglobal(L, "rawget");
 	if (lua_isfunction(L, -1) && lua_tocfunction(L, -1) != l_rawget_proxy)
 	{

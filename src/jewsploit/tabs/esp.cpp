@@ -18,7 +18,7 @@ void ng_tabs::draw_esp_tab()
 {
 	using namespace Cheat;
 
-	// flags вырезаны
+	// flags removed
 	g_Settings.esp.flags = false;
 	g_Settings.esp.bot_esp[Settings::BOT_FLAGS] = false;
 
@@ -39,7 +39,7 @@ void ng_tabs::draw_esp_tab()
 
 		row_cb_color("bounding box", &g_Settings.esp.box,
 		             g_Settings.esp.box_color, "esp_box_color");
-		// fill тока вместе с боксом
+		// fill only together with the box
 		if (!g_Settings.esp.box)
 			g_Settings.esp.box_fill = false;
 		gap();
@@ -191,7 +191,7 @@ void ng_tabs::draw_esp_tab()
 
 				if (g_Settings.esp.mesh_chams_style == 1)
 				{
-					// не закрываем — гонять шейдеры подряд
+					// don't close — to cycle shaders in a row
 					row_select("##mesh_shader", "mesh shader",
 					           &g_Settings.esp.mesh_chams_dx_mode,
 					           Visuals::MeshDxShader::ModeNames(),
@@ -247,7 +247,7 @@ void ng_tabs::draw_esp_tab()
 			}
 		}
 
-		// engine — отдельно, комбо с mesh/shader
+		// engine — separate, combo with mesh/shader
 		pad();
 		ng::checkbox("engine chams", &g_Settings.esp.engine_chams);
 		gap();
@@ -259,7 +259,7 @@ void ng_tabs::draw_esp_tab()
 					"default", "ghost", "simple wireframe", "colored frame",
 					"colored", "smoke no shadow", "smoke", "invisible",
 				};
-				// не закрываем — чтобы гонять стили подряд
+				// don't close — to cycle styles in a row
 				row_select("##engine_style", "engine style",
 				           &g_Settings.esp.engine_chams_style,
 				           engine_styles, 8, true, false);
@@ -277,7 +277,7 @@ void ng_tabs::draw_esp_tab()
 				if (use_picker)
 				{
 					g_Settings.esp.engine_chams_color[3] = 1.f;
-					// тока кружки, без кисти/колорпикера
+					// circles only, without brush/colorpicker
 					ng::color_presets("##engine_chams_col", "engine color", nullptr,
 					                  g_Settings.esp.engine_chams_color, true, false);
 					gap();

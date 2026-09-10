@@ -17,7 +17,7 @@ namespace animation {
         if (t >= 1.f)
             return 1.f;
 
-        // expo out, классика
+        // expo out, classic
         return 1.f - std::pow(2.f, -10.f * t);
     }
 

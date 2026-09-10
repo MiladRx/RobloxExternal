@@ -14,7 +14,7 @@ int cell_coord(float value, float inv_cell)
         return INT_MIN / 4;
     }
 
-    // без этого grid улетает
+    // without this the grid blows up
     if (scaled < -1000000.f) scaled = -1000000.f;
     if (scaled > 1000000.f) scaled = 1000000.f;
     return (int)std::floor(scaled);
@@ -41,7 +41,7 @@ void insert_part_into_grid(occluder_cache& cache, std::uint32_t index, const occ
     int min_x = cell_coord(min.x, inv), min_y = cell_coord(min.y, inv), min_z = cell_coord(min.z, inv);
     int max_x = cell_coord(max.x, inv), max_y = cell_coord(max.y, inv), max_z = cell_coord(max.z, inv);
 
-    // огромные партсы не кладём, убьют сетку
+    // don't insert huge parts, they'll kill the grid
     if ((max_x - min_x) > 512 || (max_y - min_y) > 512 || (max_z - min_z) > 512)
         return;
 

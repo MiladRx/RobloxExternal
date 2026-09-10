@@ -82,7 +82,7 @@ bool ng::float_panel_begin(
 	if (open)
 		want = *open;
 
-	// как shell: открытие 13, закрытие быстрее 26
+	// like shell: opening 13, closing faster 26
 	float spd = want ? 13.f : 26.f;
 	pa->vis = anim::approach(pa->vis, want ? 1.f : 0.f, spd, io.DeltaTime);
 	float e = want ? anim::ease_out_cubic(pa->vis) : pa->vis;
@@ -185,7 +185,7 @@ bool ng::float_panel_begin(
 			tgt = cur = wp;
 		}
 
-		// idle — всегда к imgui pos (edge resize двигает окно)
+		// idle — always to imgui pos (edge resize moves the window)
 		if (!*hold)
 			cur = tgt = wp;
 
@@ -211,7 +211,7 @@ bool ng::float_panel_begin(
 		pa->hold_pos = wp;
 		wsz = pa->hold_sz;
 
-		// угол ресайза — edge resize иногда не цепляется
+		// resize corner — edge resize sometimes doesn't catch
 		float grip = 18.f;
 		ImGui::SetCursorScreenPos(ImVec2(wp.x + wsz.x - grip, wp.y + wsz.y - grip));
 		ImGui::InvisibleButton("##fp_rs", ImVec2(grip, grip));
@@ -246,7 +246,7 @@ bool ng::float_panel_begin(
 
 	else if (pa->has_hold)
 	{
-		// сжимание к центру + fade (как shell)
+		// squeeze to center + fade (like shell)
 		ImVec2 sz(pa->hold_sz.x * s, pa->hold_sz.y * s);
 		ImVec2 pos(
 			pa->hold_pos.x + (pa->hold_sz.x - sz.x) * 0.5f,

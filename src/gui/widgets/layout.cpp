@@ -29,7 +29,7 @@ namespace widgets {
         if (first && *first)
         {
             *first = 0;
-            // первый ряд — не тянуть вверх (кнопки наезжают на бордер)
+            // first row — don't stretch upward (buttons overlap the border)
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() + k_menu_top_pad);
         }
         else

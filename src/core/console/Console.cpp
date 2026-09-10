@@ -95,7 +95,7 @@ struct CrashInfo {
     const char* dev;
 };
 
-// разбор exit code, что сказать юзеру / деву
+// parse exit code, what to tell the user / dev
 CrashInfo classify_crash(unsigned long code)
 {
     if (code == 0)
@@ -436,7 +436,7 @@ void DumpLastCrash()
     dump_crash_locked(g_last_crash_code);
 }
 
-// дамп мира, dm/ws/players/камера
+// world dump, dm/ws/players/camera
 void DumpWorld()
 {
     uintptr_t base = g_Memory.GetModuleBase();
@@ -563,7 +563,7 @@ void DumpGate(bool ok, const char* method, std::uint64_t slot,
     Log(Color::Gray, "Stub place     %s", cave ? "cave" : "rwx");
 }
 
-// счётчик не растёт = слот холодный, надо брать другой метод
+// counter not growing = cold slot, need to pick another method
 void GateTimeout(const char* method, std::uint64_t calls)
 {
     Log(Color::Red, "Gate timeout   %s, hits %llu",

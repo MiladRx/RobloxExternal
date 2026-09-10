@@ -147,7 +147,7 @@ bool ng::dropdown(const char* id, bool* sel, const char* const items[], int coun
 	char preview[128]{};
 	make_preview(preview, sizeof(preview), sel, items, count);
 
-	// смена выбора — текст заново выезжает (без ease_out, а то мигом полный)
+	// selection change — text slides in again (without ease_out, else it's instantly full)
 	ImGuiID pa_id = ImGui::GetID("prev_a");
 	ImGuiID ph_id = ImGui::GetID("prev_h");
 	int ph = 0;

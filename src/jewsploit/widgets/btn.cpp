@@ -43,7 +43,7 @@ bool ng::btn(const char* id, const char* label, float w, float h)
 
 	float tx = pos.x + (w - ts.x) * 0.5f;
 	float ty = pos.y + (h - ts.y) * 0.5f;
-	// узкие кнопки (+ и тп) — не клипаем в ноль
+	// narrow buttons (+ etc) — don't clip to zero
 	float clip_l = pad_x;
 	if (w < ts.x + pad_x * 2.f)
 	{

@@ -102,7 +102,7 @@ bool PopulatePartsFromChildren(const std::vector<Cheat::Instance>& parts, Cheat:
 
         std::string nm = part.GetName();
 
-        // r15 / r6 имена, просто мапим
+        // r15 / r6 names, just map them
         if (nm == "Head")
         {
             cache.head = std::make_shared<Cheat::Instance>(part);
@@ -183,7 +183,7 @@ bool PopulatePartsFromChildren(const std::vector<Cheat::Instance>& parts, Cheat:
             cache.rightFoot = std::make_shared<Cheat::Instance>(part);
         }
 
-        // r6 имена другие
+        // r6 names are different
         else if (nm == "Torso")
         {
             cache.upperTorso = std::make_shared<Cheat::Instance>(part);
@@ -221,7 +221,7 @@ bool PopulatePartsFromChildren(const std::vector<Cheat::Instance>& parts, Cheat:
     return AnyBodyPartValid(cache) || hum_addr != 0;
 }
 
-// собираем хэд/руки/ноги по детям модели
+// gather head/arms/legs from the model's children
 bool PopulateParts(std::uint64_t characterAddress, Cheat::PlayerCache& cache)
 {
     if (!g_Memory.IsValid(characterAddress))
@@ -230,7 +230,7 @@ bool PopulateParts(std::uint64_t characterAddress, Cheat::PlayerCache& cache)
     auto kids = Cheat::Instance(characterAddress).GetChildren();
     bool ok = PopulatePartsFromChildren(kids, cache);
 
-    // иногда тело сидит во вложенных Model/Folder
+    // sometimes the body sits in nested Model/Folder
     for (const auto& child : kids)
     {
         std::string cls = child.GetClassName();
@@ -248,7 +248,7 @@ bool IsPlayerDead(const Cheat::PlayerCache& cache)
         return false;
 
     Cheat::Humanoid hum(cache.humanoid->address);
-    // 15 = dead, ну или хп уже 0
+    // 15 = dead, or hp is already 0
     if (hum.GetStateId() == 15)
         return true;
     return hum.GetHealth() <= 0.f;
@@ -281,7 +281,7 @@ bool RetainCorpseEntry(Cheat::PlayerCache& out, const Cheat::PlayerCache& prev)
     if (RefreshCorpseFromCharacter(out, prev.character))
         return AnyBodyPartValid(out);
 
-    // чара уже нет, держим последние парты пока живы в памяти
+    // character is gone, keep the last parts while they're still valid in memory
     if (AnyBodyPartValid(prev))
     {
         CopyBodyParts(out, prev);
@@ -400,7 +400,7 @@ void ScanNode(const Cheat::Instance& node, int depth, int& budget,
               std::uint64_t localChar,
               std::unordered_map<std::uint64_t, Cheat::PlayerCache>& target)
 {
-    // глубже 12 уже мусор, budget кончится раньше
+    // deeper than 12 is junk, the budget runs out earlier
     if (depth > 12 || budget <= 0)
         return;
 
@@ -451,7 +451,7 @@ void CacheFromWorkspace(std::unordered_map<std::uint64_t, Cheat::PlayerCache>& t
     if (Cheat::Globals::Workspace && g_Memory.IsValid(Cheat::Globals::Workspace->address))
         ScanTree(*Cheat::Globals::Workspace, false, localChar, target);
 
-    // workspace пустой, лезем в datamodel
+    // workspace is empty, dig into datamodel
     if (target.empty() && g_Memory.IsValid(Cheat::Globals::InstanceDataModel.address))
         ScanTree(Cheat::Globals::InstanceDataModel, true, localChar, target);
 }
@@ -490,7 +490,7 @@ bool IsCharactersRootCandidate(const Cheat::Instance& node)
     const int hum = CountDirectHumanoidModels(node);
     if (hum >= 2)
         return true;
-    // havoc: папка с нпц + стримнутые чары
+    // havoc: folder with npcs + streamed-in characters
     if (hum >= 1 && ChildNamedExists(node, "NPCs"))
         return true;
     return false;
@@ -534,7 +534,7 @@ bool LooksLikeBotModel(const Cheat::Instance& model)
         ChildNamedExists(model, "FakeCam") ||
         ChildNamedExists(model, "Animate");
 
-    // у реальных игроков Animate/anticheat, у ботов ActiveScripts
+    // real players have Animate/anticheat, bots have ActiveScripts
     if (player_bits && !active)
         return false;
     if (active || weld_link)
@@ -542,8 +542,8 @@ bool LooksLikeBotModel(const Cheat::Instance& model)
     return false;
 }
 
-// havoc боты живут под Workspace/<random Model>, не в Players
-// мержим всегда, esp.bots гейтит только отрисовку
+// havoc bots live under Workspace/<random Model>, not in Players
+// always merge, esp.bots only gates rendering
 void MergeStreamedBots(std::unordered_map<std::uint64_t, Cheat::PlayerCache>& target)
 {
     if (!Cheat::Visuals::HavocWorldEsp::IsActivePlace())
@@ -585,7 +585,7 @@ void MergeStreamedBots(std::unordered_map<std::uint64_t, Cheat::PlayerCache>& ta
 
         AddCharacter(child, std::move(cache), localChar, target);
 
-        // боты не из Players.ModelInstance
+        // bots are not from Players.ModelInstance
         auto it = target.find(child.address);
         if (it != target.end())
             it->second.is_player = false;
@@ -611,7 +611,7 @@ bool LooksLikeDataModel(std::uint64_t dm)
     return name == "Game" || name == "Ugc" || name == "LuaApp";
 }
 
-// ищем датамодель через FakeDM / VisualEngine
+// find the datamodel via FakeDM / VisualEngine
 std::uint64_t ResolveDataModel()
 {
     uintptr_t base = g_Memory.GetModuleBase();
@@ -647,7 +647,7 @@ std::uint64_t ResolveDataModel()
         }
     }
 
-    // раз в 5 сек орём в консоль что ждём
+    // every 5 sec shout to the console that we're waiting
     static ULONGLONG s_last_diag = 0;
     ULONGLONG now = GetTickCount64();
     if (now - s_last_diag > 5000)
@@ -772,7 +772,7 @@ void Cheat::PlayerHandler::UpdateCache(const Instance& player,
     cache.is_player = true;
     PopulateParts(char_addr, cache);
 
-    // player dn → humanoid dn → username (после parts, humanoid уже есть)
+    // player dn → humanoid dn → username (after parts, humanoid already exists)
     cache.displayName = Player(player.address).GetDisplayName();
     if ((cache.displayName.empty() || cache.displayName == "Unknown") && cache.humanoid)
         cache.displayName = Humanoid(cache.humanoid->address).GetDisplayName();
@@ -797,7 +797,7 @@ std::unordered_map<std::uint64_t, Cheat::PlayerCache> Cheat::PlayerHandler::GetP
     return playerCache;
 }
 
-// полный проход: Players, если пусто то workspace сканом
+// full pass: Players, if empty then scan workspace
 void Cheat::PlayerHandler::CacheAllPlayers()
 {
     if (!Globals::InstanceDataModel.address)
@@ -813,7 +813,7 @@ void Cheat::PlayerHandler::CacheAllPlayers()
 
     if (Games::PhantomForces::IsActivePlace())
     {
-        // PF: чары в Workspace.Players, имена зашифрованы
+        // PF: characters in Workspace.Players, names are encrypted
         Games::PhantomForces::MergePlayers(fresh);
     }
     else
@@ -843,14 +843,14 @@ void Cheat::PlayerHandler::CacheAllPlayers()
         }
     }
 
-    // боты havoc, мержим после Players
+    // havoc bots, merge after Players
     MergeStreamedBots(fresh);
 
     // AR: Characters + Zombies
     if (Games::ApocalypseRising::IsActivePlace())
         Games::ApocalypseRising::MergeEntities(fresh);
 
-    // после смерти парты не кидаем, трупные чамсы/имя
+    // don't drop parts after death, corpse chams/name
     if (g_Settings.esp.body_corpse)
     {
         std::unordered_map<std::uint64_t, bool> still_players;
@@ -868,7 +868,7 @@ void Cheat::PlayerHandler::CacheAllPlayers()
             if (dead)
             {
                 cur.is_corpse = true;
-                // каждый тик перечитываем, иначе старые указатели
+                // re-read every tick, otherwise stale pointers
                 if (!RefreshCorpseFromCharacter(cur, cur.character))
                 {
                     if (prev_it != previous.end())
@@ -890,7 +890,7 @@ void Cheat::PlayerHandler::CacheAllPlayers()
             }
         }
 
-        // Character пустой после смерти, труп держим пока Player жив
+        // Character is empty after death, keep the corpse while the Player is alive
         for (const auto& [addr, prev] : previous)
         {
             if (fresh.find(addr) != fresh.end())
@@ -910,7 +910,7 @@ void Cheat::PlayerHandler::CacheAllPlayers()
     playerCache.swap(fresh);
 }
 
-// кэш игроков, кормит есп/аим
+// player cache, feeds esp/aim
 void Cheat::PlayerHandler::CacheThreadLoop()
 {
     while (shouldRun.load())
@@ -919,11 +919,11 @@ void Cheat::PlayerHandler::CacheThreadLoop()
         CacheAllPlayers();
         Features::RaycastEngine::Tick();
 
-        // MCP LRU для mesh chams — не на render-thread
+        // MCP LRU for mesh chams — not on the render-thread
         if (g_Settings.esp.enabled && g_Settings.esp.chams_mode == 4)
             Visuals::MeshCache::Get().Refresh(false);
 
-        // raycast / mesh occluded — кэш стен чаще
+        // raycast / mesh occluded — wall cache more often
         int ms = 250;
         if (Features::RaycastEngine::WantsCache())
             ms = 20;

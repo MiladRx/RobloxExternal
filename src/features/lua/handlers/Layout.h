@@ -1,6 +1,6 @@
 #pragma once
 
-// те же числа, что Menu.cpp content shell
+// same numbers as Menu.cpp content shell
 namespace Cheat {
 namespace Features {
 namespace LuaDetail {

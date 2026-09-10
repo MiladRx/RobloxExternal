@@ -48,7 +48,7 @@ inline bool DrawHeaderClose(const ImVec2& title_pos, float title_fs, float title
 	return widgets::icon_close("##lua_win_close", ImVec2(sz, sz));
 }
 
-// табы на верхней кромке content-панели — как draw_tab_bar в меню
+// tabs on the top edge of the content panel — like draw_tab_bar in the menu
 inline void DrawFileTabsOnPanel(
 	ImDrawList* dl,
 	const ImVec2& panel_min,
@@ -108,7 +108,7 @@ inline void DrawFileTabsOnPanel(
 	if (clicked < 0 || clicked >= (int)geoms.size())
 		clicked = 0;
 
-	// hit tests табов (крестик — после paint)
+	// hit tests for tabs (close icon — after paint)
 	for (int i = 0; i < (int)geoms.size(); ++i)
 	{
 		const auto& g = geoms[i];
@@ -134,7 +134,7 @@ inline void DrawFileTabsOnPanel(
 			paint_hline(gap_r + 1, seg_r, y, col);
 	};
 
-	// panel fill + borders (как меню)
+	// panel fill + borders (like the menu)
 	dl->AddRectFilled(
 		ImVec2((float)(panel_inner_l + 1), (float)panel_top_outer),
 		ImVec2((float)panel_inner_r, (float)(panel_inner_b + 1)),
@@ -246,7 +246,7 @@ inline void DrawFileTabsOnPanel(
 		}
 	}
 
-	// крестики и + поверх табов
+	// close icons and + on top of tabs
 	for (int i = 0; i < (int)geoms.size(); ++i)
 	{
 		const auto& g = geoms[i];

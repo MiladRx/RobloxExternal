@@ -55,12 +55,12 @@ std::uint32_t StyleQueue(int style)
 	return RQ::AlwaysOnTop;
 }
 
-// charm material_set + queue styles из decrypt
+// charm material_set + queue styles from decrypt
 //   ghost     fill=0 flags2=0  param=color
 //   wireframe fill=1 flags2=0  param=white
 //   mesh      fill=0 flags2=15 param=color
 //   charwire  fill=1 flags2=7  param=color
-//   glass/glaze/smoke/depth/hologram — см StyleQueue
+//   glass/glaze/smoke/depth/hologram — see StyleQueue
 bool ApplyStyleLayers(uintptr_t ent, int style, int color_idx)
 {
 	const std::uint32_t color_param = ColorParam(color_idx);

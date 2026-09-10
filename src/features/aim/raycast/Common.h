@@ -4,7 +4,7 @@
                 constexpr std::uintptr_t desc_rva_z = Offsets::WorldRoot::RaycastBoundDesc;
                 constexpr std::uintptr_t bound_fn_offset = Offsets::WorldRoot::RaycastBoundFn;
 
-                // шарится со stub'ом, оффсеты не трогать
+                // shared with the stub, do not touch offsets
 #pragma pack(push, 4)
                 struct RaycastState {
                     std::uint32_t active = 0;
@@ -196,7 +196,7 @@
                     return wrote;
                 }
 
-                // иначе CFG орёт на наш stub
+                // otherwise CFG complains about our stub
                 bool mark_cfg(std::uintptr_t t)
                 {
                     auto resolve = []() -> FARPROC

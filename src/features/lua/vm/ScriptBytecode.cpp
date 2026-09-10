@@ -131,7 +131,7 @@ bool TryRsb1(const std::uint8_t* data, size_t n, std::vector<std::uint8_t>& out)
 	std::memcpy(&dec_size, data + 4, 4);
 	if (dec_size == 0 || dec_size > (32u * 1024u * 1024u))
 		return false;
-	// не выделять 32 МБ по враждебному полю: у кадра zstd свой размер, он и есть правда
+	// don't allocate 32 MB based on a hostile field: the zstd frame has its own size, which is the truth
 	const unsigned long long fcs = ZSTD_getFrameContentSize(data + 8, n - 8);
 	if (fcs == ZSTD_CONTENTSIZE_ERROR)
 		return false;
@@ -148,7 +148,7 @@ bool TryRsb1(const std::uint8_t* data, size_t n, std::vector<std::uint8_t>& out)
 	return !out.empty() && IsLuauVersion(out[0]);
 }
 
-// roblox signed blob: XOR key from first4^RSB1, потом RSB1+zstd (despair/IDA)
+// roblox signed blob: XOR key from first4^RSB1, then RSB1+zstd (despair/IDA)
 bool TryRobloxSigned(const std::uint8_t* data, size_t n, std::vector<std::uint8_t>& out)
 {
 	if (n < 8)
@@ -156,7 +156,7 @@ bool TryRobloxSigned(const std::uint8_t* data, size_t n, std::vector<std::uint8_
 
 	std::uint64_t mag = 0;
 	std::memcpy(&mag, data, 8);
-	// другой контейнер — просто срезать 8
+	// a different container — just trim 8
 	if (mag == 0xE009325B4A107A52ull)
 	{
 		out.assign(data + 8, data + n);
@@ -181,7 +181,7 @@ bool TryRobloxSigned(const std::uint8_t* data, size_t n, std::vector<std::uint8_
 	if (TryRsb1(buf.data(), buf.size(), out))
 		return true;
 
-	// size==0 путь в IDA: сырой luau после 8 байт
+	// size==0 path in IDA: raw luau after 8 bytes
 	if (buf.size() > 8 && std::memcmp(buf.data(), "RSB1", 4) == 0)
 	{
 		std::uint32_t sz = 0;
@@ -706,7 +706,7 @@ std::string DecompileLuau(const std::vector<std::uint8_t>& bc, const char* name)
 	}
 
 	std::uint32_t string_count = 0;
-	// каждая строка это минимум байт длины, так что счётчик не может быть больше остатка
+	// each string is at least one length byte, so the count can't exceed the remaining bytes
 	if (!r.VarInt(string_count) || string_count > 2'000'000 || string_count > r.Left())
 	{
 		ss << "-- failed string table\n";
@@ -850,7 +850,7 @@ bool Normalize(const std::vector<std::uint8_t>& raw, std::vector<std::uint8_t>& 
 		return true;
 	}
 
-	// scan for RSB1 / zstd (редко)
+	// scan for RSB1 / zstd (rarely)
 	for (size_t i = 1; i + 8 <= raw.size(); ++i)
 	{
 		if (raw[i] == 'R' && raw[i + 1] == 'S' && raw[i + 2] == 'B' && raw[i + 3] == '1')
@@ -928,7 +928,7 @@ std::string Decompile(const std::vector<std::uint8_t>& raw_or_luau, const char* 
 	}
 
 	{
-		// многомегабайтный вывод: дописываем заголовок в начало, а не копируем текст ещё раз
+		// multi-megabyte output: we prepend the header instead of copying the text again
 		std::string fission = FissionEmbed::DecompileLuauBytecode(bc.data(), bc.size());
 		if (!fission.empty())
 		{

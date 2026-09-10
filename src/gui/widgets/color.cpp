@@ -9,7 +9,7 @@
 
 namespace {
 
-    // размеры свотча/попапа, не трогать хуйню
+    // swatch/popup sizes, don't mess with this stuff
     const float color_size = 14.f;
     const float color_gap = 5.f;
     const float right_margin = 14.f;
@@ -41,7 +41,7 @@ namespace {
         return ImRect(outer.Min + ImVec2(2, 2), outer.Max - ImVec2(2, 2));
     }
 
-    // шашечка под альфу
+    // checkerboard for alpha
     void draw_checkerboard(ImDrawList* dl, const ImRect& r, float cell = 4.0f)
     {
         const ImU32 c0 = ImGui::ColorConvertFloat4ToU32(ImLerp(colors::child_fill, colors::text_inactive, 0.35f));
@@ -131,7 +131,7 @@ namespace {
         }
     }
 
-    // кэш hsv а то hue скачет когда s/v около нуля
+    // hsv cache, otherwise hue jumps when s/v is near zero
     struct hsv_cache {
         ImGuiID id  = 0;
         float   h = 0.0f, s = 0.0f, v = 0.0f;
@@ -181,7 +181,7 @@ namespace widgets {
             + slot_from_right * (box + g);
 
         ImGui::SameLine(slot_x);
-        // +6 = выравнивание свотча с checkbox-боксом (box_oy)
+        // +6 = align the swatch with the checkbox box (box_oy)
         ImGui::SetCursorPosY(row_y + 6.f);
     }
 

@@ -94,7 +94,7 @@ Vector2 world_to_screen(const Vector3& pos, Vector2& dims_out)
     };
 }
 
-// математика с мышью, не трогай если работает
+// mouse math, don't touch if it works
 Vec2i16 calc_viewport(const Vector2& target, const Vector2& dims, const Vector2& mouse)
 {
     double ty = (double)target.y;
@@ -233,7 +233,7 @@ bool compute(Vec2i16& out)
     return true;
 }
 
-// долбит viewport пока аим активен
+// hammers the viewport while aim is active
 DWORD WINAPI writer_thread(LPVOID)
 {
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
@@ -265,7 +265,7 @@ DWORD WINAPI writer_thread(LPVOID)
 
         else if (on && g_fails < 40)
         {
-            // чуть держим старое значение пока мигает
+            // hold the old value a bit while it flickers
             ++g_fails;
             write_viewport(g_last);
         }

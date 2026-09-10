@@ -24,7 +24,7 @@ std::atomic<bool> g_fly_on{ false };
 std::thread g_fly_th;
 std::thread g_grav_th;
 
-// velocity луп, гравитация в другом треде
+// velocity loop, gravity in another thread
 void fly_loop()
 {
 	bool was_on = false;
@@ -191,7 +191,7 @@ void fly_loop()
 	g_fly_on.store(false, std::memory_order_relaxed);
 }
 
-// гравитацию в ноль пока летаем
+// zero gravity while flying
 void grav_loop()
 {
 	bool overriden = false;

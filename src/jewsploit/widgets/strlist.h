@@ -2,10 +2,10 @@
 
 namespace ng
 {
-	// высота под max_vis строк (+ шапка/отступы)
+	// height for max_vis rows (+ header/paddings)
 	float strlist_h(int max_vis = 5);
 
-	// список, видно max_vis, дальше скролл
+	// list, shows max_vis, then scroll
 	bool strlist(
 		const char* id,
 		const char* title,

@@ -50,7 +50,7 @@ bool NameHas(const std::string& s, const char* needle)
 	return a.find(b) != std::string::npos;
 }
 
-// CB: CollisionCapsule / hitbox — не визуал
+// CB: CollisionCapsule / hitbox — not visual
 bool IsSkipPartName(const std::string& name)
 {
 	if (name.empty())
@@ -61,8 +61,8 @@ bool IsSkipPartName(const std::string& name)
 	       NameHas(name, "capsule") || NameHas(name, "nocol");
 }
 
-// CB: оружие / viewmodel не в чамсы персонажа
-// НЕ трогаем "arms" — иначе режет папки рук у персонажа → бокс по торсу
+// CB: weapon / viewmodel not in the character's chams
+// do NOT touch "arms" — otherwise it cuts the character's arm folders → box by torso
 bool IsSkipContainerName(const std::string& name)
 {
 	return NameHas(name, "weapon") || NameHas(name, "gun") ||
@@ -200,20 +200,20 @@ void Walk(
 	if (IsAccessoryClass(cls))
 	{
 		const std::string acc = node.GetName();
-		// Handle иногда внутри Model/Folder — обходим всё дерево акса
+		// Handle sometimes inside Model/Folder — traverse the whole accessory tree
 		for (const auto& c : node.GetChildren())
 			Walk(character, c, depth + 1, acc, true, seen, out);
 		return;
 	}
 
-	// аксы без класса Accessory (редко), но Handle под персонажем
+	// accessories without the Accessory class (rare), but Handle under the character
 	if (!under_acc && (cls == "Model" || cls == "Folder"))
 	{
 		const std::string nm = node.GetName();
-		// Counter Blox: WeaponModel / WeaponAttachments — не тело
+		// Counter Blox: WeaponModel / WeaponAttachments — not the body
 		if (IsSkipContainerName(nm))
 			return;
-		// CharacterArmor / аксы / layered
+		// CharacterArmor / accessories / layered
 		bool maybe_acc = NameHas(nm, "accessory") || NameHas(nm, "hat") ||
 			NameHas(nm, "hair") || NameHas(nm, "layer") || NameHas(nm, "mesh") ||
 			NameHas(nm, "armor") || NameHas(nm, "clothing") || NameHas(nm, "gear");
@@ -241,7 +241,7 @@ void Walk(
 		if (IsSkipPartName(nm))
 			return;
 
-		// Handle где угодно под персонажем = акс (даже если родитель не Accessory)
+		// Handle anywhere under the character = accessory (even if the parent is not Accessory)
 		const bool acc = under_acc || (nm == "Handle");
 		PushPart(character, node, container, acc, seen, out);
 		for (const auto& c : node.GetChildren())
@@ -297,7 +297,7 @@ std::vector<Entry> CollectDrawable(std::uint64_t character)
 			continue;
 		if (IsSkipPartName(e.name))
 			continue;
-		// только визуальные части (не unknown Other без меша-контейнера)
+		// only visual parts (not unknown Other without a mesh container)
 		if (e.kind == Kind::Other)
 			continue;
 		out.push_back(std::move(e));

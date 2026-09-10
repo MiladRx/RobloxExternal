@@ -328,8 +328,8 @@ namespace gui
         if (s_menu_open)
             render_menu_window();
 
-        // чекбокс превью живёт во вкладке esp, то есть внутри меню, поэтому
-        // его значение подхватываем уже после отрисовки
+        // the preview checkbox lives in the esp tab, that is inside the menu, so
+        // we pick up its value only after rendering
         esp_preview_open = Cheat::g_Settings.misc.esp_preview;
 
         if (s_menu_open && lua_open)

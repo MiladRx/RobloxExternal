@@ -406,7 +406,7 @@ LuaCF LookAtCF(float px, float py, float pz, float tx, float ty, float tz)
 		return cf;
 	fx /= len; fy /= len; fz /= len;
 
-	// right = look x (0,1,0); при взгляде строго вверх/вниз вырождается в ноль
+	// right = look x (0,1,0); when looking straight up/down it degenerates to zero
 	float rx = -fz;
 	float ry = 0.f;
 	float rz = fx;

@@ -409,7 +409,7 @@ namespace gui
                 std::error_code ec;
                 if (!fs::exists(newf, ec))
                 {
-                    // старый файл на диске есть только если вкладку уже сохраняли
+                    // the old file exists on disk only if the tab was already saved
                     if (fs::exists(oldf, ec))
                         fs::rename(oldf, newf, ec);
                     tabs[renaming_tab].name = new_name;
@@ -574,7 +574,7 @@ namespace gui
         if (new_tab_request)
         {
             std::string name = unique_untitled(scripts, tabs);
-            open_tab(tabs, active_tab, name); // файла на диске ещё нет, откроет пустую вкладку
+            open_tab(tabs, active_tab, name); // no file on disk yet, will open an empty tab
             renaming_tab = active_tab;
             strncpy_s(rename_buf, name.c_str(), sizeof(rename_buf) - 1);
             rename_focus_pending = true;

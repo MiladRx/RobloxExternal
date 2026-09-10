@@ -153,7 +153,7 @@ inline void ReadEsp(const KV& kv, Settings& s)
     GetBool(kv, "esp.chams", s.esp.chams);
     GetInt(kv, "esp.chams_mode", s.esp.chams_mode);
     const bool has_engine_key = GetBool(kv, "esp.engine_chams", s.esp.engine_chams);
-    // legacy без ключа: mode4=engine, mode5=mesh
+    // legacy without key: mode4=engine, mode5=mesh
     if (!has_engine_key && s.esp.chams_mode == 4)
     {
         s.esp.engine_chams = true;

@@ -1,6 +1,6 @@
 #pragma once
 
-// icons / chrome / detail — тянется из Explorer.cpp в anonymous namespace
+// icons / chrome / detail — pulled from Explorer.cpp into anonymous namespace
 
 struct IconTex {
     ID3D11ShaderResourceView* srv = nullptr;
@@ -201,7 +201,7 @@ void DumpBytecode(const Target& t)
 	std::uint64_t ptr = g_Memory.Read<std::uint64_t>(bc_obj + Offsets::ByteCode::Pointer);
 	std::uint64_t size = g_Memory.Read<std::uint64_t>(bc_obj + Offsets::ByteCode::Size);
 
-	// 16mb потолок, иначе хз что это
+	// 16mb cap, otherwise who knows what it is
 	if (!g_Memory.IsValid(ptr) || size == 0 || size > (16u * 1024u * 1024u))
 	{
 		g_bc_status = "empty / unreadable bytecode";

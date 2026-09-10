@@ -92,7 +92,7 @@ Palette AimPalette()
     };
 }
 
-// цвета/аним под каждый стиль
+// colors/animation for each style
 StyleDef DefFor(int style)
 {
 	switch (style)
@@ -318,7 +318,7 @@ void PaintXYCell(ImDrawList* dl, const std::vector<std::vector<ImVec2>>& pieces,
     }
 }
 
-// сами полоски/пульсы
+// the stripes/pulses themselves
 void RunAnim(ImDrawList* dl,
              const std::vector<std::vector<ImVec2>>& pieces,
              const ImVec2& mn, const ImVec2& mx,
@@ -669,7 +669,7 @@ void Triangulate(const std::vector<ImVec2>& poly,
 		out_tris.push_back({ poly[idx[0]], poly[idx[1]], poly[idx[2]] });
 }
 
-// филл полигонов шейдер-чамсами
+// fill polygons with shader chams
 void DrawFill(ImDrawList* draw_list,
               const std::vector<std::vector<ImVec2>>& pieces,
               float time,

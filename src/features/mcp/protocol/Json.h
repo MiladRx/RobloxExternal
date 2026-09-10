@@ -65,7 +65,7 @@ inline std::string QueryParam(const std::string& query, const char* key)
 		if (part.rfind(prefix, 0) == 0)
 		{
 			std::string v = part.substr(prefix.size());
-			// %20 / + и дальше лень нормально
+			// %20 / + and the rest, too lazy to do properly
 			std::string out;
 			for (std::size_t i = 0; i < v.size(); ++i)
 			{

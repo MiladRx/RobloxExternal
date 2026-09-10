@@ -9,9 +9,9 @@ namespace HitboxExpander {
 
 void Tick();
 void Render();
-void Shutdown(); // рестор всех size
+void Shutdown(); // restore all sizes
 
-// для ESP: оригинал если мы раздули, иначе current
+// for ESP: original if we inflated, otherwise current
 Vector3 SizeForEsp(std::uint64_t part_addr, const Vector3& current);
 
 }

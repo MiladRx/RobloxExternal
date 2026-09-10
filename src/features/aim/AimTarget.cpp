@@ -48,7 +48,7 @@ namespace AimTarget {
 
 			if (part == Settings::AIM_LOWER_TORSO)
 			{
-				// R6: один Torso
+				// R6: single Torso
 				if (c.lowerTorso)
 					return c.lowerTorso.get();
 				return c.upperTorso.get();
@@ -92,7 +92,7 @@ namespace AimTarget {
 			return nullptr;
 		}
 
-		// xorshift, пойдёт
+		// xorshift, good enough
 		std::uint32_t next_rng() {
 			s_rng ^= s_rng << 13;
 			s_rng ^= s_rng >> 17;
@@ -108,7 +108,7 @@ namespace AimTarget {
 			}
 
 			int t = cfg.part_tier[part];
-			// старый чекбокс parts[] ещё живёт
+			// the old parts[] checkbox is still alive
 			if (t == Settings::PART_OFF && cfg.parts[part])
 			{
 				t = Settings::PART_PRIMARY;
@@ -189,7 +189,7 @@ namespace AimTarget {
 			out.x = (dim.x * 0.5f) + (x * inv * dim.x * 0.5f);
 			out.y = (dim.y * 0.5f) - (y * inv * dim.y * 0.5f);
 
-			// оверлей может быть не того размера что viewport камеры
+			// the overlay may not be the same size as the camera viewport
 			HWND oh = Renderer::GetHwnd();
 			if (oh)
 			{
@@ -271,7 +271,7 @@ namespace AimTarget {
 			for (int part = 0; part < Settings::AIM_PART_COUNT; ++part)
 			{
 				int tier = part_tier_of(cfg, part);
-				// ничего не выбрано, дефолт голова
+				// nothing selected, default to head
 				if (!has_parts)
 				{
 					if (part == Settings::AIM_HEAD)
@@ -310,7 +310,7 @@ namespace AimTarget {
 
 					else
 					{
-						lead = 0.05f; // скорость не задана, чуть-чуть
+						lead = 0.05f; // speed not set, just a little
 					}
 					world.x += vel.x * lead;
 					world.y += vel.y * lead;
@@ -319,7 +319,7 @@ namespace AimTarget {
 
 				{
 					float dist = (world - sc.local_pos).Length();
-					// havoc: кап 400m всегда
+					// havoc: cap 400m always
 					if (Visuals::HavocWorldEsp::BeyondRange(dist))
 					{
 						continue;
@@ -455,7 +455,7 @@ namespace AimTarget {
 		if (chance < 1.f) chance = 1.f;
 		if (chance > 100.f) chance = 100.f;
 
-		// 0..100, хватит
+		// 0..100, enough
 		float roll = (float)(next_rng() % 10000u) / 100.f;
 		return roll <= chance;
 	}
@@ -495,7 +495,7 @@ namespace AimTarget {
 		std::uint64_t best_addr = 0;
 		PartSample best_pick{};
 
-		// локала не целимся, даже если залип
+		// don't aim at the local player, even if stuck
 		if (s_target && (s_target == sc.local_player || s_target == sc.local_char))
 		{
 			s_target = 0;
@@ -621,7 +621,7 @@ namespace AimTarget {
 			return commit(best_addr, best_pick);
 		}
 
-		// humanize, ждём reaction_ms перед свапом
+		// humanize, wait reaction_ms before swapping
 		double now = ImGui::GetTime();
 		if (cfg.humanize && cfg.reaction_ms > 0.0f && best_addr != s_target)
 		{

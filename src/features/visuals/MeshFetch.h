@@ -1,6 +1,6 @@
 #pragma once
 
-// HTTP assetdelivery отключён. Mesh chams = только MeshContentProvider из памяти.
+// HTTP assetdelivery disabled. Mesh chams = only MeshContentProvider from memory.
 
 namespace Cheat {
 namespace Visuals {

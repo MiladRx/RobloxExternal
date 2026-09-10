@@ -54,7 +54,7 @@ namespace
 		ImVec2 a = ImVec2(0.f, 0.f);
 		ImVec2 b = io.DisplaySize;
 
-		// затемнение + несколько слоёв под "frost"
+		// dim + several layers for "frost"
 		int dim = (int)(160.f * e);
 		bg->AddRectFilled(a, b, IM_COL32(4, 6, 10, dim));
 
@@ -108,7 +108,7 @@ void ng::search_popup(bool* open, const search_entry_t* items, int count, search
 
 	draw_blur_dim(e);
 
-	// клик-блокер под попапом
+	// click blocker under the popup
 	{
 		ImGui::SetNextWindowPos(ImVec2(0.f, 0.f), ImGuiCond_Always);
 		ImGui::SetNextWindowSize(io.DisplaySize, ImGuiCond_Always);
@@ -125,7 +125,7 @@ void ng::search_popup(bool* open, const search_entry_t* items, int count, search
 		bool dim_hit = ImGui::IsItemClicked();
 		ImGui::End();
 
-		// пустое место при открытом пикере — закрывает пикер, не весь search
+		// empty space while the picker is open — closes the picker, not the whole search
 		if (dim_hit && *open && !ng::colorpicker_any_open())
 		{
 			*open = false;
@@ -147,7 +147,7 @@ void ng::search_popup(bool* open, const search_entry_t* items, int count, search
 	}
 
 	float pad = 14.f;
-	float title_h = 40.f; // шапка edit/search, контент ниже
+	float title_h = 40.f; // edit/search header, content below
 	float box_h = 30.f;
 	float row_h = 28.f;
 	float gap = 10.f;
@@ -156,7 +156,7 @@ void ng::search_popup(bool* open, const search_entry_t* items, int count, search
 	float want_h = pad + title_h + box_h + gap + pad;
 	if (active >= 0)
 	{
-		// фикс высота в edit — не дёргать пока крутишь picker
+		// fixed height in edit — don't jitter while using the picker
 		want_h = 300.f;
 	}
 
@@ -188,7 +188,7 @@ void ng::search_popup(bool* open, const search_entry_t* items, int count, search
 
 	ImGui::SetNextWindowPos(pp, ImGuiCond_Always);
 	ImGui::SetNextWindowSize(sz, ImGuiCond_Always);
-	// фокус тока при открытии — иначе колорпикер каждый кадр теряет фокус
+	// focus only on open — otherwise the colorpicker loses focus every frame
 	if (focus)
 	{
 		ImGui::SetNextWindowFocus();
@@ -364,7 +364,7 @@ void ng::search_popup(bool* open, const search_entry_t* items, int count, search
 
 	else
 	{
-		// имя фичи
+		// feature name
 		const char* nm = "feature";
 		for (int i = 0; i < count; i++)
 		{

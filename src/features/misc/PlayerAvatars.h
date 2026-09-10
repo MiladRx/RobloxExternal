@@ -13,7 +13,7 @@ namespace PlayerAvatars {
 
 	ID3D11ShaderResourceView* Get(std::int64_t user_id);
 
-	// из кэша name→uid (0 если ещё не резолвнули)
+	// from name→uid cache (0 if not resolved yet)
 	std::int64_t LookupUserId(const std::string& username);
 
 }

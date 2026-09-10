@@ -17,7 +17,7 @@ namespace Features {
 namespace PhantomSilent {
 namespace {
 
-// --- как в сурсе ---
+// --- same as source ---
 static bool ghascachedmatrix = false;
 static float gcachedviewmatrix[16]{};
 
@@ -26,12 +26,12 @@ Vector3 CrossProduct(const Vector3& a, const Vector3& b)
     return a.Cross(b);
 }
 
-// ===== сурс — не менять =====
+// ===== source — do not change =====
 struct Matrix3x3 {
     float data[9]{};
 };
 
-// чуть чаще переписываем rotation (LookAt не трогаем)
+// rewrite rotation a bit more often (leave LookAt alone)
 static std::atomic<bool> g_writer_run{ false };
 static std::atomic<bool> g_active{ false };
 static std::atomic<std::uint64_t> g_cam_addr{ 0 };
@@ -103,12 +103,12 @@ void EnsureWriter()
                 const Matrix3x3 m = g_last_matrix;
                 if (g_Memory.IsValid(addr)) {
                     SetRotation(addr, m, is_part);
-                    // в момент клика игра чаще сносит rotation — дожимаем
+                    // at the click moment the game wipes rotation more often — keep pushing
                     if (GetAsyncKeyState(VK_LBUTTON) & 0x8000)
                         SetRotation(addr, m, is_part);
                 }
             }
-            // idle 10ms; на ЛКМ чуть плотнее
+            // idle 10ms; on left click a bit tighter
             Sleep((g_active && (GetAsyncKeyState(VK_LBUTTON) & 0x8000)) ? 1 : 10);
         }
     }).detach();
@@ -189,7 +189,7 @@ void run(const Vector3& targetpos)
     g_cam_addr = camera;
     g_cam_is_part = camera_is_part;
 }
-// ===== конец сурса =====
+// ===== end of source =====
 
 } // namespace
 

@@ -1,5 +1,5 @@
 #pragma once
-// только из Renderer.cpp
+// only from Renderer.cpp
 
 #include "Renderer.h"
 #include <d3d11.h>

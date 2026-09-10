@@ -19,7 +19,7 @@ namespace Cheat {
         static HWND GetHwnd() { return m_Hwnd; }
         static HWND GetGameHwnd() { return m_GameHwnd; }
         static void SetClickThrough(bool click_through);
-        // оверлей без активации, дернуть когда imgui хочет клаву
+        // overlay without activation, trigger when imgui wants the keyboard
         static void SetTextInputFocus(bool want_text);
 
     private:

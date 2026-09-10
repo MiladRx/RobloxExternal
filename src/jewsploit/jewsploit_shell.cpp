@@ -148,7 +148,7 @@ static void draw_text_center(ImDrawList* dl, ImVec2 box0, ImVec2 box1, const cha
 static void draw_soft_glow(ImVec2 a, ImVec2 b, float rnd)
 {
 	ImDrawList* back = ImGui::GetBackgroundDrawList();
-	// край в window dl — foreground лез через lua/explorer/cp
+	// edge into the window dl — foreground leaked through lua/explorer/cp
 	ImDrawList* dl = ImGui::GetWindowDrawList();
 	float fade = ImGui::GetStyle().Alpha;
 
@@ -204,9 +204,9 @@ void menu::init()
 
 	ImVec4* c = s.Colors;
 
-	// стекло
+	// glass
 	c[ImGuiCol_WindowBg] = ImVec4(0.08f, 0.09f, 0.11f, 0.78f);
-	c[ImGuiCol_ChildBg] = col::child_bg(); // эталон child из esp preview
+	c[ImGuiCol_ChildBg] = col::child_bg(); // reference child from esp preview
 	c[ImGuiCol_PopupBg] = ImVec4(0.10f, 0.11f, 0.14f, 0.92f);
 	c[ImGuiCol_Border] = ImVec4(1.f, 1.f, 1.f, 0.08f);
 	c[ImGuiCol_BorderShadow] = ImVec4(0.f, 0.f, 0.f, 0.f);
@@ -222,7 +222,7 @@ void menu::init()
 	c[ImGuiCol_ButtonHovered] = ImVec4(1.f, 1.f, 1.f, 0.12f);
 	c[ImGuiCol_ButtonActive] = ImVec4(1.f, 1.f, 1.f, 0.18f);
 
-	// selectable leftover rects - alpha 0, tabs на своём draw
+	// selectable leftover rects - alpha 0, tabs use their own draw
 	c[ImGuiCol_Header] = ImVec4(0.f, 0.f, 0.f, 0.f);
 	c[ImGuiCol_HeaderHovered] = ImVec4(0.f, 0.f, 0.f, 0.f);
 	c[ImGuiCol_HeaderActive] = ImVec4(0.f, 0.f, 0.f, 0.f);
@@ -285,7 +285,7 @@ void menu::draw()
 	static ImVec2 hold_pos{};
 	static bool search_open = false;
 
-	// закрытие быстрее — ease_out на закрытии тянул слишком долго
+	// closing faster — ease_out made closing drag too long
 	float vis_spd = open ? 13.f : 26.f;
 	vis = anim::approach(vis, open ? 1.f : 0.f, vis_spd, io.DeltaTime);
 	float e = open ? anim::ease_out_cubic(vis) : vis;
@@ -297,7 +297,7 @@ void menu::draw()
 	float s = 0.94f + 0.06f * e;
 	bool ui_live = open && vis > 0.995f && !search_open;
 
-	// дефолт под quad hd формат со скрина (~1/3 ширины, ~половина высоты)
+	// default for the quad hd format from the screenshot (~1/3 width, ~half height)
 	float w = io.DisplaySize.x * 0.33f;
 	float h = io.DisplaySize.y * 0.48f;
 	if (w < 640.f) w = 640.f;
@@ -305,7 +305,7 @@ void menu::draw()
 	if (w > 920.f) w = 920.f;
 	if (h > 740.f) h = 740.f;
 
-	const float prev_w = w * 0.42f; // чуть шире чем раньше
+	const float prev_w = w * 0.42f; // a bit wider than before
 	const float prev_h = h * 0.68f;
 	const float dock_gap = 14.f;
 	const bool show_prev = Cheat::g_Settings.esp.preview;
@@ -375,11 +375,11 @@ void menu::draw()
 	if (tab < 0) tab = 0;
 	if (tab >= tab_n) tab = tab_n - 1;
 
-	// ---- топ: текст, без точек ----
+	// ---- top: text, no dots ----
 	{
 		float mid_y = wp.y + top_h * 0.5f;
 
-		// лого слева
+		// logo on the left
 		{
 			const char* logo = "jewsploit";
 			ImVec2 ts = ImGui::CalcTextSize(logo);
@@ -392,7 +392,7 @@ void menu::draw()
 			dl->AddText(ImVec2(lx, ly), IM_COL32(245, 248, 255, a), logo);
 		}
 
-		// табы по центру
+		// tabs centered
 		float widths[4]{};
 		float row_w = 0.f;
 		for (int i = 0; i < tab_n; i++)
@@ -457,7 +457,7 @@ void menu::draw()
 			x += bw + tab_gap;
 		}
 
-		// лупа — поиск фич
+		// magnifier — feature search
 		{
 			float cx = wp.x + wsz.x - 22.f;
 			float cy = mid_y;
@@ -491,7 +491,7 @@ void menu::draw()
 	}
 
 	bool on_nav = ImGui::IsAnyItemHovered() || ImGui::IsAnyItemActive();
-	// cp попап поверх краёв — иначе ресайз/драг ловит клик насквозь
+	// cp popup over the edges — otherwise resize/drag catches the click through
 	bool cp_open = ng::colorpicker_any_open();
 
 	ImVec2 m = io.MousePos;
@@ -524,7 +524,7 @@ void menu::draw()
 		tgt.y += io.MouseDelta.y;
 	}
 
-	// ресайз без верха
+	// resize without the top
 	{
 		const float hit = 6.f;
 		const float corner = 14.f;
@@ -633,7 +633,7 @@ void menu::draw()
 
 	draw_soft_glow(wp, ImVec2(wp.x + wsz.x, wp.y + wsz.y), rnd);
 
-	// контент вкладок — пока пусто
+	// tab content — empty for now
 	{
 		const float pad = 14.f;
 		ImGui::SetCursorPos(ImVec2(pad, top_h + pad));
@@ -641,7 +641,7 @@ void menu::draw()
 		char cid[32]{};
 		snprintf(cid, sizeof(cid), "##page_%s", tab_names[tab]);
 
-		// page без bg — иначе child темнеет дважды
+		// page without bg — otherwise the child darkens twice
 		ImGui::BeginChild(
 			cid,
 			ImVec2(wsz.x - pad * 2.f, wsz.y - top_h - pad * 2.f),
@@ -677,14 +677,14 @@ void menu::draw()
 
 	ImGui::End();
 
-	// превью рядом с меню, только если тумблер в settings
+	// preview next to the menu, only if the toggle is in settings
 	if (show_prev)
 	{
 		float pw = prev_w * s;
 		float ph = prev_h * s;
 		ImVec2 pp = ImVec2(main_pos.x + main_sz.x + dock_gap, main_pos.y);
 
-		// если справа не влезает — слева
+		// if it doesn't fit on the right — on the left
 		if (pp.x + pw > io.DisplaySize.x - 8.f)
 		{
 			pp.x = main_pos.x - dock_gap - pw;
@@ -706,7 +706,7 @@ void menu::draw()
 			pflags |= ImGuiWindowFlags_NoInputs;
 		}
 
-		// тот же WindowBg / Alpha что у основного shell (col::push уже был)
+		// same WindowBg / Alpha as the main shell (col::push already ran)
 		if (ImGui::Begin("##esp_preview", nullptr, pflags))
 		{
 			ImVec2 pwp = ImGui::GetWindowPos();
@@ -787,7 +787,7 @@ void menu::draw()
 
 	} // draw_shell
 
-	// островок только пока меню открыто
+	// island only while the menu is open
 	if (open)
 	{
 		ng::island();
