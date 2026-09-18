@@ -8,7 +8,7 @@
 # Build
 /x64/
 /Win32/
-/jewsploit/
+/MiladExternal/
 
 *.obj
 *.o

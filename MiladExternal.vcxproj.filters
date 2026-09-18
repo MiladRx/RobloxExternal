@@ -97,10 +97,10 @@
     <Filter Include="src\gui">
       <UniqueIdentifier>{28C4E687-3ADB-4CE7-B8C9-756A437C8F3C}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\jewsploit">
+    <Filter Include="src\MiladExternal">
       <UniqueIdentifier>{92883A43-4579-4A9D-ADE1-F8E0F050EA2A}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\jewsploit\colors">
+    <Filter Include="src\MiladExternal\colors">
       <UniqueIdentifier>{BA81F7F1-1504-4ABC-AC3C-AB143C5674EA}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\gui\resources">
@@ -384,8 +384,8 @@
     <ClInclude Include="src\gui\widgets\text.h">
       <Filter>src\gui\widgets</Filter>
     </ClInclude>
-    <ClInclude Include="src\jewsploit\colors\colors.h">
-      <Filter>src\jewsploit\colors</Filter>
+    <ClInclude Include="src\MiladExternal\colors\colors.h">
+      <Filter>src\MiladExternal\colors</Filter>
     </ClInclude>
     <ClInclude Include="third_party\stb\stb_image.h">
       <Filter>third_party\stb</Filter>
@@ -647,8 +647,8 @@
     <ClCompile Include="src\gui\resources\fonts\fonts.cpp">
       <Filter>src\gui\resources\fonts</Filter>
     </ClCompile>
-    <ClCompile Include="src\jewsploit\colors\theme.cpp">
-      <Filter>src\jewsploit\colors</Filter>
+    <ClCompile Include="src\MiladExternal\colors\theme.cpp">
+      <Filter>src\MiladExternal\colors</Filter>
     </ClCompile>
     <ClCompile Include="third_party\imgui\imgui.cpp">
       <Filter>third_party\imgui</Filter>

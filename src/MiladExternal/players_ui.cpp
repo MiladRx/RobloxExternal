@@ -1,6 +1,6 @@
 #include "players_ui.h"
 
-#include "jewsploit_shell.h"
+#include "MiladExternal_shell.h"
 #include "widgets/float_panel.h"
 #include "widgets/child.h"
 #include "widgets/btn.h"
@@ -566,7 +566,7 @@ void ng_players::draw(float alpha)
 	ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
 
 	bool began = ng::float_panel_begin(
-		"##jewsploit_players",
+		"##MiladExternal_players",
 		"players",
 		&open,
 		700.f, 500.f,

@@ -1,4 +1,4 @@
-#include "jewsploit_shell.h"
+#include "MiladExternal_shell.h"
 #include "animation/animation.h"
 #include "colors/colors.h"
 #include "widgets/checkbox.h"
@@ -337,7 +337,7 @@ void menu::draw()
 	col::push_to_imgui();
 
 	ImGui::PushStyleVar(ImGuiStyleVar_Alpha, e);
-	ImGui::Begin("##jewsploit_shell", nullptr, flags);
+	ImGui::Begin("##MiladExternal_shell", nullptr, flags);
 
 	const float top_h = 52.f;
 	const float min_w = 480.f;
@@ -381,7 +381,7 @@ void menu::draw()
 
 		// logo on the left
 		{
-			const char* logo = "jewsploit";
+			const char* logo = "MiladExternal";
 			ImVec2 ts = ImGui::CalcTextSize(logo);
 			float lx = wp.x + 18.f;
 			float ly = mid_y - ts.y * 0.5f;

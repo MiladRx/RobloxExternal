@@ -22,9 +22,9 @@ BEGIN
             VALUE "CompanyName",      "RobloxExternal"
             VALUE "FileDescription",  "RobloxExternal client overlay"
             VALUE "FileVersion",      VER_STRING
-            VALUE "InternalName",     "jewsploit"
+            VALUE "InternalName",     "MiladExternal"
             VALUE "LegalCopyright",   "Open source. Attribution: awaky1337, MiladRx."
-            VALUE "OriginalFilename", "jewsploit.exe"
+            VALUE "OriginalFilename", "MiladExternal.exe"
             VALUE "ProductName",      "RobloxExternal"
             VALUE "ProductVersion",   VER_STRING
         END

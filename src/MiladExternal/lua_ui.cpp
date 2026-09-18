@@ -1,6 +1,6 @@
 #include "lua_ui.h"
 
-#include "jewsploit_shell.h"
+#include "MiladExternal_shell.h"
 #include "widgets/float_panel.h"
 #include "widgets/child.h"
 #include "widgets/btn.h"
@@ -287,7 +287,7 @@ void ng_lua::draw(float alpha)
 	ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
 
 	bool began = ng::float_panel_begin(
-		"##jewsploit_lua_executor",
+		"##MiladExternal_lua_executor",
 		"lua executor",
 		&open,
 		900.f, 600.f,

@@ -75,16 +75,16 @@ cd ..\..
 Then build the main project:
 
 ```bash
-msbuild jewsploit.sln /p:Configuration=Release /p:Platform=x64 /m
+msbuild MiladExternal.sln /p:Configuration=Release /p:Platform=x64 /m
 ```
 
 Output binary:
 
 ```
-x64\Release\jewsploit.exe
+x64\Release\MiladExternal.exe
 ```
 
-Or just open `jewsploit.sln` in Visual Studio, pick `Release | x64`, and hit **Build → Build Solution**.
+Or just open `MiladExternal.sln` in Visual Studio, pick `Release | x64`, and hit **Build → Build Solution**.
 
 ### About antivirus flags
 
@@ -131,7 +131,7 @@ Not part of the main build — utilities used during development and after Roblo
 
 ### `tools/fission_src/`
 
-Vendored source of **[Fission](https://github.com/awaky1337/jew-dick-hack)** — a Luau decompiler used by the Lua VM feature to decompile scripts at runtime. Built with CMake; the resulting `Fission.Decompiler.lib` and `Fission.Common.lib` are linked into the main exe.
+Vendored source of **Fission** by [awaky1337](https://github.com/awaky1337) — a Luau decompiler used by the Lua VM feature to decompile scripts at runtime. Built with CMake; the resulting `Fission.Decompiler.lib` and `Fission.Common.lib` are linked into the main exe.
 
 > **Build Fission before the main solution**, or the linker will fail with missing `.lib` errors.
 
@@ -168,6 +168,6 @@ Follows the license of the upstream repo. Attribution to **[awaky1337](https://g
 
 <div align="center">
 
-`v1.0.0` · maintained by [MiladRx](https://github.com/MiladRx) · fork of [awaky1337/jew-dick-hack](https://github.com/awaky1337/jew-dick-hack)
+`v1.0.0` · maintained by [MiladRx](https://github.com/MiladRx) · based on [awaky1337](https://github.com/awaky1337)'s original work
 
 </div>

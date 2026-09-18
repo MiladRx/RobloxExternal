@@ -637,7 +637,7 @@ int l_getgc_info(lua_State* L)
 // findgc("_tag", "xxx") — we don't spawn 40k proxies
 const char* g_fkey = nullptr;
 const char* g_fval = nullptr;
-// findgc(nil, "jewsploit_ammo_test") / value-only mode
+// findgc(nil, "MiladExternal_ammo_test") / value-only mode
 bool g_fval_only = false;
 // interned TString* from strt — faster than memcmp on each key
 std::uint64_t g_fkey_ts = 0;
@@ -1929,7 +1929,7 @@ int l_gcprobe(lua_State* L)
 		const int samples = lua_gettop(L);
 
 		auto snap = GetSnapshot(G);
-		const std::uint64_t ammo_ts = FindStrtCached(G, "jewsploit_ammo_test", nullptr);
+		const std::uint64_t ammo_ts = FindStrtCached(G, "MiladExternal_ammo_test", nullptr);
 
 		unsigned char buf[32 * 64];
 		for (std::uint64_t obj : snap->tables)
@@ -2002,8 +2002,8 @@ int l_gcprobe(lua_State* L)
 
 		lua_setfield(L, -2, "sample_keys");
 
-		const int st_ammo = CountStrtNeedle(G, "jewsploit_ammo_test");
-		const int pg_ammo = CountPageStrings(G, "jewsploit_ammo_test", 50);
+		const int st_ammo = CountStrtNeedle(G, "MiladExternal_ammo_test");
+		const int pg_ammo = CountPageStrings(G, "MiladExternal_ammo_test", 50);
 		const int st_tag = CountStrtNeedle(G, "_tag");
 
 		if (st_ammo > 0 || pg_ammo > 0 || n_tag_key > 0 || n_ammo_val > 0)

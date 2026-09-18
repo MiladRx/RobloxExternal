@@ -16,10 +16,10 @@ namespace Features {
 namespace LuaTypes {
 namespace {
 
-constexpr const char* k_v3 = "jewsploit.Vector3";
-constexpr const char* k_v2 = "jewsploit.Vector2";
-constexpr const char* k_c3 = "jewsploit.Color3";
-constexpr const char* k_cf = "jewsploit.CFrame";
+constexpr const char* k_v3 = "MiladExternal.Vector3";
+constexpr const char* k_v2 = "MiladExternal.Vector2";
+constexpr const char* k_c3 = "MiladExternal.Color3";
+constexpr const char* k_cf = "MiladExternal.CFrame";
 
 struct LuaV3 { float x, y, z; };
 struct LuaV2 { float x, y; };

@@ -358,7 +358,7 @@ bool Save(const std::string& name)
     const std::string path = PathFor(name);
 
     std::ostringstream out;
-    out << "# jewsploit config\n";
+    out << "# MiladExternal config\n";
     auto& s = g_Settings;
 
     PutBool(out, "esp.enabled", s.esp.enabled);

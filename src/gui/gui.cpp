@@ -506,7 +506,7 @@ namespace gui
         ImGui::BeginChild("topbar_inner", ImVec2(topbar_size.x - content_margin * 2.f, topbar_size.y - content_margin * 2.f), ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollbar);
         ImGui::PopStyleColor();
 
-        const char* topbar_text = "jewsploit";
+        const char* topbar_text = "MiladExternal";
         ImVec2 text_size = ImGui::CalcTextSize(topbar_text);
         ImVec2 inner_size = ImGui::GetWindowSize();
         ImVec2 text_pos = ImGui::GetWindowPos();

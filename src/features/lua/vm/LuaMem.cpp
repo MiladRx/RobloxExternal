@@ -22,7 +22,7 @@ namespace Features {
 namespace LuaMem {
 namespace {
 
-constexpr const char* k_inst_mt = "jewsploit.Instance";
+constexpr const char* k_inst_mt = "MiladExternal.Instance";
 
 std::uintptr_t Base()
 {

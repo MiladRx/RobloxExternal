@@ -1,6 +1,6 @@
 #include "explorer_ui.h"
 
-#include "jewsploit_shell.h"
+#include "MiladExternal_shell.h"
 #include "animation/animation.h"
 #include "colors/colors.h"
 #include "widgets/float_panel.h"
@@ -378,7 +378,7 @@ namespace
 
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
 		bool began = ng::float_panel_begin(
-			"##jewsploit_properties",
+			"##MiladExternal_properties",
 			"properties",
 			&open,
 			360.f, def_h,
@@ -652,7 +652,7 @@ void ng_explorer::draw(float alpha)
 	ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
 
 	bool began = ng::float_panel_begin(
-		"##jewsploit_explorer",
+		"##MiladExternal_explorer",
 		"explorer",
 		&open,
 		400.f, 540.f,

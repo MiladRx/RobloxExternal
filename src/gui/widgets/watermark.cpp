@@ -2,7 +2,7 @@
 #define NOMINMAX
 #include "widgets.h"
 
-#include "jewsploit/colors/colors.h"
+#include "MiladExternal/colors/colors.h"
 #include "gui/resources/fonts/fonts.h"
 #include "imgui_internal.h"
 #include "app/Settings.h"
@@ -142,7 +142,7 @@ namespace widgets
 			segs.emplace_back(buf);
 		}
 
-		const char* brand = "jewsploit";
+		const char* brand = "MiladExternal";
 		ImVec2 brand_ts = ImGui::CalcTextSize(brand);
 		float text_h = brand_ts.y;
 
@@ -182,7 +182,7 @@ namespace widgets
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.f);
 
 			if (ImGui::Begin(
-				"##jewsploit_watermark_drag",
+				"##MiladExternal_watermark_drag",
 				nullptr,
 				ImGuiWindowFlags_NoDecoration |
 				ImGuiWindowFlags_NoSavedSettings |

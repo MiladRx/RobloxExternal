@@ -1,5 +1,5 @@
 --[[
-  jewsploit LuaVM — maximal Phase-1 stress test
+  MiladExternal LuaVM — maximal Phase-1 stress test
   Covers: print/warn/identifyexecutor, task/wait/spawn, coroutine,
           game/workspace bridge, Instance metamethods, Players/Character/Humanoid/Parts,
           table/string/math/utf8, nested yields, __eq/__tostring, GetService tree walk.
@@ -399,7 +399,7 @@ ok("post-long-wait still alive", true)
 print("============================================================")
 print(string.format("RESULT  PASS=%d  FAIL=%d", PASS, FAIL))
 if FAIL == 0 then
-	print("PASS — jewsploit LuaVM Phase-1 stress OK")
+	print("PASS — MiladExternal LuaVM Phase-1 stress OK")
 else
 	warn("FAIL — details:")
 	for _, n in ipairs(notes) do

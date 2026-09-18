@@ -16,7 +16,7 @@ line.Thickness = 2
 line.Visible = true
 
 local text = Drawing.new("Text")
-text.Text = "jewsploit Drawing"
+text.Text = "MiladExternal Drawing"
 text.Position = Vector2.new(40, 20)
 text.Size = 16
 text.Color = Color3.new(1, 1, 1)

@@ -22,7 +22,7 @@
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{dd28dfe9-0940-4ee4-896d-2cb6396913c4}</ProjectGuid>
-    <RootNamespace>jewsploit</RootNamespace>
+    <RootNamespace>MiladExternal</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -77,7 +77,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;ZSTD_DISABLE_ASM;ZSTD_LEGACY_SUPPORT=0;XXH_NAMESPACE=ZSTD_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\gui;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\gui;$(ProjectDir)src\MiladExternal;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -103,7 +103,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;ZSTD_DISABLE_ASM;ZSTD_LEGACY_SUPPORT=0;XXH_NAMESPACE=ZSTD_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\gui;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\gui;$(ProjectDir)src\MiladExternal;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -129,7 +129,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;ZSTD_DISABLE_ASM;ZSTD_LEGACY_SUPPORT=0;XXH_NAMESPACE=ZSTD_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\gui;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\gui;$(ProjectDir)src\MiladExternal;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -155,7 +155,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;ZSTD_DISABLE_ASM;ZSTD_LEGACY_SUPPORT=0;XXH_NAMESPACE=ZSTD_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\gui;$(ProjectDir)src\jewsploit;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\gui;$(ProjectDir)src\MiladExternal;$(ProjectDir)third_party;$(ProjectDir)third_party\lua;$(ProjectDir)third_party\imgui;$(ProjectDir)third_party\freetype\include;$(ProjectDir)third_party\stb;$(ProjectDir)third_party\zstd\lib;$(ProjectDir)assets;$(ProjectDir)assets\hitsounds;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -270,7 +270,7 @@
     <ClInclude Include="src\gui\widgets\slider.h" />
     <ClInclude Include="src\gui\widgets\tabs.h" />
     <ClInclude Include="src\gui\widgets\text.h" />
-    <ClInclude Include="src\jewsploit\colors\colors.h" />
+    <ClInclude Include="src\MiladExternal\colors\colors.h" />
     <ClInclude Include="third_party\lua\lua.h" />
     <ClInclude Include="third_party\lua\lauxlib.h" />
     <ClInclude Include="third_party\lua\lualib.h" />
@@ -679,7 +679,7 @@
     <ClCompile Include="src\gui\widgets\slider.cpp" />
     <ClCompile Include="src\gui\widgets\tabs.cpp" />
     <ClCompile Include="src\gui\resources\fonts\fonts.cpp" />
-    <ClCompile Include="src\jewsploit\colors\theme.cpp">
+    <ClCompile Include="src\MiladExternal\colors\theme.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ObjectFileName>$(IntDir)jp_%(Filename).obj</ObjectFileName>
     </ClCompile>

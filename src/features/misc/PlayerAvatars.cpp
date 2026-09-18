@@ -67,7 +67,7 @@ namespace {
 	{
 		out.clear();
 		HINTERNET ses = WinHttpOpen(
-			L"jewsploit/1.0",
+			L"MiladExternal/1.0",
 			WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
 			WINHTTP_NO_PROXY_NAME,
 			WINHTTP_NO_PROXY_BYPASS,
@@ -144,7 +144,7 @@ namespace {
 	{
 		out.clear();
 		HINTERNET ses = WinHttpOpen(
-			L"jewsploit/1.0",
+			L"MiladExternal/1.0",
 			WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
 			WINHTTP_NO_PROXY_NAME,
 			WINHTTP_NO_PROXY_BYPASS,

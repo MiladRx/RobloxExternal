@@ -1,7 +1,7 @@
 #include "island.h"
 #include "../colors/colors.h"
 #include "../animation/animation.h"
-#include "../jewsploit_shell.h"
+#include "../MiladExternal_shell.h"
 #include "app/Settings.h"
 
 #include <stdio.h>
@@ -63,7 +63,7 @@ void ng::island()
 	));
 	ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(1.f, 1.f, 1.f, 0.10f));
 
-	ImGui::Begin("##jewsploit_island", nullptr, flags);
+	ImGui::Begin("##MiladExternal_island", nullptr, flags);
 
 	ImDrawList* dl = ImGui::GetWindowDrawList();
 	ImVec2 wp = ImGui::GetWindowPos();

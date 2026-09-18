@@ -28,7 +28,7 @@ namespace Features {
 namespace LuaBridge {
 namespace {
 
-constexpr const char* k_mt = "jewsploit.Instance";
+constexpr const char* k_mt = "MiladExternal.Instance";
 
 struct LuaInstance {
 	std::uint64_t address{ 0 };
@@ -1636,7 +1636,7 @@ void PushInstance(lua_State* L, std::uint64_t address)
 
 std::uint64_t CheckAddress(lua_State* L, int idx)
 {
-	auto* ud = static_cast<LuaInstance*>(luaL_checkudata(L, idx, "jewsploit.Instance"));
+	auto* ud = static_cast<LuaInstance*>(luaL_checkudata(L, idx, "MiladExternal.Instance"));
 	return ud->address;
 }
 
